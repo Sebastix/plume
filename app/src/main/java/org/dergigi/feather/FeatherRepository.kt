@@ -50,6 +50,7 @@ data class FeedState(
 class FeatherRepository(context: Context) {
     private val prefs = context.getSharedPreferences("feather", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal val blocktime = Blocktime(context.applicationContext, scope)
     private val dbPath = context.getDatabasePath("events.db").also { it.parentFile?.mkdirs() }.absolutePath
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
@@ -154,7 +155,7 @@ class FeatherRepository(context: Context) {
             }
         }
     }
-    fun background() { active = false; zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
+    fun background() { active = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }

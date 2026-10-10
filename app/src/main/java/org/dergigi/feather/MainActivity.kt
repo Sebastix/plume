@@ -71,9 +71,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 private val Sky = Color(0xFF79C4F2)
 
@@ -385,7 +382,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Row(Modifier.weight(1f).clickable(onClick = onProfile), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name, picture = profile?.picture); Spacer(Modifier.width(10.dp)); Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
-            Text(remember(note.createdAt) { DateTimeFormatter.ofPattern("MMM d · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(note.createdAt)) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            NoteTimestamp(note)
         }
         Spacer(Modifier.height(12.dp))
         when (note.kind) {

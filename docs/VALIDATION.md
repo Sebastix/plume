@@ -102,3 +102,8 @@ Signed optimized release build passed for compact profile biographies. Verified 
 ## Unreleased video controls and zap amounts — October 10, 2026
 
 Debug build passed. Reviewed single-player handoff, fullscreen lifecycle/rotation handling, gesture direction locking and seek bounds, native-control hit handling, and export cancellation/serialization. Controls can hide without disposing export jobs. Video exports stream through the existing cache on IO, validate media metadata, clean partial files, and use scoped MediaStore/FileProvider grants. Zap invoice amounts are parsed only by the existing background validator, summed exactly with BigDecimal, and deduplicated before display. No Android device was connected; no device visual/gesture pass or additional automated suite was run.
+
+
+## Unreleased blocktime — October 10, 2026
+
+Verified the mempool.space timestamp endpoint with Unix time 1700000000: height 816785, block timestamp 2023-11-14T21:51:06Z. Checked the upstream query selects a non-stale block timestamp at or before the requested time. Note timestamps retain date/time during lookup, toggle independently, and fall back on failure. Network and bounded cache persistence run on IO; writes are conflated and do not delay showing a resolved height. No device UI pass or automated suite was run.

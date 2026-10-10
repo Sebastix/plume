@@ -88,3 +88,8 @@ Keep feed playback muted and limited to one decoder. Expose fullscreen and mute 
 Use Media3’s native, auto-hiding timeline, play/pause, seek, playback-speed, and available subtitle controls. In fullscreen, horizontal swipes preview a seek and commit on release; left-side vertical swipes adjust this window’s brightness and right-side vertical swipes adjust video volume. Give brief icon-and-value feedback. Keep native controls accessible independently of gestures.
 
 The fullscreen toolbar offers download, file sharing, and copy URL alongside mute and close. File exports reuse cached ranges, stream missing bytes on IO, and serialize exports without blocking playback. Store saved videos in Movies; temporary share files are retained for receiving apps, cleaned after a day on the next export, and bounded to the smaller of the selected media budget or 512 MiB. Closing fullscreen cancels an unfinished export and removes partial output. No new settings or player dependency.
+
+
+## Blocktime
+
+Tap a note timestamp to toggle between date/time and Bitcoin block height. Resolve only requested timestamps through mempool.space’s block timestamp endpoint; retain the date while loading and when unavailable. This maps the note time to a block timestamp at or before it, not a cryptographic proof of publication time. Use one lookup at a time and a 512-entry cache persisted off-thread; refresh recent mappings more often to account for chain changes. Cancel foreground lookups when backgrounded. No new settings or automatic feed-wide requests.
