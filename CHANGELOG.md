@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-10
+
 ### Changed
+- Float the main toolbar transparently over the feed with theme-aware circular control backgrounds, matching the profile banner treatment.
 - Replace the load-more button with automatic near-end pagination in feeds, profile tabs, and hashtag timelines, with a small footer progress indicator.
 - Keep history requests serialized, serve cached pages first, retain visible notes in bounded rolling windows, and stop repeated requests when a page adds nothing. Pull-to-refresh returns to the latest notes.
 
@@ -178,7 +181,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/dergigi/feather/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/dergigi/feather/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/dergigi/feather/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/dergigi/feather/compare/v0.7.1...v0.7.2

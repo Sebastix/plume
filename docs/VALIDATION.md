@@ -132,3 +132,8 @@ Build verification only, per the live Zapstore iteration workflow. Near-end obse
 ## Transparent feed toolbar — October 10, 2026
 
 The main toolbar uses the profile overlay treatment. Feed content extends behind it while a fixed 64 dp top content inset keeps the first note clear at rest. Showing or hiding the overlay does not change the feed viewport padding. Theme-aware circular surfaces maintain icon contrast. Build verification only; device testing is handled by the user through Zapstore.
+
+
+## 0.8.2 — October 10, 2026
+
+Signed optimized release build passed for automatic timeline pagination and the transparent main toolbar. Verified APK version 0.8.2 (code 19) and the existing signing certificate. No automated tests were run; the user tests live through Zapstore.
