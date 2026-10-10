@@ -40,3 +40,8 @@ Signed optimized release build passed after automatic relay selection and accoun
 ## 0.5.0 — October 10, 2026
 
 Signed optimized release build passed for visible-note profile fetching, Nostr references, local avatar thumbnails, and profile settings placement. No automated suite or device smoke test was run for this iteration. Original remote media availability remains outside Feather's control. Quoted previews cover kind-1 text notes; unsupported identifiers link externally.
+
+
+## 0.5.7 — October 10, 2026
+
+Traced the avatar/gallery mismatch to Coil 3.6.3's `RealInterceptorChain.checkRequest`: interceptors must preserve the original size resolver. Removed the request-builder size override; both original and cached-thumbnail paths already use the supported `Chain.withSize` API. Background thumbnail writes and shared cache limits are unchanged. Signed release build passed. No device smoke test or automated suite was run, following the requested fast iteration workflow.

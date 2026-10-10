@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-10
+
+### Fixed
+- Restore avatars in profiles, the toolbar, and notes: the thumbnail interceptor now preserves Coil's request size resolver and uses the interceptor chain to select thumbnail dimensions. Previously Coil rejected avatar requests even when the same image loaded successfully in the gallery.
+
 ## [0.5.6] - 2026-10-10
 
 ### Changed
@@ -114,7 +119,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/dergigi/feather/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/dergigi/feather/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/dergigi/feather/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/dergigi/feather/compare/v0.5.3...v0.5.4

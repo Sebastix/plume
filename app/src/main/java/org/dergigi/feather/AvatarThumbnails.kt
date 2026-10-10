@@ -51,7 +51,8 @@ class AvatarThumbnails(private val disk: DiskCache) : Interceptor {
         val request = chain.request
         val originalKey = request.diskCacheKey?.takeIf { ":avatar:" in it } ?: return chain.proceed()
         val key = "$originalKey:thumbnail-256-v1"
-        val sized = request.newBuilder().size(256, 256).maxBitmapSize(Size(512, 512)).allowHardware(false).memoryCacheKey(key).build()
+        // Coil requires the original size resolver inside interceptors; resize via withSize below.
+        val sized = request.newBuilder().maxBitmapSize(Size(512, 512)).allowHardware(false).memoryCacheKey(key).build()
         val snapshot = withContext(Dispatchers.IO) { runCatching { disk.openSnapshot(key) }.getOrNull() }
         if (snapshot != null) {
             try {
