@@ -14,5 +14,5 @@
 - Never commit credentials, local.properties, .env, or signing keys.
 - Use the sole tagline “a lightweight android client”. No generic supporting slogans; public copy should describe concrete features.
 - Website is static HTML/CSS on Vercel at feather.dergigi.com.
-- Prefer fast iteration. Build before publishing; run additional tests only when requested or needed to investigate a concrete issue.
+- Prefer fast iteration. Build before publishing. The user tests live on their device through Zapstore; do not run automated tests unless explicitly requested.
 - Load media automatically, cache aggressively within the chosen storage budget, and autoplay only one visible video, muted.

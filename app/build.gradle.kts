@@ -18,8 +18,8 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 17
-        versionName = "0.8.0"
+        versionCode = 18
+        versionName = "0.8.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     if (secret("OEM_STORE_FILE") != null) {

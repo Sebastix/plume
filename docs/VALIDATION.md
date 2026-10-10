@@ -117,3 +117,8 @@ Signed optimized release build passed for fullscreen video gestures and export a
 ## Profile tab swipes — October 10, 2026
 
 Debug build passed. Horizontal swipes of at least 56 dp select the adjacent profile tab through the same handler as tab taps, preserving the tab-bar anchor. Direction follows layout direction, tab ends do not wrap, and cancelled/short gestures do not switch tabs. Per user instruction, device testing is performed live by the user through Zapstore; no automated tests were run.
+
+
+## 0.8.1 — October 10, 2026
+
+Signed optimized release build passed. Verified version 0.8.1 (code 18) and the existing signing certificate. Device testing remains with the user through Zapstore; no automated tests were run.
