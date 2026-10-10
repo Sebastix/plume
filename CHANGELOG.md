@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-10
+
 ### Changed
+- Move the working logout action to the top of settings beside the connected identity, and remove it from below the profile biography.
 - Removed generic supporting slogans from the website, social preview, README, brand guidelines, and Zapstore description.
 
 ## [0.5.5] - 2026-10-10
@@ -111,7 +114,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/dergigi/feather/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/dergigi/feather/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/dergigi/feather/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/dergigi/feather/compare/v0.5.2...v0.5.3

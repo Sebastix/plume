@@ -242,11 +242,6 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                         Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
                                     }
                                 }
-                                if (key == s.publicKey) {
-                                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.End) {
-                                        IconButton(onClick = { vm.logout(); goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account", tint = Blue) }
-                                    }
-                                }
                                 HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 24.dp))
                             }
                         }
@@ -270,7 +265,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = Color.White,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            Settings(Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
+            Settings(s, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
     if (showAccount) {
@@ -411,7 +407,7 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
 }
 
 @Composable
-private fun Settings(modifier: Modifier) {
+private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -420,6 +416,16 @@ private fun Settings(modifier: Modifier) {
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        state.publicKey?.let { key ->
+            val profile = state.profiles[key]
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Avatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
+                Text(profile?.name ?: FeatherRepository.shortKey(key), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                FilledTonalIconButton(onClick = onLogout) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
         Column {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.storage), "Media cache storage", tint = Blue)
