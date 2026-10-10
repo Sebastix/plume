@@ -48,11 +48,11 @@ object MediaContent {
         }.trim().replace(Regex("\n{3,}"), "\n\n")
     }
 
-    /** Play only a mostly visible video, favoring the one closest to the viewport center. */
+    /** Keep partially visible videos eligible, including videos taller than the viewport. */
     fun visibleScore(top: Float, bottom: Float, height: Float, viewportTop: Float, viewportBottom: Float): Float? {
         if (height <= 0 || viewportBottom <= viewportTop) return null
         val visible = (minOf(bottom, viewportBottom) - maxOf(top, viewportTop)).coerceAtLeast(0f)
-        if (visible / height < .6f) return null
+        if (visible <= 0f) return null
         return kotlin.math.abs((top + bottom) / 2 - (viewportTop + viewportBottom) / 2)
     }
 }

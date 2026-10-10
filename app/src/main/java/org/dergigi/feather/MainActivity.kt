@@ -332,12 +332,16 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 }
                             }
                         }
-                        if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
+                        if (s.loading && !refreshing) item("progress") {
+                            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        }
                         s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
                         if (notes.isEmpty() && !s.loading) item("empty") {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (screen == "thread") Icon(Icons.Default.Info, "Post unavailable", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                else Icon(painterResource(R.drawable.feather), "No notes yet", Modifier.size(64.dp), tint = Color.Unspecified)
+                                else Icon(Icons.Default.Info, "No notes yet", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         items(notes, key = { it.id }) { note ->
@@ -447,6 +451,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         if (expanded || truncated) IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
+        YouTubePreviews(note.content)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -529,6 +534,7 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                 if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
+                YouTubePreviews(note.content, limit = 1)
                 }
             }
         }

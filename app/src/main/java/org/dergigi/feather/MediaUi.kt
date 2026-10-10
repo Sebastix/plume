@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -114,7 +115,10 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
     }
     private fun choose() {
         if (fullscreen) return // Pin the same decoder and timeline while the feed is covered.
-        val next = if (enabled) candidates.minByOrNull { it.value.score }?.key else null
+        // Retain the current clip until it leaves the viewport, rather than swapping
+        // players whenever another visible clip becomes closer to the center.
+        val next = if (enabled) activeKey?.takeIf { it in candidates }
+            ?: candidates.minByOrNull { it.value.score }?.key else null
         if (next == activeKey) { selectionJob?.cancel(); return }
         selectionJob?.cancel()
         // Stop immediately off-screen; avoid preparing decoders for items during a fling.
@@ -200,10 +204,18 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
             .apply { widthPx?.let { size(Size(Dimension(it.coerceAtLeast(1)), Dimension.Undefined)) } }
             .build()
     }
+    var decoded by remember(safeUrl) { mutableStateOf<coil3.Image?>(null) }
+    var visible by remember(safeUrl) { mutableStateOf(false) }
+    val view = LocalView.current
+    ImageAnimation(decoded, visible && media.active && media.playback?.fullscreen != true)
     key(safeUrl, media.active, retries) {
-        AsyncImage(model = request, imageLoader = loader, contentDescription = description, modifier = modifier,
+        AsyncImage(model = request, imageLoader = loader, contentDescription = description, modifier = modifier.onGloballyPositioned {
+                val bounds = it.boundsInWindow()
+                visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
+            },
             onError = { failed = true }, onSuccess = {
                 failed = false
+                decoded = it.result.image
                 onImageSize?.invoke(it.result.image.width, it.result.image.height)
             },
             contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)

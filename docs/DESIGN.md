@@ -52,7 +52,7 @@ Performance claims need measurements from release builds on real devices. Track 
 
 Load profile pictures and inline images automatically. Reuse a shared image loader, decode to display size, and prefetch avatars, images, and video posters for six notes ahead and two behind. Keep at most two speculative requests active with their own HTTP scheduling so they do not occupy visible-image request slots. Share memory and disk caches between both paths, preserve useful downloads across scrolling, and re-evaluate when metadata arrives. Plan URLs off the UI thread and cancel obsolete work or all prefetch work when backgrounded. Use full-width inline images at their natural aspect ratio, without cropping or side bars. Reserve space from published dimensions or a bounded cache of prefetched image dimensions; when neither is known, correct the temporary placeholder ratio as soon as decoding supplies it. Show initials while an avatar is unavailable. Tap an image to open the full-screen gallery, never as a prerequisite for loading it. Reuse the gallery behavior from ants-android and boris-android: swiping, pinch/double-tap zoom, background switching, and image save/share actions. Keep search out of the reader. Gallery controls remain icons, with a numeric page counter.
 
-Autoplay a mostly visible video, muted by default. Keep one player and decoder active across the reading screen; choose the video nearest its center. Stop off-screen and background playback. Reuse standard Android media controls and provide an accessible sound toggle.
+Autoplay a visible video, muted by default. Keep one player and decoder active across the reading screen; initially choose the video nearest its center. Retain the current video while any part remains visible, including videos taller than the viewport. Switch only after it leaves the viewport; stop background playback. Reuse standard Android media controls and provide an accessible sound toggle.
 
 Cache aggressively on the device. Let the reader choose a total media-storage budget in settings: 128 MB, 256 MB, 512 MB, 1 GB, or 2 GB; default to 512 MB. Reserve one quarter for images and three quarters for video, with least-recently-used eviction. Bound decoded-image memory separately. Reuse cached media across launches; Android may reclaim these cache files when storage is needed.
 
@@ -93,3 +93,11 @@ The fullscreen toolbar offers download, file sharing, and copy URL alongside mut
 ## Blocktime
 
 Tap a note timestamp to toggle between date/time and Bitcoin block height. Resolve only requested timestamps through mempool.space’s block timestamp endpoint; retain the date while loading and when unavailable. This maps the note time to a block timestamp at or before it, not a cryptographic proof of publication time. Use one lookup at a time and a 512-entry cache persisted off-thread; refresh recent mappings more often to account for chain changes. Cancel foreground lookups when backgrounded. No new settings or automatic feed-wide requests.
+
+## Loading and link previews
+
+Reserve the feather for identity, never a loading or empty-state indicator. Show a small native spinner for pending content. The system launch screen uses a transparent feather drawable on the current light/dark surface.
+
+Animate GIFs with Coil's native image decoders. Stop animation outside the visible window, behind fullscreen media, and when backgrounded. Keep image downloads and decoding in the existing bounded cache pipeline.
+
+YouTube links show lightweight cards: thumbnail, title, and channel attribution. Render the thumbnail immediately, then fetch oEmbed metadata in the background only for visible cards. Cache responses within the media disk budget and bound metadata memory to 128 entries. Show at most two previews per note and one per embedded note. Preserve the original link, including timestamps, when opening YouTube or the browser. No WebView or embedded YouTube player.

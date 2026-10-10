@@ -46,7 +46,7 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
             MediaContent.attachments(note).mapNotNull {
                 val url = if (it.kind == MediaContent.Kind.IMAGE) it.url else it.preview
                 url?.let { value -> PrefetchImage(value, false) }
-            }
+            } + YouTubeLinks.parse(note.content).map { PrefetchImage(it.thumbnail, false) }
     val upcoming = input.notes.drop(last + 1).take(6) + input.notes.take(first.coerceAtLeast(0)).takeLast(2).asReversed()
     return PrefetchPlan(upcoming.flatMap(::images).filter { MediaContent.secureUrl(it.url) != null }.distinct().take(40),
         input.notes.filter { it.id in visibleIds }.flatMap(::images).toSet())

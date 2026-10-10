@@ -159,6 +159,8 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
         ImageRequest.Builder(context).data(url).size(2048, 2048).maxBitmapSize(Size(2048, 2048))
             .memoryCachePolicy(CachePolicy.DISABLED).build()
     }
+    var decoded by remember(url) { mutableStateOf<coil3.Image?>(null) }
+    ImageAnimation(decoded, isCurrent)
     var scale by remember(url) { mutableFloatStateOf(1f) }
     var offset by remember(url) { mutableStateOf(Offset.Zero) }
     var lastTap by remember(url) { mutableLongStateOf(0L) }
@@ -177,7 +179,7 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
             IconButton(onClick = { failed = false; loaded = false; retry++ }) { Icon(Icons.Outlined.Refresh, "Image failed to load. Retry.") }
         } else if (resources != null) key(url, retry) {
             AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; pinch or double-tap to zoom", contentScale = ContentScale.Fit,
-                onSuccess = { loaded = true }, onError = { failed = true },
+                onSuccess = { loaded = true; decoded = it.result.image }, onError = { failed = true },
                 modifier = Modifier.fillMaxSize().semantics {
                     customActions = listOf(CustomAccessibilityAction("Zoom in") { applyScale(2.5f); true }, CustomAccessibilityAction("Reset zoom") { applyScale(1f); true })
                 }.pointerInput(url) {

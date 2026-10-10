@@ -147,3 +147,7 @@ Debug build passed. Cached and newly discovered events determine the visible tab
 ## 0.8.3 — October 10, 2026
 
 Signed optimized release build passed for dynamic profile tabs. Verified APK version 0.8.3 (code 20) and the existing signing certificate. No automated tests were run.
+
+## Launch and media fixes — October 10, 2026
+
+Debug build passed for transparent splash icon resources, note-loading spinners, YouTube cards, animated GIF decoding, and the fullscreen fix. Confirmed in the Media3 1.11.1 source that setting fullscreen state invokes the same callback as the fullscreen button; the callback now honors its Boolean state instead of always exiting. YouTube parsing and bounded oEmbed fetches run off the UI thread; thumbnails use the shared image cache. GIF start/stop uses UI APIs while Coil decodes in the background. No automated tests or device verification were performed; the user tests live through Zapstore.

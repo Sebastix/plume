@@ -219,7 +219,8 @@ internal fun FullscreenVideo(playback: VisibleVideoPlayer) {
             AndroidView(
                 factory = { GestureVideoView(it, playback, true) { value -> feedback = value; feedbackTick++ }.apply {
                     brightnessWindow = window
-                    setFullscreenButtonClickListener { playback.exitFullscreen() }
+                    // Media3 also invokes this listener when state is set programmatically.
+                    setFullscreenButtonClickListener { isFullscreen -> if (!isFullscreen) playback.exitFullscreen() }
                     setFullscreenButtonState(true)
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility -> controlsVisible = visibility == View.VISIBLE })
                     playback.bindFullscreen(this)

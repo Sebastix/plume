@@ -4,6 +4,16 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Rich YouTube previews with a thumbnail, title, and channel name in notes and embedded notes. Cache metadata and thumbnails locally; open the original link in YouTube or the browser.
+
+### Fixed
+- Keep partially visible videos playing while scrolling; retain the current clip until it fully leaves the viewport instead of stopping below 60% visibility.
+- Render animated GIFs in the feed and gallery; stop animations offscreen and in the background.
+- Keep fullscreen videos open: Media3's initial fullscreen-state callback no longer immediately dismisses the player.
+- Use a transparent feather splash drawable with system-following light/dark launch backgrounds.
+- Show a spinner while notes load, and a neutral empty-state icon instead of a feather when no notes are available.
+
 ## [0.8.3] - 2026-10-10
 
 ### Changed
