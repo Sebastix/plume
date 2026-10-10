@@ -209,3 +209,7 @@ The gallery already uses HorizontalPager; profile thumbnails previously supplied
 ## Embedded-note tap targets — October 11, 2026
 
 Removed the full-width author-row profile click target from embedded cards. Only an explicitly labeled 48 dp avatar button opens the author; the name and unused header area inherit the card’s note-opening action. Existing content links and media controls retain their actions. Debug build passed. No automated tests or device touch checks were run.
+
+## 0.11.1 — October 11, 2026
+
+Signed optimized release build passed for gallery swiping across loaded profile photos, own-profile settings visibility, and embedded-note tap targets. Verified APK version 0.11.1 (code 26) and the existing signing certificate. No automated tests or device checks were run; the user validates live through Zapstore.

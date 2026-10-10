@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-11
+
 ### Fixed
 - Restrict embedded-note profile navigation to the avatar’s 48 dp button; the author name and remaining header space open the note.
 - Show the profile settings gear only on the signed-in user’s own profile.
@@ -252,7 +254,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/dergigi/feather/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/dergigi/feather/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/dergigi/feather/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dergigi/feather/compare/v0.9.1...v0.10.0
