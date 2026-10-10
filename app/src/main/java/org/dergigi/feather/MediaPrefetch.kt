@@ -5,6 +5,8 @@ import android.os.SystemClock
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import coil3.size.Dimension
+import coil3.size.Size
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -79,8 +81,9 @@ private class MediaPrefetcher(
                         val week = System.currentTimeMillis() / (7 * 24 * 60 * 60 * 1000L)
                         resources.prefetchImages.execute(ImageRequest.Builder(context).data(image.url)
                             .diskCacheKey(if (image.avatar) "${image.url}:avatar:$week" else image.url)
-                            .size(if (image.avatar) 256 else widthPx, if (image.avatar) 256 else (widthPx / .6f).toInt()).build())
+                            .size(if (image.avatar) Size(256, 256) else Size(Dimension(widthPx.coerceAtLeast(1)), Dimension.Undefined)).build())
                     }
+                    if (!image.avatar && result is SuccessResult) ImageRatios.put(image.url, result.image.width, result.image.height)
                     finished.remove(image)
                     finished[image] = SystemClock.elapsedRealtime() + if (result is SuccessResult) 300_000 else 30_000
                     while (finished.size > 128) finished.remove(finished.keys.first())

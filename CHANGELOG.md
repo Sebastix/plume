@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Fit inline images to the full content width at their natural aspect ratio; reuse prefetched dimensions instead of forcing photos into widescreen boxes.
 - Shorten the Zapstore description to two sentences.
 
 ## [0.6.0] - 2026-10-10

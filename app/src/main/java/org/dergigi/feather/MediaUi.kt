@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -38,6 +39,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import coil3.size.Dimension
+import coil3.size.Size
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -118,7 +121,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
 }
 
 @Composable
-fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, crop: Boolean = true, avatar: Boolean = false) {
+fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, crop: Boolean = true, avatar: Boolean = false, widthPx: Int? = null, onImageSize: ((Int, Int) -> Unit)? = null) {
     val media = LocalMedia.current
     val context = LocalContext.current
     val safeUrl = remember(url) { MediaContent.secureUrl(url) }
@@ -130,15 +133,19 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
     LaunchedEffect(failed, media.active, retries) {
         if (failed && media.active && retries < 2) { delay(if (retries == 0) 1_000 else 4_000); failed = false; retries++ }
     }
-    val request = remember(safeUrl, media.active, week, retries) {
+    val request = remember(safeUrl, media.active, week, retries, widthPx) {
         ImageRequest.Builder(context).data(safeUrl)
             .diskCacheKey(if (avatar) "$safeUrl:avatar:$week" else safeUrl)
             .networkCachePolicy(if (media.active) CachePolicy.ENABLED else CachePolicy.DISABLED)
+            .apply { widthPx?.let { size(Size(Dimension(it.coerceAtLeast(1)), Dimension.Undefined)) } }
             .build()
     }
     key(safeUrl, media.active, retries) {
         AsyncImage(model = request, imageLoader = loader, contentDescription = description, modifier = modifier,
-            onError = { failed = true }, onSuccess = { failed = false },
+            onError = { failed = true }, onSuccess = {
+                failed = false
+                onImageSize?.invoke(it.result.image.width, it.result.image.height)
+            },
             contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
     }
 }
@@ -155,13 +162,12 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                 val playback = media.playback
                 val selected = attachment.kind == MediaContent.Kind.VIDEO && playback?.activeKey == identity
                 DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }
-                Box(Modifier.fillMaxWidth().aspectRatio(attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
+                if (attachment.kind == MediaContent.Kind.IMAGE) {
+                    InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url)) }
+                } else Box(Modifier.fillMaxWidth().aspectRatio(attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
                         if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat())
                     }) {
-                    if (attachment.kind == MediaContent.Kind.IMAGE) {
-                        RemoteImage(attachment.url, Modifier.fillMaxSize().clickable(onClickLabel = "Open image gallery") { openGallery(gallery, gallery.indexOf(attachment.url)) }, attachment.alt ?: "Image", crop = false)
-                    } else {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
                         if (selected && playback.player != null) {
                             AndroidView(factory = { PlayerView(it).apply { useController = true; controllerAutoShow = false } },
@@ -172,9 +178,25 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
-                    }
                 }
             }
         }
+    }
+}
+
+/** Decode at the column width; source dimensions determine height, including portrait photos. */
+@Composable
+private fun InlineImage(attachment: MediaContent.Attachment, onOpen: () -> Unit) {
+    var ratio by remember(attachment.url) { mutableFloatStateOf(ImageRatios.get(attachment.url) ?: attachment.ratio) }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val widthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+        RemoteImage(attachment.url,
+            Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .clickable(onClickLabel = "Open image gallery", onClick = onOpen),
+            attachment.alt ?: "Image", crop = false, widthPx = widthPx,
+            onImageSize = { width, height ->
+                ImageRatios.put(attachment.url, width, height)?.let { ratio = it }
+            })
     }
 }

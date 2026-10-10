@@ -57,3 +57,8 @@ Clean debug build passed for the profile banner/toolbar overlay, feed-only toolb
 Debug and signed optimized release builds passed for profile tabs, NIP-84 highlights, observed engagement counts, system dark mode, transparent icon artwork, banner toolbar layout, and full detail embeds. Checked the exact quoted event from the reported screenshot: `ac5770b9…5d8f` was absent from Damus/nos.lol/Primal queries and returned by nostr.mom and nostr.wine. Feather now rotates two fallback seed routes for unresolved embeds within its existing connection budget.
 
 Zap provider lookup and receipt validation are independent background jobs: two provider lookups, one validation worker, at most 64 queued receipts. Post snapshots read cached results and enqueue optional work without waiting for it. Counts cover bounded discovered events, not exhaustive totals. No new automated suite or device/emulator visual pass was run, following the requested fast iteration workflow.
+
+
+## Unreleased image sizing — October 10, 2026
+
+Debug build passed. Inline images request a width-constrained decode with unconstrained height and update their layout from decoded dimensions; image metadata ratios are no longer clamped to video proportions. Prefetch shares a bounded 256-entry dimensions cache. No device visual pass or new tests were run.

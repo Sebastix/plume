@@ -36,7 +36,7 @@ object MediaContent {
                 else -> return@mapNotNull null
             }
             val dimensions = fields["dim"]?.split('x')?.mapNotNull(String::toFloatOrNull)
-            val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.coerceIn(.6f, 2f) ?: (16f / 9f)
+            val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.takeIf { it.isFinite() && it > 0f }?.let { if (kind == Kind.VIDEO) it.coerceIn(.6f, 2f) else it } ?: (16f / 9f)
             Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500))
         }.take(limit.coerceIn(1, 32)).toList()
     }
@@ -54,5 +54,19 @@ object MediaContent {
         val visible = (minOf(bottom, viewportBottom) - maxOf(top, viewportTop)).coerceAtLeast(0f)
         if (visible / height < .6f) return null
         return kotlin.math.abs((top + bottom) / 2 - (viewportTop + viewportBottom) / 2)
+    }
+}
+
+/** Dimensions only: no bitmap retention, disk access, or decoding on the display path. */
+internal object ImageRatios {
+    private val ratios = object : LinkedHashMap<String, Float>(128, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Float>?) = size > 256
+    }
+    @Synchronized fun get(url: String): Float? = ratios[url]
+    @Synchronized fun put(url: String, width: Int, height: Int): Float? {
+        if (width <= 0 || height <= 0) return null
+        val ratio = width.toFloat() / height
+        ratios[url] = ratio
+        return ratio
     }
 }
