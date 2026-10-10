@@ -212,25 +212,40 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
-                            Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Avatar(p?.name ?: key, 80, p?.picture, openImage = true)
-                                Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                                if (!p?.about.isNullOrBlank()) SelectionContainer {
-                                    Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            val openGallery = LocalOpenGallery.current
+                            Column(Modifier.fillMaxWidth()) {
+                                p?.banner?.let { banner ->
+                                    RemoteImage(banner, Modifier.fillMaxWidth().height(112.dp)
+                                        .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }, "Profile banner")
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                IconButton(onClick = {
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
-                                }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = Blue) }
+                                Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
+                                        Spacer(Modifier.width(14.dp))
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                            p?.username?.takeIf { it != p.name }?.let {
+                                                Text("@$it", style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582),
+                                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                        }
+                                        IconButton(onClick = {
+                                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
+                                        }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = Blue) }
+                                    }
+                                    if (!p?.about.isNullOrBlank()) SelectionContainer {
+                                        Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+                                    }
+                                }
                                 if (key == s.publicKey) {
-                                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
-                                    IconButton(onClick = { vm.logout(); goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account", tint = Blue) }
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.End) {
+                                        IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
+                                        IconButton(onClick = { vm.logout(); goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account", tint = Blue) }
+                                    }
                                 }
-                                }
+                                HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 24.dp))
                             }
                         }
                         if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }

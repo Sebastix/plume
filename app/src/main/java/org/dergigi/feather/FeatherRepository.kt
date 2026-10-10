@@ -27,7 +27,7 @@ class FeatherApplication : Application() {
     val media by lazy { MediaStore(this) }
 }
 
-data class Profile(val name: String, val about: String = "", val picture: String? = null)
+data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null)
 data class FeedState(
     val notes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
@@ -253,6 +253,8 @@ class FeatherRepository(context: Context) {
                 data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
                 data?.optString("about").orEmpty().take(2000),
                 MediaContent.secureUrl(data?.optString("picture")?.trim()),
+                data?.optString("name")?.trim()?.takeIf { it.isNotBlank() },
+                listOf("banner", "cover", "header").firstNotNullOfOrNull { field -> MediaContent.secureUrl(data?.optString(field)?.trim()) },
             )
         }
         val readingChanged = references != refs || profileAuthors != authors
