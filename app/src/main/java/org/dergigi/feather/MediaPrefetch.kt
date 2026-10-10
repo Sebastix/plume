@@ -15,8 +15,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 
 private data class PrefetchImage(val url: String, val avatar: Boolean)
-private data class PrefetchInput(val notes: List<Event>, val profiles: Map<String, Profile>, val visible: List<String>, val embedded: Map<String, Event>)
-private data class PrefetchPlan(val upcoming: List<PrefetchImage>, val visible: Set<PrefetchImage>)
+private data class PrefetchInput(val notes: List<Event>, val profiles: Map<String, Profile>, val visible: List<String>, val embedded: Map<String, Event>, val playing: String?)
+private data class PrefetchPlan(val upcoming: List<PrefetchImage>, val visible: Set<PrefetchImage>, val videos: List<String>, val playing: String?)
 
 /** Parsing and URL planning run off the UI thread. Only two speculative requests run at once. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -27,14 +27,15 @@ fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: Laz
     val currentNotes by rememberUpdatedState(notes)
     val currentProfiles by rememberUpdatedState(profiles)
     val currentEmbedded by rememberUpdatedState(embedded)
-    LaunchedEffect(state, media.resources, media.active, widthPx) {
+    LaunchedEffect(state, media.resources, media.active, widthPx, media.playback, media.playback?.fullscreen) {
         val resources = media.resources ?: return@LaunchedEffect
-        if (!media.active) return@LaunchedEffect
+        if (!media.active || media.playback == null || media.playback.fullscreen) return@LaunchedEffect
         val prefetch = MediaPrefetcher(this, resources, context, widthPx)
-        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, currentEmbedded) }
+        val videos = VideoPrefetcher(this, resources)
+        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, currentEmbedded, media.playback?.activeKey?.let { media.playback.player?.currentMediaItem?.localConfiguration?.uri?.toString() }) }
             .mapLatest { input -> withContext(Dispatchers.Default) { plan(input) } }
             .distinctUntilChanged()
-            .collect { prefetch.update(it) }
+            .collect { prefetch.update(it); videos.update(it.videos, it.playing) }
     }
 }
 
@@ -50,9 +51,19 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
                 url?.let { value -> PrefetchImage(value, false) }
             } + YouTubeLinks.parse(note.content).map { PrefetchImage(it.thumbnail, false) }
     }
-    val upcoming = input.notes.drop(last + 1).take(6) + input.notes.take(first.coerceAtLeast(0)).takeLast(2).asReversed()
+    val ahead = input.notes.drop(last + 1).take(12)
+    val behind = input.notes.take(first.coerceAtLeast(0)).takeLast(2).asReversed()
+    val upcoming = ahead.take(6) + behind
+    val videoNotes = input.notes.filter { it.id in visibleIds } + ahead + behind
+    val videoUrls = videoNotes.flatMap { event ->
+        val note = if (event.kind == 6) input.embedded[repostTarget(event)?.id] else event
+        if (note == null) emptyList() else {
+            val originals = listOf(note) + NostrContent.quotes(note).mapNotNull { input.embedded[it.id] }
+            originals.flatMap { MediaContent.attachments(it).filter { it.kind == MediaContent.Kind.VIDEO }.map { it.url } }
+        }
+    }.distinct().filter { it != input.playing }.take(3)
     return PrefetchPlan(upcoming.flatMap(::images).filter { MediaContent.secureUrl(it.url) != null }.distinct().take(40),
-        input.notes.filter { it.id in visibleIds }.flatMap(::images).toSet())
+        input.notes.filter { it.id in visibleIds }.flatMap(::images).toSet(), videoUrls, input.playing)
 }
 
 /** All queue bookkeeping stays on the effect's main dispatcher; fetching/decoding runs on IO. */

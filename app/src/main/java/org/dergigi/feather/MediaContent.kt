@@ -36,7 +36,7 @@ object MediaContent {
                 else -> return@mapNotNull null
             }
             val dimensions = fields["dim"]?.split('x')?.mapNotNull(String::toFloatOrNull)
-            val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.takeIf { it.isFinite() && it > 0f }?.let { if (kind == Kind.VIDEO) it.coerceIn(.6f, 2f) else it } ?: (16f / 9f)
+            val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
             Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500))
         }.take(limit.coerceIn(1, 32)).toList()
     }

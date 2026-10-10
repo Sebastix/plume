@@ -5,6 +5,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Warm the first 4 MiB of up to three upcoming videos, looking twelve notes ahead with two background requests and the existing media-cache budget. Cancel speculative work when playback takes over or the feed is covered.
+- Render videos at their actual aspect ratio, using note metadata, cached-file dimensions, and player size updates so portrait clips fill the feed width.
 - Persist every successful timestamp-to-block-height lookup without expiry in local app data; reuse it across restarts and memory-cache eviction. Migrate valid entries from the old cache and keep failed lookups retryable.
 - Hide the bottom comment/share action bar on reaction cards.
 - Use a text-highlighter marker icon for the Highlights profile tab.

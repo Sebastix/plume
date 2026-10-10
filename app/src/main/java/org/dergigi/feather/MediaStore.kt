@@ -24,7 +24,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MediaStore(private val context: Context) {
-    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails, val prefetchImages: ImageLoader)
+    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails, val prefetchImages: ImageLoader, val prefetchVideoSource: CacheDataSource.Factory)
     private val prefs = context.getSharedPreferences("feather-media", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -43,6 +43,10 @@ class MediaStore(private val context: Context) {
     private val prefetchHttp = http.newBuilder()
         .dispatcher(Dispatcher().apply { maxRequests = 2; maxRequestsPerHost = 1 }).build()
 
+    private val videoPrefetchHttp = http.newBuilder()
+        .dispatcher(Dispatcher().apply { maxRequests = 2; maxRequestsPerHost = 1 })
+        .readTimeout(5, TimeUnit.SECONDS).callTimeout(15, TimeUnit.SECONDS).build()
+
     init { scope.launch { rebuild(_budgetMb.value) } }
 
     suspend fun setBudget(mb: Int) {
@@ -56,6 +60,7 @@ class MediaStore(private val context: Context) {
             _resources.value = null
             http.dispatcher.cancelAll()
             prefetchHttp.dispatcher.cancelAll()
+            videoPrefetchHttp.dispatcher.cancelAll()
             previous?.images?.shutdown()
             previous?.prefetchImages?.shutdown()
             previous?.thumbnails?.close()
@@ -83,14 +88,17 @@ class MediaStore(private val context: Context) {
                 val source = CacheDataSource.Factory().setCache(videos)
                     .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(http))
                     .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                val prefetchSource = CacheDataSource.Factory().setCache(videos)
+                    .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(videoPrefetchHttp))
+                    .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
                 _budgetMb.value = mb
                 prefs.edit().putInt("cacheMb", mb).apply()
-                _resources.value = Resources(images, disk, videos, source, thumbnails, prefetchImages)
+                _resources.value = Resources(images, disk, videos, source, thumbnails, prefetchImages, prefetchSource)
             } catch (e: Exception) {
                 thumbnails?.close(); disk?.shutdown(); videos?.release()
                 _error.value = "Could not open the media cache. Try another storage size."
             }
         }
     }
-    fun background() { http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll() }
+    fun background() { http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll(); videoPrefetchHttp.dispatcher.cancelAll() }
 }

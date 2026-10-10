@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -138,7 +139,15 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
                 .setSeekBackIncrementMs(10_000)
                 .setSeekForwardIncrementMs(10_000)
                 .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 45_000, 500, 1_500).setTargetBufferBytes(16 * 1024 * 1024).build())
-                .build().also { player = it }
+                .build().also { engine ->
+                    player = engine
+                    engine.addListener(object : Player.Listener {
+                        override fun onVideoSizeChanged(size: VideoSize) {
+                            val url = engine.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
+                            if (size.width > 0 && size.height > 0) VideoRatios.put(url, size.width * size.pixelWidthHeightRatio / size.height)
+                        }
+                    })
+                }
             setVolume(0f)
             engine.setPlaybackSpeed(1f)
             engine.repeatMode = Player.REPEAT_MODE_ONE
@@ -229,6 +238,7 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
 fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey: String = note.id) {
     val media = LocalMedia.current
     val openGallery = LocalOpenGallery.current
+    val videoRatios by VideoRatios.ratios.collectAsState()
     val gallery = remember(note.id) { MediaContent.attachments(note, limit = 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { it.url } }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         attachments.forEach { attachment ->
@@ -239,7 +249,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                 DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }
                 if (attachment.kind == MediaContent.Kind.IMAGE) {
                     InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url)) }
-                } else Box(Modifier.fillMaxWidth().aspectRatio(attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
+                } else Box(Modifier.fillMaxWidth().aspectRatio(videoRatios[attachment.url] ?: attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
                         if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat())
                     }) {
