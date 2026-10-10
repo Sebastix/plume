@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-10
+
 ### Changed
+- Give timestamps a minimum 64 × 48 dp touch target while keeping relative-time labels compact and right-aligned.
 - Open YouTube links and preview cards in NewPipe when installed, then YouTube or another available video app, with browser fallback. Preserve timestamps and other URL parameters.
 - Warm the first 4 MiB of up to three upcoming videos, looking twelve notes ahead with two background requests and the existing media-cache budget. Cancel speculative work when playback takes over or the feed is covered.
 - Render videos at their actual aspect ratio, using note metadata, cached-file dimensions, and player size updates so portrait clips fill the feed width.
@@ -229,7 +232,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/dergigi/feather/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dergigi/feather/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/dergigi/feather/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/dergigi/feather/compare/v0.8.3...v0.9.0

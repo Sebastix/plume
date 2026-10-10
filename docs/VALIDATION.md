@@ -185,3 +185,7 @@ Debug build passed. The existing image-only prefetch plan now also schedules up 
 ## YouTube app routing — October 10, 2026
 
 Debug build passed. Preview cards, inline note/profile links, and highlight links share the same external-link routing. YouTube domains first attempt an explicit NewPipe intent, then the official YouTube package, then Android's non-browser handler on API 30+, with normal URL handling as fallback. Each launch handles missing/disabled activities; package visibility queries are unnecessary for explicit activity launches. Original URLs and timestamp parameters are preserved. No automated tests or device app-handoff checks were run.
+
+## 0.10.1 — October 10, 2026
+
+Signed optimized release build passed for video preloading, portrait sizing, permanent block-height caching, external YouTube app routing, and the highlight/reaction UI refinements. Timestamp targets now reserve at least 64 × 48 dp, keeping compact labels right-aligned while accepting taps across the wider area. Verified APK version 0.10.1 (code 24) and the existing signing certificate. No automated tests or device checks were run; the user validates on-device through Zapstore.

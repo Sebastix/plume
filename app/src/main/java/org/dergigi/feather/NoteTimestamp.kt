@@ -82,7 +82,7 @@ internal fun NoteTimestamp(note: Event) {
     val label = when (mode) { 1 -> blockLabel ?: date; 2 -> relative.label; else -> date }
     val nextLabel = when (mode) { 0 -> "Show Bitcoin block height"; 1 -> "Show time since"; else -> "Show date and time" }
     Row(
-        Modifier.heightIn(min = 48.dp).onGloballyPositioned {
+        Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp).onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
         }.clickable(onClickLabel = nextLabel) { mode = (mode + 1) % 3 }
@@ -92,7 +92,7 @@ internal fun NoteTimestamp(note: Event) {
                 else -> date
             } },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
     ) {
         if (mode == 1 && loading && height == null) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp)
         Text(label, style = MaterialTheme.typography.labelSmall,
