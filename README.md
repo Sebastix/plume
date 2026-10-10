@@ -2,7 +2,7 @@
 
 a lightweight android client
 
-Read Nostr with a chronological feed and room to breathe.
+Read Nostr with chronological feeds, profiles, and conversations.
 
 [Design philosophy](docs/DESIGN.md) describes the product boundaries and visual principles.
 

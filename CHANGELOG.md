@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Removed generic supporting slogans from the website, social preview, README, brand guidelines, and Zapstore description.
+
 ## [0.5.5] - 2026-10-10
 
 ### Changed

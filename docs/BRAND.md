@@ -2,7 +2,7 @@
 
 Tagline: **a lightweight android client**. Keep it lowercase.
 
-Supporting line: “Your people. Their notes. Room to breathe.”
+Use the tagline on its own. Do not add supporting slogans; describe concrete features when more copy is needed.
 
 Feather uses a rounded sky-blue feather, a lowercase wordmark, and white backgrounds. The selected direction is concept 02, Soft Plume. Production marks are lightweight vectors, adapted from that direction.
 

@@ -4,8 +4,6 @@ release_notes: ./CHANGELOG.md
 name: Feather
 summary: a lightweight android client
 description: |
-  Your people. Their notes. Room to breathe.
-
   Feather is a minimal native Android client for Nostr. Read a chronological
   following feed, profiles, and conversations. Connect an Android signer such as
   Amber to read your existing follows. Icon-only controls and NIP-65 outbox routing
