@@ -142,3 +142,8 @@ Signed optimized release build passed for automatic timeline pagination and the 
 ## Dynamic profile tabs — October 10, 2026
 
 Debug build passed. Cached and newly discovered events determine the visible tabs; rare kinds have separate one-event relay probes, excluding the active tab's existing subscription. Posts and replies are classified from discovered kind-1 events. Availability is scoped to the viewed profile and remains stable during that visit. Tab indices and swipes use the filtered tab list, with automatic selection of an available tab when necessary. No automated tests were run; device testing is performed live by the user through Zapstore.
+
+
+## 0.8.3 — October 10, 2026
+
+Signed optimized release build passed for dynamic profile tabs. Verified APK version 0.8.3 (code 20) and the existing signing certificate. No automated tests were run.
