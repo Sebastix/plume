@@ -51,11 +51,23 @@ internal val LocalGalleryVisible = staticCompositionLocalOf { false }
 internal val LocalOpenGallery = staticCompositionLocalOf<(List<String>, Int) -> Unit> { { _, _ -> } }
 
 @Composable
-internal fun GalleryHost(content: @Composable () -> Unit) {
+internal fun GalleryHost(album: () -> List<String> = { emptyList() }, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
+    val currentAlbum by rememberUpdatedState(album)
     CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides { images, start ->
-        if (images.isNotEmpty()) { urls = ArrayList(images); index = start.coerceIn(images.indices) }
+        if (images.isNotEmpty()) {
+            val selected = start.coerceIn(images.indices)
+            val collection = currentAlbum()
+            // Preserve exact indices (including duplicate URLs) for full-grid calls.
+            // Single-note/inline callers in Photos must still open the whole album.
+            val albumIndex = if (images == collection) selected else collection.indexOf(images[selected])
+            if (albumIndex >= 0) {
+                urls = ArrayList(collection); index = albumIndex
+            } else {
+                urls = ArrayList(images); index = selected
+            }
+        }
     }) {
         content()
         if (urls.isNotEmpty()) ImageGallery(urls, index, onPage = { index = it }, onDismiss = { urls = arrayListOf() })

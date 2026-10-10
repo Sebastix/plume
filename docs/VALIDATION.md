@@ -235,3 +235,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - People rows are lazy, flattened off-main, capped at 5,000 displayed members, and resolve up to 32 visible/nearby profile references per update. Private content is never parsed. Retained people rows are separate from bookmarks for back navigation.
 - Project metadata is parsed off-main; cards open a valid HTTP(S) web tag or the repository's Nostr address via njump. No new dependency or publishing permission.
 - `./gradlew :app:assembleDebug`: passed after final changes. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — 0.12.0 release
+
+- Version 0.12.0, versionCode 27. Includes Apps/Articles/People/Projects tabs, cache usage, extensionless media detection, and website dark mode.
+- User clarified that Photos-tab galleries had no counter/arrows despite a large grid. Scoped gallery openings to the current Photos album at the host boundary, including single-image callers; full-list callers retain their exact index. Existing swipe/zoom handling retained. Live device confirmation is still needed.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests run.
+- Signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.12.0 (27), 14,021,652 bytes.
+- APK SHA-256: `6a0b88af6aa7db5fab7b5b3489d9d75cb83524e634939747aa094fb94bec85d9`.

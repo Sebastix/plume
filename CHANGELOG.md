@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-11
+
 ### Fixed
+- Scope gallery openings from the Photos tab to its full loaded image collection, including callers that supply only the tapped image. Preserve the selected index and expose paging controls for the album.
 - Render extensionless image/video URLs, including AT Protocol blob links, using Content-Type discovered by the existing background link-preview fetch. Cache discoveries and replace raw links/web cards with normal inline media and gallery/player controls.
 
 ### Added
@@ -263,7 +266,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/dergigi/feather/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/dergigi/feather/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/dergigi/feather/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/dergigi/feather/compare/v0.10.0...v0.10.1

@@ -176,7 +176,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     LaunchedEffect(entry.key) { activate(entry) }
     LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
     BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    GalleryHost {
+    GalleryHost(album = { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos.urls else emptyList() }) {
     MediaHost(mediaStore, reading = !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
