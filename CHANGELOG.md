@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Improve custom emoji reaction rendering with SVG support, existing animated GIF playback, shortcode fallback on loading/failure, and media preloading.
 - Render video mute and fullscreen overlay icons in white without button backgrounds.
 
 ### Fixed

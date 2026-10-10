@@ -14,7 +14,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 
-private data class PrefetchImage(val url: String, val avatar: Boolean)
+private data class PrefetchImage(val url: String, val avatar: Boolean, val emoji: Boolean = false)
 private data class PrefetchInput(val notes: List<Event>, val profiles: Map<String, Profile>, val visible: List<String>, val embedded: Map<String, Event>, val playing: String?)
 private data class PrefetchPlan(val upcoming: List<PrefetchImage>, val visible: Set<PrefetchImage>, val videos: List<String>, val playing: String?)
 
@@ -45,7 +45,8 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
     val last = input.notes.indexOfLast { it.id in visibleIds }
     fun images(event: Event): List<PrefetchImage> {
         val note = if (event.kind == 6) input.embedded[repostTarget(event)?.id] ?: return emptyList() else event
-        return listOfNotNull(input.profiles[note.pubKey]?.picture?.let { PrefetchImage(it, true) }) +
+        return listOfNotNull(input.profiles[note.pubKey]?.picture?.let { PrefetchImage(it, true) },
+            customReactionUrl(note)?.let { PrefetchImage(it, false, emoji = true) }) +
             MediaContent.attachments(note).mapNotNull {
                 val url = if (it.kind == MediaContent.Kind.IMAGE) it.url else it.preview
                 url?.let { value -> PrefetchImage(value, false) }
@@ -95,9 +96,9 @@ private class MediaPrefetcher(
                         val week = System.currentTimeMillis() / (7 * 24 * 60 * 60 * 1000L)
                         resources.prefetchImages.execute(ImageRequest.Builder(context).data(image.url)
                             .diskCacheKey(if (image.avatar) "${image.url}:avatar:$week" else image.url)
-                            .size(if (image.avatar) Size(256, 256) else Size(Dimension(widthPx.coerceAtLeast(1)), Dimension.Undefined)).build())
+                            .size(if (image.avatar) Size(256, 256) else if (image.emoji) Size(128, 128) else Size(Dimension(widthPx.coerceAtLeast(1)), Dimension.Undefined)).build())
                     }
-                    if (!image.avatar && result is SuccessResult) ImageRatios.put(image.url, result.image.width, result.image.height)
+                    if (!image.avatar && !image.emoji && result is SuccessResult) ImageRatios.put(image.url, result.image.width, result.image.height)
                     finished.remove(image)
                     finished[image] = SystemClock.elapsedRealtime() + if (result is SuccessResult) 300_000 else 30_000
                     while (finished.size > 128) finished.remove(finished.keys.first())

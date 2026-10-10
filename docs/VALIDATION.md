@@ -193,3 +193,7 @@ Signed optimized release build passed for video preloading, portrait sizing, per
 ## Reader navigation stack — October 10, 2026
 
 Debug build passed. Replaced independent destination fields and unconditional goHome back handlers with per-visit stack entries shared by Android Back and the toolbar arrow. Entries own list state, profile tab, toolbar visibility, relay hints, and lightweight saved route state. SaveableStateHolder preserves expanded-note/profile UI per visit; popped entries are removed. Up to eight recent visits retain event references, and profile/hashtag page merging runs on Default to avoid list collapse while repository subscriptions switch. Sheets/gallery/fullscreen remain modal; login/logout clear history. No automated tests or on-device back-gesture checks were run. This change is not in the already published 0.10.1.
+
+## Custom emoji reactions — October 10, 2026
+
+Confirmed existing kind-7 reaction cards resolve NIP-25/NIP-30 emoji tags. Extended the shared Coil loader with its SVG decoder module, retaining existing GIF animation lifecycle controls. Exact shortcode matching and URL validation run on Default; malformed or unavailable images keep readable reaction text. Upcoming reaction emoji share existing bounded prefetch and media caches, with 128-pixel prefetch decoding rather than full-feed dimensions. Debug build passed. No automated tests or on-device visual checks were run.

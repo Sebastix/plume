@@ -482,11 +482,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         when (note.kind) {
             9802 -> HighlightContent(note, state.profiles, compact, onReference)
             7 -> {
-                val reaction = note.content.trim()
-                val emoji = remember(note.id) { note.tags.firstOrNull { it.firstOrNull() == "emoji" && ":${it.getOrNull(1)}:" == reaction }?.getOrNull(2)?.let(MediaContent::secureUrl) }
-                if (emoji != null) RemoteImage(emoji, Modifier.size(28.dp), reaction, crop = false)
-                else if (reaction.isEmpty() || reaction == "+") Icon(Icons.Default.Favorite, "Liked", tint = MaterialTheme.colorScheme.primary)
-                else Text(if (reaction == "-") "−" else reaction.take(80), style = MaterialTheme.typography.titleLarge)
+                ReactionContent(note)
                 reactionTarget(note)?.let { reference ->
                     Spacer(Modifier.height(12.dp))
                     EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
