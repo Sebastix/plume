@@ -72,3 +72,8 @@ Debug build passed. Hashtags share the link tokenizer across notes, quotes, and 
 ## Unreleased detail handoff — October 10, 2026
 
 Debug build passed. Detail navigation immediately retains the clicked event, or resolves it from in-memory feed/profile/hashtag/embed state. The selected event is stored independently of the general feed limit, precedes replies, and survives delayed database snapshots. Snapshot updates guard against replacing a newer navigation target. Disk and relay work remains on the repository background scope. No device smoke test or automated suite was run.
+
+
+## 0.7.0 — October 10, 2026
+
+Signed optimized release build passed for natural image sizing, native hashtag feeds, and immediate cached-note detail navigation. Verified APK version 0.7.0 (code 14) and the existing signing certificate. No additional automated tests or device visual pass were run.

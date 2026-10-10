@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-10
+
 ### Fixed
 - Open tapped notes immediately from memory in detail views, including profile activity, hashtag results, and embeds. Retain the selected note independently of feed limits while cached replies and relay updates load in the background.
 
@@ -145,7 +147,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/dergigi/feather/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dergigi/feather/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/dergigi/feather/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/dergigi/feather/compare/v0.5.5...v0.5.6
