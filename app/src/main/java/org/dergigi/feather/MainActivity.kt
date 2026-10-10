@@ -636,9 +636,12 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
             } else {
                 val profile = profiles[note.pubKey]
                 val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
-                Row(Modifier.fillMaxWidth().clickable { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
+                Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Avatar(name, 28, profile?.picture)
+                    IconButton(
+                        onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
+                        modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" },
+                    ) { Avatar(name, 28, profile?.picture) }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)

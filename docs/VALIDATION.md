@@ -205,3 +205,7 @@ Debug and signed optimized release builds passed for Photos, Videos, and public 
 ## Gallery swiping and profile settings — October 10, 2026
 
 The gallery already uses HorizontalPager; profile thumbnails previously supplied only the tapped post’s images. Grid preparation now produces the full loaded profile-photo URL sequence on Default, and row/column indices select the exact tapped occurrence, including duplicate URLs. Existing pager, zoom, and image actions are reused. Settings gear visibility requires a non-null signed-in public key matching the viewed profile. Debug build passed; no automated tests or device gesture checks were run.
+
+## Embedded-note tap targets — October 11, 2026
+
+Removed the full-width author-row profile click target from embedded cards. Only an explicitly labeled 48 dp avatar button opens the author; the name and unused header area inherit the card’s note-opening action. Existing content links and media controls retain their actions. Debug build passed. No automated tests or device touch checks were run.

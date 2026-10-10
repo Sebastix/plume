@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Restrict embedded-note profile navigation to the avatar’s 48 dp button; the author name and remaining header space open the note.
 - Show the profile settings gear only on the signed-in user’s own profile.
 - Open the full loaded profile-photo sequence in the gallery so swiping left/right moves between posts, starting at the exact tapped thumbnail. Prepare gallery URLs off-main alongside the grid.
 
