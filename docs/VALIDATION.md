@@ -112,3 +112,8 @@ Verified the mempool.space timestamp endpoint with Unix time 1700000000: height 
 ## 0.8.0 — October 10, 2026
 
 Signed optimized release build passed for fullscreen video gestures and export actions, sats-based zap totals, and blocktime timestamps. Verified APK version 0.8.0 (code 17) and the existing signing certificate. No device was connected; gesture, rotation, and sharing behavior have not had a device smoke pass.
+
+
+## Profile tab swipes — October 10, 2026
+
+Debug build passed. Horizontal swipes of at least 56 dp select the adjacent profile tab through the same handler as tab taps, preserving the tab-bar anchor. Direction follows layout direction, tab ends do not wrap, and cancelled/short gestures do not switch tabs. Per user instruction, device testing is performed live by the user through Zapstore; no automated tests were run.

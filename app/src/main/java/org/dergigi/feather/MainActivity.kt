@@ -116,6 +116,13 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }
     }
     val toolbarButtonSurface = if (toolbarOverBanner) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
+    fun selectProfileTab(tab: ProfileTab) {
+        if (profileTab == tab) return
+        profileTab = tab
+        // Header is item 0; taps and swipes share the tab-row anchor.
+        activeListState.requestScrollToItem(1)
+        topBarVisible = false
+    }
     fun goHome() { hashtag = null; vm.repo.viewHashtag(null); vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
     fun openReference(ref: NostrContent.Reference) {
         if (ref.hashtag != null) {
@@ -239,7 +246,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             start = padding.calculateStartPadding(LocalLayoutDirection.current),
                             end = padding.calculateEndPadding(LocalLayoutDirection.current),
                         ) else padding
-                    ).fillMaxSize().nestedScroll(toolbarScroll).semantics {
+                    ).fillMaxSize().nestedScroll(toolbarScroll)
+                        .profileTabSwipes(screen == "profile", profileTab, ::selectProfileTab).semantics {
                         customActions = listOf(
                             CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
                             CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
@@ -281,14 +289,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         if (screen == "profile") item("profile-tabs") {
                             TabRow(selectedTabIndex = profileTab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
                                 ProfileTab.entries.forEach { tab ->
-                                    Tab(selected = profileTab == tab, onClick = {
-                                        if (profileTab != tab) {
-                                            profileTab = tab
-                                            // Header is item 0; anchor the new content at the tab row.
-                                            activeListState.requestScrollToItem(1)
-                                            topBarVisible = false
-                                        }
-                                    }, icon = {
+                                    Tab(selected = profileTab == tab, onClick = { selectProfileTab(tab) }, icon = {
                                         when (tab) {
                                             ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)
                                             ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))

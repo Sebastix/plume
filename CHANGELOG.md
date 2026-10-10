@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Swipe left/right between adjacent profile tabs, preserving the tab-bar scroll anchor and leaving vertical scrolling and pull-to-refresh intact.
+
 ## [0.8.0] - 2026-10-10
 
 ### Added
