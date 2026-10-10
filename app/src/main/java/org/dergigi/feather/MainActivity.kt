@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -187,7 +188,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
-                if (screen == "profile") IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
+                if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = toolbarButtonSurface.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
@@ -255,14 +256,16 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     }
                     if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
                 }
-                val photoRows by produceState<List<List<Pair<Event, MediaContent.Attachment>>>>(entry.photos, notes, profileTab) {
+                val photoGrid by produceState(entry.photos, notes, profileTab) {
                     value = withContext(Dispatchers.Default) {
-                        if (screen == "profile" && profileTab == ProfileTab.PHOTOS)
-                            notes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }.chunked(3)
-                        else emptyList()
+                        if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {
+                            val photos = notes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }
+                            ProfilePhotos(photos.chunked(3), photos.map { it.second.url })
+                        } else ProfilePhotos()
                     }
                     if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos = value
                 }
+                val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
                 val mediaKeys = remember(photoRows, bookmarkRows) {
                     photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
@@ -408,13 +411,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {
-                            items(photoRows, key = { "photo:${it.first().first.id}:${it.first().second.url}" }) { row ->
+                            itemsIndexed(photoRows, key = { _, row -> "photo:${row.first().first.id}:${row.first().second.url}" }) { rowIndex, row ->
                                 val openGallery = LocalOpenGallery.current
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    row.forEach { (note, photo) ->
+                                    row.forEachIndexed { columnIndex, (_, photo) ->
                                         RemoteImage(photo.url, Modifier.weight(1f).aspectRatio(1f).clickable(onClickLabel = "Open photo") {
-                                            val images = photoRows.flatten().filter { it.first.id == note.id }.map { it.second.url }
-                                            openGallery(images, images.indexOf(photo.url).coerceAtLeast(0))
+                                            openGallery(photoGrid.urls, rowIndex * 3 + columnIndex)
                                         }, photo.alt ?: "Photo")
                                     }
                                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }

@@ -25,7 +25,7 @@ internal class ReaderEntry(
     val notes = mutableMapOf<ProfileTab, List<Event>>()
     var tabs: List<ProfileTab> = emptyList()
     var bookmarks: List<Pair<Event, NostrContent.Reference>> = emptyList()
-    var photos: List<List<Pair<Event, MediaContent.Attachment>>> = emptyList()
+    var photos = ProfilePhotos()
 }
 
 internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry("feed"))) {
@@ -35,7 +35,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
         if (entry.screen == current.screen && entry.target == current.target) return
         entries.add(entry)
         // Bound retained event references; older destinations still restore from the repository.
-        entries.dropLast(8).forEach { it.notes.clear(); it.bookmarks = emptyList(); it.photos = emptyList() }
+        entries.dropLast(8).forEach { it.notes.clear(); it.bookmarks = emptyList(); it.photos = ProfilePhotos() }
     }
     fun back() { if (entries.size > 1) entries.removeAt(entries.lastIndex) }
     fun home() { entries.clear(); entries.add(ReaderEntry("feed")) }

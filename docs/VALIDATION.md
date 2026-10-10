@@ -201,3 +201,7 @@ Confirmed existing kind-7 reaction cards resolve NIP-25/NIP-30 emoji tags. Exten
 ## 0.11.0 — October 10, 2026
 
 Debug and signed optimized release builds passed for Photos, Videos, and public Bookmarks tabs, observed-frequency ordering, the centered bio chevron, and Lightning-address copying. Verified APK version 0.11.0 (code 25) and the existing signing certificate. Photo rows and bookmark rows are prepared off-main and rendered lazily; visible keys drive bounded reference/media prefetch. Dedicated media kinds are accepted, cached, queried, paginated, and rendered through the existing reader; imeta supplies media URLs and MIME types, with Media3 HLS support. Latest list versions are selected before filtering public bookmarks. Tab ordering is stored as a list so ordering-only changes propagate. No automated tests or device checks were run; live device validation remains with the user through Zapstore.
+
+## Gallery swiping and profile settings — October 10, 2026
+
+The gallery already uses HorizontalPager; profile thumbnails previously supplied only the tapped post’s images. Grid preparation now produces the full loaded profile-photo URL sequence on Default, and row/column indices select the exact tapped occurrence, including duplicate URLs. Existing pager, zoom, and image actions are reused. Settings gear visibility requires a non-null signed-in public key matching the viewed profile. Debug build passed; no automated tests or device gesture checks were run.

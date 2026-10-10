@@ -105,3 +105,8 @@ internal fun activityReferences(event: Event): List<NostrContent.Reference> = wh
         listOf("context", "comment").flatMap { NostrContent.tokens(event.tagValue(it).orEmpty(), event).mapNotNull { token -> token.reference } }
     else -> emptyList()
 }
+
+internal data class ProfilePhotos(
+    val rows: List<List<Pair<Event, MediaContent.Attachment>>> = emptyList(),
+    val urls: List<String> = emptyList(),
+)
