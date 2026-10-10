@@ -4,6 +4,16 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-10
+
+### Added
+- Icon-only profile tabs for posts, replies, reactions, and highlights, with kind-specific subscriptions and pagination.
+- Ants-style highlights: Markdown, surrounding context, yellow passage emphasis, comments, source links, and author attribution, formatted in the background.
+- Reply, reaction, and zap counts beneath posts. Counts reflect bounded, locally discovered relay events; zap provider lookup and receipt validation run independently in the background and never delay displaying a post.
+
+### Fixed
+- Resolve missing embedded events through rotating fallback relays, retain resolved previews, and render full embedded text and up to 32 media attachments in detail views.
+
 ### Changed
 - Follow the Android system dark-mode setting automatically across reading, profiles, settings, media controls, and launch surfaces; no theme preference.
 - Use a transparent feather launcher icon and matching store/web icon artwork, removing the solid background. Launcher-imposed icon styling can still vary.
@@ -125,7 +135,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/dergigi/feather/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/dergigi/feather/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/dergigi/feather/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/dergigi/feather/compare/v0.5.4...v0.5.5

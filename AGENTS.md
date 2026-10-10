@@ -1,6 +1,6 @@
 # Feather
 
-- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader only: no publishing, replies, follow editing, profile search, or DMs.
+- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader only: no publishing, composing replies, sending reactions/zaps, follow editing, profile search, or DMs. Display existing replies, reactions, highlights, and engagement counts.
 - Signer-only login (NIP-55, e.g. Amber); no account creation or key import. No signing permissions.
 - Follow docs/DESIGN.md: icon-only interface chrome, accessible descriptions, content-first typography.
 - Convention over configuration: sensible defaults, automatic profile relay sets and discovery, no relay editor or setup wizard. Settings should remain exceptional.

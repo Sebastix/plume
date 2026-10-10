@@ -24,6 +24,6 @@ object Protocol {
         uri.toASCIIString().trimEnd('/')
     }.getOrNull()
     fun follows(event: Event?): Set<String> = event?.tags.orEmpty().filter { it.size >= 2 && it[0] == "p" && hex.matches(it[1]) }.map { it[1] }.toSet()
-    fun isReply(event: Event): Boolean = event.tags.any { it.size >= 2 && it[0] == "e" && (it.size < 4 || it[3] in listOf("root", "reply")) }
+    fun isReply(event: Event): Boolean = replyTarget(event) != null
     fun isNewer(candidate: Event, current: Event?): Boolean = current == null || candidate.createdAt > current.createdAt || (candidate.createdAt == current.createdAt && candidate.id < current.id)
 }

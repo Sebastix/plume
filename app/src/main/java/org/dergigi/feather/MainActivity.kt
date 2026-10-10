@@ -68,6 +68,8 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip55AndroidSigner.api.SignerResult
 import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 import java.time.ZoneId
@@ -101,10 +103,11 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var threadId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var profileTab by rememberSaveable(profileKey) { mutableStateOf(ProfileTab.POSTS) }
     val listState = rememberLazyListState()
-    var topBarVisible by remember(screen) { mutableStateOf(true) }
+    var topBarVisible by remember(screen, profileKey, profileTab) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val profileListState = key(screen, profileKey, threadId) { rememberLazyListState() }
+    val profileListState = key(screen, profileKey, threadId, profileTab) { rememberLazyListState() }
     val activeListState = if (screen == "feed") listState else profileListState
     val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
     val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
@@ -137,6 +140,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         vm.repo.viewProfile(profileKey.takeIf { screen == "profile" })
         vm.repo.viewThread(threadId.takeIf { screen == "thread" })
     }
+    LaunchedEffect(screen, profileKey, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
     BackHandler(screen != "feed") { goHome() }
     GalleryHost {
     MediaHost(mediaStore, reading = !showSettings && !showAccount) {
@@ -168,10 +172,13 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     ) { padding ->
         when (screen) {
             else -> {
-                val notes = when (screen) {
-                    "profile" -> s.notes.filter { it.pubKey == profileKey }
+                val notes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
+                    value = withContext(Dispatchers.Default) { when (screen) {
+                    "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
                     "thread" -> s.notes.filter { it.id == threadId || it.tags.any { tag -> tag.size >= 2 && tag[0] == "e" && tag[1] == threadId && (tag.size < 4 || tag[3] != "mention") } }.sortedBy { it.createdAt }
-                    else -> s.notes.filter { !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
+                    else -> s.notes.filter { it.kind == 1 && !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
+                }
+                    }
                 }
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
@@ -261,6 +268,20 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                             }
                         }
+                        if (screen == "profile") item("profile-tabs") {
+                            TabRow(selectedTabIndex = profileTab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
+                                ProfileTab.entries.forEach { tab ->
+                                    Tab(selected = profileTab == tab, onClick = { profileTab = tab }, icon = {
+                                        when (tab) {
+                                            ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)
+                                            ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.REACTIONS -> Icon(Icons.Default.FavoriteBorder, tab.label)
+                                            ProfileTab.HIGHLIGHTS -> Icon(Icons.Default.Edit, tab.label)
+                                        }
+                                    })
+                                }
+                            }
+                        }
                         if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
                         s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
                         if (notes.isEmpty() && !s.loading) item("empty") {
@@ -269,10 +290,10 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         items(notes, key = { it.id }) { note ->
-                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
+                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { threadId = note.id; screen = "thread" } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
-                        if (notes.isNotEmpty() && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
+                        if ((notes.isNotEmpty() || (screen == "profile" && s.profileEvents.isNotEmpty())) && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
                     }
                 }
             }
@@ -332,7 +353,7 @@ private fun Avatar(name: String, size: Int = 36, picture: String? = null, openIm
 }
 
 @Composable
-private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit) {
+private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true) {
     val profile = state.profiles[note.pubKey]
     val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
@@ -346,19 +367,45 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Text(remember(note.createdAt) { DateTimeFormatter.ofPattern("MMM d · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(note.createdAt)) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(12.dp))
+        when (note.kind) {
+            9802 -> HighlightContent(note, state.profiles, compact, onReference)
+            7 -> {
+                val reaction = note.content.trim()
+                val emoji = remember(note.id) { note.tags.firstOrNull { it.firstOrNull() == "emoji" && ":${it.getOrNull(1)}:" == reaction }?.getOrNull(2)?.let(MediaContent::secureUrl) }
+                if (emoji != null) RemoteImage(emoji, Modifier.size(28.dp), reaction, crop = false)
+                else if (reaction.isEmpty() || reaction == "+") Icon(Icons.Default.Favorite, "Liked", tint = MaterialTheme.colorScheme.primary)
+                else Text(if (reaction == "-") "−" else reaction.take(80), style = MaterialTheme.typography.titleLarge)
+                reactionTarget(note)?.let { reference ->
+                    Spacer(Modifier.height(12.dp))
+                    EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference, compact)
+                }
+            }
+            else -> {
         val attachments = remember(note.id) { MediaContent.attachments(note) }
-        val body = remember(note.id) { MediaContent.text(note, attachments) }
+        val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val content = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
-        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         quotes.forEach { reference ->
             Spacer(Modifier.height(12.dp))
-            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference)
+            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference, compact)
         }
         if (expanded || truncated) IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onOpen) { Icon(painterResource(R.drawable.conversation), "Read conversation", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            val counts = state.engagement[note.id] ?: Engagement()
+            Row(Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (note.kind != 7) {
+                EngagementCount(Icons.Default.FavoriteBorder, counts.reactions, "reactions")
+                Icon(painterResource(R.drawable.zap), "${counts.zaps} zaps", Modifier.padding(start = 12.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (counts.zaps > 0) Text(counts.zaps.toString(), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
@@ -395,7 +442,7 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
 }
 
 @Composable
-private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit) {
+private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
     Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -412,12 +459,15 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                     Avatar(name, 28, profile?.picture)
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                val attachments = remember(note.id) { MediaContent.attachments(note, limit = 1) }
-                val body = remember(note.id) { MediaContent.text(note, attachments) }
+                if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
+                else {
+                val attachments = remember(note.id, compact) { MediaContent.attachments(note, limit = if (compact) 1 else 32) }
+                val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
                 val text = richNoteText(body, note, profiles, onReference)
-                if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = 8, overflow = TextOverflow.Ellipsis)
+                if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
+                }
             }
         }
     }
@@ -462,4 +512,10 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
             }
         }
     }
+}
+
+@Composable
+private fun EngagementCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int, description: String) {
+    Icon(icon, "$count $description", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (count > 0) Text(count.toString(), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
