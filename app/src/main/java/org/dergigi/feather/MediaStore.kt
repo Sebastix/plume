@@ -49,6 +49,14 @@ class MediaStore(private val context: Context) {
 
     init { scope.launch { rebuild(_budgetMb.value) } }
 
+    /** Cache-maintained counters include images, thumbnails, preview metadata, and video bytes. */
+    suspend fun usedBytes(): Long? = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val current = _resources.value ?: return@withLock null
+            current.imageDisk.size + current.videos.cacheSpace
+        }
+    }
+
     suspend fun setBudget(mb: Int) {
         require(mb in MediaContent.cacheOptionsMb)
         if (mb != _budgetMb.value || _resources.value == null) rebuild(mb)

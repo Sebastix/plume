@@ -63,6 +63,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -668,6 +671,16 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
     val mediaError by mediaStore.error.collectAsStateWithLifecycle()
     val resources by mediaStore.resources.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val usedBytes by produceState<Long?>(null, resources, lifecycle) {
+        value = null
+        if (resources != null) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                value = mediaStore.usedBytes()
+                kotlinx.coroutines.delay(2_000)
+            }
+        }
+    }
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -686,8 +699,17 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
                 Icon(painterResource(R.drawable.storage), "Media cache storage", tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
-                Text(if (mb >= 1024) "${mb / 1024} GB" else "$mb MB", style = MaterialTheme.typography.titleMedium)
+                val limit = if (mb >= 1024) "${mb / 1024} GB" else "$mb MB"
+                val used = usedBytes?.let(::cacheSizeLabel) ?: "—"
+                Text("$used / $limit", style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { contentDescription = "$used used of $limit media cache limit" })
                 if (resources == null) { Spacer(Modifier.width(16.dp)); CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+            }
+            usedBytes?.let { used ->
+                LinearProgressIndicator(
+                    progress = { (used.toDouble() / (MediaContent.cacheOptionsMb[selectedBudget] * 1024L * 1024)).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
             }
             Slider(value = selectedBudget.toFloat(), onValueChange = { selectedBudget = it.toInt() }, valueRange = 0f..4f, steps = 3,
                 modifier = Modifier.semantics { contentDescription = "Media cache storage limit"; stateDescription = "${MediaContent.cacheOptionsMb[selectedBudget]} megabytes" },
@@ -761,4 +783,11 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
             }
         }
     }
+}
+
+private fun cacheSizeLabel(bytes: Long): String = when {
+    bytes == 0L -> "0 MB"
+    bytes < 1024L * 1024 -> "<1 MB"
+    bytes < 1024L * 1024 * 1024 -> "${bytes / (1024L * 1024)} MB"
+    else -> String.format(java.util.Locale.getDefault(), "%.1f GB", bytes.toDouble() / (1024L * 1024 * 1024))
 }

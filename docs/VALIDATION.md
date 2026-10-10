@@ -219,3 +219,7 @@ Signed optimized release build passed for gallery swiping across loaded profile 
 Debug build passed. Read-only author-filtered kind-32267 queries to Zapstore returned Feather, ants, Boris, FishyFishy, and Offline Entropy Manual with app identifiers and icons. Checked Zapstore’s manifest/package and naddr route handling in its official source. Metadata parsing/link encoding run on Default; app icons use existing background fetching/cache limits. The catalog subscription is profile-scoped and pagination includes the catalog relay. No automated tests or Android app-handoff checks were run.
 
 Website theme uses prefers-color-scheme CSS with the Android palette, explicit light/dark theme-color metadata, and matching foreground/button colors on both HTML pages. No JavaScript or theme setting added. Source and deployment checks only; no browser visual checks were run.
+
+## Media-cache usage — October 11, 2026
+
+Debug build passed. Settings displays used bytes against the chosen limit plus a compact usage bar, using the same binary unit convention as existing storage options. The total adds Coil disk-cache size (including thumbnails/preview metadata) and Media3 cache space, excluding memory and temporary exports. Counter reads run on IO under the cache-rebuild mutex; no directory walk is performed. Polling runs every two seconds only while settings is composed and lifecycle STARTED, and cancels on dismissal/background. Unknown usage is displayed as a dash rather than zero. No automated tests or device checks were run.
