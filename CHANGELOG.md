@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Format Bitcoin block heights with comma separators and no prefix, for example `987,654`.
+
 ## [0.9.0] - 2026-10-10
 
 ### Added

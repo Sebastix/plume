@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vitorpamplona.quartz.nip01Core.core.Event
+import java.text.NumberFormat
+import java.util.Locale
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -45,14 +47,15 @@ internal fun NoteTimestamp(note: Event) {
             } finally { loading = false }
         }
     }
+    val blockLabel = remember(height) { height?.let { NumberFormat.getIntegerInstance(Locale.US).format(it) } }
     Row(
         Modifier.heightIn(min = 48.dp).clickable(onClickLabel = if (showBlock) "Show date and time" else "Show Bitcoin block height") { showBlock = !showBlock }
-            .semantics { contentDescription = if (showBlock && height != null) "Bitcoin block $height at note time" else date },
+            .semantics { contentDescription = if (showBlock && height != null) "Bitcoin block $blockLabel at note time" else date },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (loading && height == null) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp)
-        Text(if (showBlock && height != null) "#$height" else date,
+        Text(if (showBlock && blockLabel != null) blockLabel else date,
             style = MaterialTheme.typography.labelSmall,
             color = if (showBlock && height != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
