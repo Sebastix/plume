@@ -6,10 +6,10 @@ import com.vitorpamplona.quartz.nip19Bech32.entities.*
 
 /** Decode references with Quartz; never treat arbitrary bech32-looking text as an identity. */
 object NostrContent {
-    data class Reference(val id: String, val profile: Boolean = false, val relays: List<String> = emptyList(), val author: String? = null, val kind: Int? = null, val external: String? = null)
+    data class Reference(val id: String, val profile: Boolean = false, val relays: List<String> = emptyList(), val author: String? = null, val kind: Int? = null, val external: String? = null, val hashtag: String? = null)
     data class Token(val start: Int, val end: Int, val text: String, val reference: Reference? = null, val url: String? = null)
     private val hex = Regex("[0-9a-f]{64}")
-    private val tokens = Regex("https?://[^\\s<>]+|(?<![\\w/])(?:nostr:)?(?:npub|nprofile|note|nevent|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+|#\\[\\d{1,4}]", RegexOption.IGNORE_CASE)
+    private val tokens = Regex("https?://[^\\s<>]+|(?<![\\w/])(?:nostr:)?(?:npub|nprofile|note|nevent|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+|#\\[\\d{1,4}]|(?<![\\p{L}\\p{N}_/])#[\\p{L}\\p{N}_][\\p{L}\\p{N}\\p{M}_]*", RegexOption.IGNORE_CASE)
     fun decode(raw: String): Reference? = runCatching {
         val value = raw.lowercase().removePrefix("nostr:")
         val parsed = Nip19Parser.uriToRoute(value)?.takeIf { it.nip19raw == value && it.additionalChars.isNullOrEmpty() } ?: return null
@@ -36,6 +36,9 @@ object NostrContent {
                 tag?.takeIf { it.size >= 2 && it[0] in setOf("p", "e") && hex.matches(it[1]) }?.let {
                     Reference(it[1], profile = it[0] == "p", relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)))
                 }
+            } else if (raw.startsWith("#")) {
+                val tag = raw.drop(1).lowercase(java.util.Locale.ROOT)
+                Reference(tag, hashtag = tag)
             } else decode(raw)
             reference?.let { Token(match.range.first, match.range.last + 1, raw, it) }
         }
@@ -50,7 +53,7 @@ object NostrContent {
     private fun parseReferences(event: Event): List<Reference> = (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))
-        }).groupBy { it.id }.values.take(16).map { group ->
+        }).filter { it.hashtag == null }.groupBy { it.id }.values.take(16).map { group ->
             group.first().copy(relays = group.flatMap { it.relays }.distinct().take(2), author = group.firstNotNullOfOrNull { it.author })
         }
 

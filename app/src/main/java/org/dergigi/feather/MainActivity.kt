@@ -100,14 +100,15 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val mediaStore = (context.applicationContext as FeatherApplication).media
     var screen by rememberSaveable { mutableStateOf("feed") }
     var profileKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var hashtag by rememberSaveable { mutableStateOf<String?>(null) }
     var threadId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var profileTab by rememberSaveable(profileKey) { mutableStateOf(ProfileTab.POSTS) }
     val listState = rememberLazyListState()
-    var topBarVisible by remember(screen, profileKey, profileTab) { mutableStateOf(true) }
+    var topBarVisible by remember(screen, profileKey, profileTab, hashtag) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val profileListState = key(screen, profileKey, threadId, profileTab) { rememberLazyListState() }
+    val profileListState = key(screen, profileKey, threadId, profileTab, hashtag) { rememberLazyListState() }
     val activeListState = if (screen == "feed") listState else profileListState
     val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
     val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
@@ -118,8 +119,13 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }
     }
     val toolbarButtonSurface = if (toolbarOverBanner) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
-    fun goHome() { vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
+    fun goHome() { hashtag = null; vm.repo.viewHashtag(null); vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
     fun openReference(ref: NostrContent.Reference) {
+        if (ref.hashtag != null) {
+            hashtag = ref.hashtag; screen = "hashtag"; vm.repo.openReference(null)
+            vm.repo.viewProfile(null); vm.repo.viewThread(null); vm.repo.viewHashtag(ref.hashtag)
+            return
+        }
         if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
         vm.repo.openReference(ref)
         if (ref.profile) { profileKey = ref.id; screen = "profile"; vm.repo.viewProfile(ref.id); vm.repo.viewThread(null) }
@@ -136,7 +142,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }
     }
     LaunchedEffect(message) { message?.let { snack.showSnackbar(it); vm.message.value = null } }
-    LaunchedEffect(screen, profileKey, threadId) {
+    LaunchedEffect(screen, profileKey, threadId, hashtag) {
+        vm.repo.viewHashtag(hashtag.takeIf { screen == "hashtag" })
         vm.repo.viewProfile(profileKey.takeIf { screen == "profile" })
         vm.repo.viewThread(threadId.takeIf { screen == "thread" })
     }
@@ -149,6 +156,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         topBar = {
             AnimatedVisibility(topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
+                if (screen == "hashtag") Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 if (screen == "feed") {
                     Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
                 }
@@ -172,8 +180,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     ) { padding ->
         when (screen) {
             else -> {
-                val notes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
+                val notes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
                     value = withContext(Dispatchers.Default) { when (screen) {
+                    "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
                     "thread" -> s.notes.filter { it.id == threadId || it.tags.any { tag -> tag.size >= 2 && tag[0] == "e" && tag[1] == threadId && (tag.size < 4 || tag[3] != "mention") } }.sortedBy { it.createdAt }
                     else -> s.notes.filter { it.kind == 1 && !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
@@ -428,7 +437,7 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
                 if (ref != null) {
                     if (ref.id !in embeddedIds || ref.profile) {
                         withLink(LinkAnnotation.Clickable(token.text, TextLinkStyles(style = SpanStyle(color = linkColor))) { open(ref) }) {
-                            append(if (ref.profile) "@${profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}" else "↗ ${FeatherRepository.shortKey(ref.id)}")
+                            append(if (ref.hashtag != null) token.text else if (ref.profile) "@${profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}" else "↗ ${FeatherRepository.shortKey(ref.id)}")
                         }
                     }
                 } else if (token.url != null) {

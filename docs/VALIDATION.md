@@ -62,3 +62,8 @@ Zap provider lookup and receipt validation are independent background jobs: two 
 ## Unreleased image sizing — October 10, 2026
 
 Debug build passed. Inline images request a width-constrained decode with unconstrained height and update their layout from decoded dimensions; image metadata ratios are no longer clamped to video proportions. Prefetch shares a bounded 256-entry dimensions cache. No device visual pass or new tests were run.
+
+
+## Unreleased hashtags — October 10, 2026
+
+Debug build passed. Hashtags share the link tokenizer across notes, quotes, and highlights and are excluded from event/author lookups. Hashtag feeds query kind-1 events by normalized `t` tags, use existing bounded relays, page older posts, and unsubscribe on navigation. Unicode letters, numbers, combining marks, and underscores are recognized; URL fragments stay part of their URL. No new tests or device visual pass were run.
