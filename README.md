@@ -19,7 +19,7 @@ No DMs, wallet, zaps, reactions, media uploads, push notifications, or analytics
 
 Kotlin, Jetpack Compose, Material 3, Quartz 1.17.0, and SQLite through Quartz. The app reuses Quartz's protocol, crypto, relay management, event store, and external signer support. A small OkHttp transport adapter processes messages serially without an unbounded application message queue. Release builds use R8 and resource shrinking.
 
-The cache targets 2,000 notes, 1,000 profiles, and 10 contact-list events; cleanup runs periodically. The visible snapshot is capped at 600 notes. Relay events are verified before storage. No always-running service is installed.
+The cache targets 2,000 notes, 1,000 profiles, and 10 contact-list events; cleanup runs periodically. The main feed snapshot is capped at 600 notes, with up to 200 additional profile/conversation notes. Relay events are verified before storage. No always-running service is installed.
 
 ## Build
 

@@ -16,3 +16,4 @@ output/
 *.apk
 *.aab
 screenshots/local/
+.vercel

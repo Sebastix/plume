@@ -22,6 +22,10 @@ import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
 class FeatherApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        com.vitorpamplona.quartz.utils.Log.minLevel = com.vitorpamplona.quartz.utils.LogLevel.ERROR
+    }
     val repository by lazy { FeatherRepository(this) }
 }
 
@@ -111,7 +115,7 @@ class FeatherRepository(context: Context) {
         val s = _state.value
         s.publicKey?.let { client.subscribe("account", relayFilters(listOf(Filter(authors = listOf(it), kinds = listOf(0, 3), limit = 2))), listener) }
             ?: client.unsubscribe("account")
-        val authors = s.publicKey?.let { (s.following + it).take(1000) }
+        val authors = s.publicKey?.let { (listOf(it) + s.following).take(1000) }
         client.subscribe("feed", relayFilters(listOf(Filter(authors = authors, kinds = listOf(1), limit = 80))), listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
@@ -133,7 +137,13 @@ class FeatherRepository(context: Context) {
         changed.tryEmit(Unit)
     }
     private suspend fun snapshot() {
-        val all = mutex.withLock { db.query<Event>(Filter(kinds = listOf(1), limit = 600)) }
+        val key = _state.value.publicKey
+        val contact = key?.let { mutex.withLock { db.query<Event>(Filter(kinds = listOf(3), authors = listOf(it), limit = 1)).firstOrNull() } }
+        val following = Protocol.follows(contact)
+        val filters = mutableListOf(Filter(kinds = listOf(1), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600))
+        viewedProfile?.let { filters += Filter(kinds = listOf(1), authors = listOf(it), limit = 100) }
+        viewedThread?.let { filters += Filter(kinds = listOf(1), ids = listOf(it)); filters += Filter(kinds = listOf(1), tags = mapOf("e" to listOf(it)), limit = 100) }
+        val all = mutex.withLock { db.query<Event>(filters) }.distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(800)
         val profiles = mutex.withLock { db.query<Event>(Filter(kinds = listOf(0), limit = 1000)) }.associate { event ->
             val data = runCatching { JSONObject(event.content) }.getOrNull()
             event.pubKey to Profile(
@@ -142,9 +152,7 @@ class FeatherRepository(context: Context) {
                 data?.optString("picture")?.takeIf { it.startsWith("https://") },
             )
         }
-        val key = _state.value.publicKey
-        val contact = key?.let { mutex.withLock { db.query<Event>(Filter(kinds = listOf(3), authors = listOf(it), limit = 1)).firstOrNull() } }
-        val following = Protocol.follows(contact)
+        if (key != _state.value.publicKey) { changed.tryEmit(Unit); return }
         val previous = _state.value.following
         _state.update { it.copy(notes = all, profiles = profiles, following = following) }
         if (following != previous && active) subscribeFeed()
@@ -184,15 +192,15 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(relays = relays, connected = emptySet(), loading = true, error = null) }
         refresh()
     }
-    fun viewProfile(key: String?) { viewedProfile = key; if (key == null) client.unsubscribe("profile") else subscribeProfile(key) }
+    fun viewProfile(key: String?) { viewedProfile = key; changed.tryEmit(Unit); if (key == null) client.unsubscribe("profile") else subscribeProfile(key) }
     private fun subscribeProfile(key: String) = client.subscribe("profile", relayFilters(listOf(Filter(authors = listOf(key), kinds = listOf(0, 1), limit = 80))), listener)
-    fun viewThread(id: String?) { viewedThread = id; if (id == null) client.unsubscribe("thread") else subscribeThread(id) }
+    fun viewThread(id: String?) { viewedThread = id; changed.tryEmit(Unit); if (id == null) client.unsubscribe("thread") else subscribeThread(id) }
     private fun subscribeThread(id: String) = client.subscribe("thread", relayFilters(listOf(Filter(ids = listOf(id), kinds = listOf(1)), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))), listener)
     fun older(author: String? = null) {
         historyJob?.cancel()
         historyJob = scope.launch {
             val s = state.value
-            val authors = author?.let(::listOf) ?: s.publicKey?.let { (s.following + it).take(1000) }
+            val authors = author?.let(::listOf) ?: s.publicKey?.let { (listOf(it) + s.following).take(1000) }
             val oldest = s.notes.filter { authors == null || it.pubKey in authors }.minOfOrNull { it.createdAt } ?: return@launch
             _state.update { it.copy(loading = true) }
             try { client.subscribe("older", relayFilters(listOf(Filter(authors = authors, kinds = listOf(1), until = oldest - 1, limit = 80))), listener); delay(12_000) }

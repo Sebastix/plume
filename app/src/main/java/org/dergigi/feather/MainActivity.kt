@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -156,7 +158,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Avatar(p?.name ?: key, 56)
                             Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall)
-                            if (!p?.about.isNullOrBlank()) Text(p!!.about)
+                            if (!p?.about.isNullOrBlank()) Text(p.about)
                             SelectionContainer { Text(Protocol.npub(key), style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582)) }
                             if (s.publicKey != key) OutlinedButton(onClick = { if (s.signerPackage == null) showAccount = true else vm.toggleFollow(key) }, enabled = !busy) {
                                 Text(if (busy) "Updating…" else if (key in s.following) "Unfollow" else "Follow")
@@ -188,7 +190,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         var keyInput by remember { mutableStateOf("") }
         var error by remember { mutableStateOf<String?>(null) }
         AlertDialog(onDismissRequest = { if (!busy) showAccount = false }, title = { Text(if (s.publicKey == null) "Your Nostr account" else "Account") }, text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (s.publicKey != null) {
                     Text(s.profiles[s.publicKey]?.name ?: "Connected account")
                     SelectionContainer { Text(Protocol.npub(s.publicKey!!), style = MaterialTheme.typography.bodySmall) }
@@ -251,7 +253,7 @@ private fun NoteRow(note: Event, profile: Profile?, onProfile: () -> Unit, onOpe
             TextButton(onClick = onOpen, contentPadding = PaddingValues(end = 16.dp)) { Text("Conversation", style = MaterialTheme.typography.labelMedium) }
             TextButton(onClick = onReply) { Text("Reply", style = MaterialTheme.typography.labelMedium) }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${note.id}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = Color(0xFF647582)) }
+            IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = Color(0xFF647582)) }
         }
     }
 }
