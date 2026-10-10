@@ -43,6 +43,7 @@ data class FeedState(
     val relays: List<String> = RelayDefaults.seeds.take(4),
     val connected: Set<String> = emptySet(),
     val loading: Boolean = true,
+    val loadingOlder: Boolean = false,
     val error: String? = null,
 )
 
@@ -54,6 +55,7 @@ class FeatherRepository(context: Context) {
     private val dbPath = context.getDatabasePath("events.db").also { it.parentFile?.mkdirs() }.absolutePath
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
+    private val snapshotMutex = Mutex()
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
     @Volatile private var engagementIds: List<String> = emptyList()
@@ -69,6 +71,11 @@ class FeatherRepository(context: Context) {
     @Volatile private var active = false
     @Volatile private var viewedProfile: String? = null
     @Volatile private var profileTab = ProfileTab.POSTS
+    @Volatile private var feedUntil: Long? = null
+    @Volatile private var hashtagLimit = 200
+    // Retain a bounded tail even if disk-cache pruning removes historical events.
+    @Volatile private var olderEvents: List<Event> = emptyList()
+    private val historySequence = java.util.concurrent.atomic.AtomicLong()
     @Volatile private var profileLimit = 100
     @Volatile private var profileUntil: Long? = null
     @Volatile private var viewedHashtag: String? = null
@@ -157,6 +164,9 @@ class FeatherRepository(context: Context) {
     }
     fun background() { active = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
+        historyJob?.cancel()
+        feedUntil = null; profileUntil = null; hashtagUntil = null
+        profileLimit = 100; hashtagLimit = 200
         _state.update { it.copy(loading = true, error = null) }
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
     }
@@ -197,7 +207,6 @@ class FeatherRepository(context: Context) {
         if (next != routingPool) {
             routingPool = next
             historyJob?.cancel()
-            client.unsubscribe("older")
             client.unsubscribe("profiles")
         }
     }
@@ -243,25 +252,38 @@ class FeatherRepository(context: Context) {
         }, listener)
     }
 
-    private suspend fun accept(event: Event) {
-        if (event.kind !in setOf(0, 1, 3, 7, 9735, 9802, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return
+    private suspend fun accept(event: Event, history: Boolean = false): Boolean {
+        if (event.kind !in setOf(0, 1, 3, 7, 9735, 9802, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
-            if (verified.containsKey(event.id)) return
-            if (!event.verify()) return
-            verified[event.id] = true
-            db.insert(event)
-            if (++inserts % 200 == 0) trimCacheLocked()
+            if (verified.containsKey(event.id) && !history) return true
+            if (!verified.containsKey(event.id)) {
+                if (!event.verify()) return false
+                verified[event.id] = true
+                db.insert(event)
+                if (++inserts % 200 == 0) trimCacheLocked()
+            }
+            if (history) olderEvents = (olderEvents + event).distinctBy { it.id }
+                .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).takeLast(600)
         }
         changed.tryEmit(Unit)
+        return true
     }
-    private suspend fun snapshot() {
+    private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
+        val matching = (db.query<Event>(filter) + previous + olderEvents).filter(filter::match)
+        // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
+        // Keep these anchors when advancing the bounded window.
+        val pinned = if (filter.until != null) previous.filter { it.id in visibleIds } else emptyList()
+        (matching + pinned).asSequence().distinctBy { it.id }
+            .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit).toList()
+    }
+    private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
+    private suspend fun snapshotContents() {
         val key = _state.value.publicKey
         val thread = viewedThread
         val contact = key?.let { mutex.withLock { db.query<Event>(Filter(kinds = listOf(3), authors = listOf(it), limit = 1)).firstOrNull() } }
         val following = Protocol.follows(contact)
-        val filters = mutableListOf(Filter(kinds = listOf(1), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600))
-        viewedProfile?.let { filters += Filter(kinds = listOf(1), authors = listOf(it), limit = 100) }
-        val all = mutex.withLock { db.query<Event>(filters) }.distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(800)
+        val feedCeiling = feedUntil
+        val all = timeline(Filter(kinds = listOf(1), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600, until = feedCeiling), state.value.notes, 600)
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {
                 db.query<Event>(listOf(Filter(kinds = listOf(1, 9802), ids = listOf(id)),
@@ -274,13 +296,17 @@ class FeatherRepository(context: Context) {
         }.orEmpty()
         val profile = viewedProfile
         val tab = profileTab
-        val profileEvents = profile?.let { author -> mutex.withLock {
-            db.query<Event>(Filter(kinds = listOf(tab.kind), authors = listOf(author), limit = profileLimit, until = profileUntil))
-        } }.orEmpty().sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+        val profileCeiling = profileUntil
+        val profileCount = profileLimit
+        val profileEvents = profile?.let { author ->
+            timeline(Filter(kinds = listOf(tab.kind), authors = listOf(author), limit = profileCount, until = profileCeiling), state.value.profileEvents, profileCount)
+        }.orEmpty()
         val hashtag = viewedHashtag
-        val hashtagNotes = hashtag?.let { tag -> mutex.withLock {
-            db.query<Event>(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = 200, until = hashtagUntil))
-        } }.orEmpty().sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+        val hashtagCeiling = hashtagUntil
+        val hashtagCount = hashtagLimit
+        val hashtagNotes = hashtag?.let { tag ->
+            timeline(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
+        }.orEmpty()
         val readingPool = (threadNotes + hashtagNotes + profileEvents + all).distinctBy { it.id }
         val visible = visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
             if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.take(12)
@@ -336,7 +362,7 @@ class FeatherRepository(context: Context) {
         references = refs
         embeddedIds = quoteIds
         profileAuthors = authors
-        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread) { changed.tryEmit(Unit); return }
+        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
         val routesChanged = lists != relayLists
@@ -359,11 +385,13 @@ class FeatherRepository(context: Context) {
     suspend fun account(pubkey: String, signer: String) = withContext(Dispatchers.IO) {
         require(Protocol.publicKey(pubkey) == pubkey && signer.isNotBlank())
         prefs.edit().putString("pubkey", pubkey).putString("signer", signer).remove("draft").remove("draftReply").remove("pending").apply()
+        feedUntil = null
         _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), loading = true) }
         ready.await(); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
+        feedUntil = null
         _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet()) }
         snapshot(); if (active) subscribeFeed()
     }
@@ -390,6 +418,7 @@ class FeatherRepository(context: Context) {
             ?: cached.profileEvents.find { it.id == id }
             ?: cached.hashtagNotes.find { it.id == id }
             ?: cached.notes.find { it.id == id }
+        historyJob?.cancel()
         viewedThread = id
         // Hand off the already rendered event synchronously; no disk or relay round trip.
         _state.update { it.copy(threadId = id, threadNotes = listOfNotNull(root).takeIf { id != null }.orEmpty(),
@@ -412,6 +441,7 @@ class FeatherRepository(context: Context) {
         historyJob?.cancel()
         viewedHashtag = tag
         hashtagUntil = null
+        hashtagLimit = 200
         changed.tryEmit(Unit)
         scope.launch {
             if (viewedHashtag == null) client.unsubscribe("hashtag")
@@ -421,25 +451,75 @@ class FeatherRepository(context: Context) {
     private fun hashtagFilters(tag: String, until: Long? = null) = state.value.relays.associate {
         it.normalizeRelayUrl() to listOf(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = 80, until = until))
     }
-    fun older(author: String? = null) {
-        historyJob?.cancel()
-        historyJob = scope.launch {
-            val s = state.value
-            val tag = viewedHashtag
-            val authors = if (tag != null) null else author?.let(::listOf) ?: s.publicKey?.let { (listOf(it) + s.following).take(1000) }
-            val kind = if (author != null) profileTab.kind else 1
-            val events = if (tag != null) s.hashtagNotes else if (author != null) s.profileEvents else s.notes
-            val oldest = events.filter { it.kind == kind && (authors == null || it.pubKey in authors) }.minOfOrNull { it.createdAt } ?: return@launch
-            if (tag != null) { hashtagUntil = oldest - 1; changed.tryEmit(Unit) }
-            if (author != null) {
-                if (profileLimit >= 600) profileUntil = oldest - 1
-                else profileLimit = (profileLimit + 80).coerceAtMost(600)
-                changed.tryEmit(Unit)
+    @Synchronized
+    fun older(author: String? = null): Boolean {
+        if (!active || viewedThread != null || state.value.loadingOlder) return false
+        val sequence = historySequence.incrementAndGet()
+        val subscription = "older-$sequence"
+        val profile = viewedProfile
+        val tab = profileTab
+        val tag = viewedHashtag
+        val account = state.value.publicKey
+        fun sameScreen() = active && profile == viewedProfile && tab == profileTab && tag == viewedHashtag && viewedThread == null && account == state.value.publicKey
+        _state.update { it.copy(loadingOlder = true) }
+        historyJob = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                ready.await()
+                if (!sameScreen()) return@launch
+                val current = state.value
+                val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
+                val kind = if (author != null) tab.kind else 1
+                val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
+                    .filter { it.kind == kind && (authors == null || it.pubKey in authors) }
+                val oldest = events.minOfOrNull { it.createdAt } ?: return@launch
+                if (oldest <= 0) return@launch
+                val filter = Filter(kinds = listOf(kind), authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
+                val cached = mutex.withLock { db.query<Event>(filter) }
+                var found = cached.isNotEmpty()
+                if (!found) {
+                    val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, listOf(kind), 80, oldest - 1)
+                    if (routes.isEmpty()) return@launch
+                    val complete = CompletableDeferred<Unit>()
+                    val ended = java.util.concurrent.ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
+                    val received = java.util.concurrent.atomic.AtomicBoolean()
+                    val pageListener = object : SubscriptionListener {
+                        override suspend fun onEvent(event: Event, isLive: Boolean, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+                            if (sameScreen() && historySequence.get() == sequence && forFilters?.any { it.match(event) } == true && accept(event, history = true)) received.set(true)
+                        }
+                        override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+                            ended.add(relay)
+                            if (ended.containsAll(routes.keys)) complete.complete(Unit)
+                        }
+                        override fun onClosed(message: String, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+                            ended.add(relay)
+                            if (ended.containsAll(routes.keys)) complete.complete(Unit)
+                        }
+                    }
+                    client.subscribe(subscription, routes, pageListener)
+                    withTimeoutOrNull(12_000) { complete.await() }
+                    found = received.get()
+                }
+                ensureActive()
+                if (!sameScreen() || !found) return@launch
+                // Keep the visible tail. Once capped, discard only one page's worth of
+                // off-screen leading items so the next page fits, without replacing the list.
+                val ceiling = events.getOrNull(80)?.createdAt
+                if (tag != null) {
+                    if (events.size >= 600) hashtagUntil = ceiling else hashtagLimit = (hashtagLimit + 80).coerceAtMost(600)
+                } else if (author != null) {
+                    if (events.size >= 600) profileUntil = ceiling else profileLimit = (profileLimit + 80).coerceAtMost(600)
+                } else if (events.size >= 600) feedUntil = ceiling
+                snapshot()
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                if (sameScreen()) _state.update { it.copy(error = "Couldn't load older notes. Pull to refresh.") }
+            } finally {
+                client.unsubscribe(subscription)
+                if (historySequence.get() == sequence) _state.update { it.copy(loadingOlder = false) }
             }
-            _state.update { it.copy(loading = true) }
-            try { client.subscribe("older", if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, listOf(kind), 80, oldest - 1), listener); delay(12_000) }
-            finally { client.unsubscribe("older"); _state.update { it.copy(loading = false) } }
         }
+        historyJob?.start()
+        return true
     }
     companion object { fun shortKey(key: String): String = "${key.take(8)}…${key.takeLast(4)}" }
 }

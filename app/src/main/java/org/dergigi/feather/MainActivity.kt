@@ -231,10 +231,35 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             vm.repo.readingNotes(keys + nearby.map { it.id })
                         }
                 }
+                var requestedBoundary by remember(screen, profileKey, profileTab, hashtag) { mutableStateOf<String?>(null) }
+                var emptyPages by remember(screen, profileKey, profileTab, hashtag) { mutableIntStateOf(0) }
+                val rawHistory by rememberUpdatedState(when (screen) {
+                    "profile" -> s.profileEvents
+                    "hashtag" -> s.hashtagNotes
+                    else -> s.notes
+                })
+                val pagingBusy by rememberUpdatedState(s.loading || s.loadingOlder)
+                val mediaActive by rememberUpdatedState(LocalMedia.current.active)
+                LaunchedEffect(activeListState, screen, profileKey, profileTab, hashtag) {
+                    if (screen == "thread") return@LaunchedEffect
+                    snapshotFlow {
+                        val layout = activeListState.layoutInfo
+                        val nearEnd = layout.visibleItemsInfo.lastOrNull()?.index?.let { it >= layout.totalItemsCount - 7 } == true
+                        Triple(nearEnd, rawHistory.lastOrNull()?.id, !pagingBusy && mediaActive)
+                    }.distinctUntilChanged().collect { (nearEnd, boundary, ready) ->
+                        if (!nearEnd) { requestedBoundary = null; emptyPages = 0 }
+                        if (nearEnd && ready && boundary != null && boundary != requestedBoundary && (currentNotes.isNotEmpty() || emptyPages < 3)) {
+                            if (vm.repo.older(profileKey.takeIf { screen == "profile" })) {
+                                requestedBoundary = boundary
+                                if (currentNotes.isEmpty()) emptyPages++ else emptyPages = 0
+                            }
+                        }
+                    }
+                }
                 var refreshing by remember(screen) { mutableStateOf(false) }
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
-                    if (!s.loading) { refreshing = true; vm.repo.refresh() }
+                    if (!s.loading) { requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh() }
                 }
                 PullToRefreshBox(
                     isRefreshing = refreshing && s.loading,
@@ -312,7 +337,11 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { vm.repo.viewThread(note.id, note); threadId = note.id; screen = "thread" } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
-                        if ((notes.isNotEmpty() || (screen == "profile" && s.profileEvents.isNotEmpty())) && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
+                        if (s.loadingOlder && screen != "thread") item("older-progress") {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                        }
                     }
                 }
             }

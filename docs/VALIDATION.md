@@ -122,3 +122,8 @@ Debug build passed. Horizontal swipes of at least 56 dp select the adjacent prof
 ## 0.8.1 — October 10, 2026
 
 Signed optimized release build passed. Verified version 0.8.1 (code 18) and the existing signing certificate. Device testing remains with the user through Zapstore; no automated tests were run.
+
+
+## Infinite scrolling — October 10, 2026
+
+Build verification only, per the live Zapstore iteration workflow. Near-end observation uses stable history boundaries, excludes thread views, and permits one history request at a time. Empty filtered tabs probe at most three pages without scrolling; unchanged boundaries are not repeatedly requested. History uses cached pages first, a 12-second relay deadline, independent footer loading state, bounded retained events, and serialized snapshots. Navigation/backgrounding cancels history subscriptions. Pull-to-refresh resets the history window.

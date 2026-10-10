@@ -34,7 +34,7 @@ Outbox routing selects up to two write relays per author within the shared conne
 
 Kotlin, Jetpack Compose, Material 3, Quartz 1.17.0, SQLite through Quartz, Coil 3.6.3, and Media3 1.11.1. The app reuses Quartz's protocol, crypto, relay management, event store, and external signer support. A small OkHttp transport adapter processes messages serially without an unbounded application message queue. Release builds use R8 and resource shrinking.
 
-The cache targets 2,000 notes, 2,000 reactions, 2,000 zap receipts, 600 highlights, 1,000 profiles, 10 contact-list events, and 1,100 relay lists; cleanup runs periodically. The main feed snapshot is capped at 600 notes, with up to 200 additional profile/conversation notes. Relay events are verified before storage. No always-running service is installed.
+The cache targets 2,000 notes, 2,000 reactions, 2,000 zap receipts, 600 highlights, 1,000 profiles, 10 contact-list events, and 1,100 relay lists; cleanup runs periodically. Feeds, profile activity, and hashtag timelines page automatically near the end using rolling windows capped at 600 events each; thread replies are capped at 100. A bounded 600-event historical tail keeps newly fetched pages available when disk pruning runs. Relay events are verified before storage. No always-running service is installed.
 
 ## Media cache
 
