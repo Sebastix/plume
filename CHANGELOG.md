@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Hide the bottom comment/share action bar on reaction cards.
 - Use a text-highlighter marker icon for the Highlights profile tab.
 
 ## [0.10.0] - 2026-10-10

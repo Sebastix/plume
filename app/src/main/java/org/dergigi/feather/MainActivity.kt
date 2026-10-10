@@ -483,19 +483,17 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind != 7) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             Row(Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (note.kind != 7) {
-                EngagementCount(Icons.Default.FavoriteBorder, counts.reactions, "reactions")
-                val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
-                Icon(painterResource(R.drawable.zap), "$zapAmount sats received", Modifier.padding(start = 12.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (counts.zapSats.signum() > 0) Text(zapAmount, Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            EngagementCount(Icons.Default.FavoriteBorder, counts.reactions, "reactions")
+            val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
+            Icon(painterResource(R.drawable.zap), "$zapAmount sats received", Modifier.padding(start = 12.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (counts.zapSats.signum() > 0) Text(zapAmount, Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
