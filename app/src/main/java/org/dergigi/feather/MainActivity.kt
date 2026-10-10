@@ -126,9 +126,6 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     fun selectProfileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         profileTab = tab
-        // Header is item 0; taps and swipes share the tab-row anchor.
-        activeListState.requestScrollToItem(1)
-        topBarVisible = false
     }
     fun goHome() { hashtag = null; vm.repo.viewHashtag(null); vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
     fun openReference(ref: NostrContent.Reference) {
