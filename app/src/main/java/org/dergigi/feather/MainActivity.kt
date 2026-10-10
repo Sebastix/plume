@@ -106,9 +106,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var profileTab by rememberSaveable(profileKey) { mutableStateOf(ProfileTab.POSTS) }
     val listState = rememberLazyListState()
-    var topBarVisible by remember(screen, profileKey, profileTab, hashtag) { mutableStateOf(true) }
+    var topBarVisible by remember(screen, profileKey, hashtag) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val profileListState = key(screen, profileKey, threadId, profileTab, hashtag) { rememberLazyListState() }
+    val profileListState = key(screen, profileKey, threadId, hashtag) { rememberLazyListState() }
     val activeListState = if (screen == "feed") listState else profileListState
     val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
     val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
@@ -276,9 +276,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
                                         }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                     }
-                                    if (!p?.about.isNullOrBlank()) SelectionContainer {
-                                        Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
-                                    }
+                                    if (!p?.about.isNullOrBlank()) ProfileBiography(p, s, ::openReference)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                             }
@@ -286,7 +284,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         if (screen == "profile") item("profile-tabs") {
                             TabRow(selectedTabIndex = profileTab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
                                 ProfileTab.entries.forEach { tab ->
-                                    Tab(selected = profileTab == tab, onClick = { profileTab = tab }, icon = {
+                                    Tab(selected = profileTab == tab, onClick = {
+                                        if (profileTab != tab) {
+                                            profileTab = tab
+                                            // Header is item 0; anchor the new content at the tab row.
+                                            activeListState.requestScrollToItem(1)
+                                            topBarVisible = false
+                                        }
+                                    }, icon = {
                                         when (tab) {
                                             ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)
                                             ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))
@@ -433,6 +438,12 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
 private fun richNoteText(body: String, note: Event, profiles: Map<String, Profile>, onReference: (NostrContent.Reference) -> Unit,
     embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
     val tokens = remember(body, note.id) { NostrContent.tokens(body, note) }
+    return richText(body, tokens, profiles, onReference, embeddedIds)
+}
+
+@Composable
+private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: Map<String, Profile>,
+    onReference: (NostrContent.Reference) -> Unit, embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
     val open by rememberUpdatedState(onReference)
     val linkColor = MaterialTheme.colorScheme.primary
     return remember(body, tokens, profiles, embeddedIds, linkColor) {
@@ -534,4 +545,32 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
 private fun EngagementCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int, description: String) {
     Icon(icon, "$count $description", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     if (count > 0) Text(count.toString(), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Keep quoted events in their place in the biography; tokenization is done by the repository. */
+@Composable
+private fun ProfileBiography(profile: Profile, state: FeedState, onReference: (NostrContent.Reference) -> Unit) {
+    val quotes = remember(profile.aboutTokens) {
+        profile.aboutTokens.filter { it.reference?.let { ref -> !ref.profile && ref.hashtag == null && ref.external == null } == true }
+            .distinctBy { it.reference?.id }.take(3)
+    }
+    fun textRange(start: Int, end: Int): Pair<String, List<NostrContent.Token>> {
+        val tokens = profile.aboutTokens.filter { it.start >= start && it.end <= end }
+            .map { it.copy(start = it.start - start, end = it.end - start) }
+        return profile.about.substring(start, end) to tokens
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        quotes.forEachIndexed { index, token ->
+            val (body, tokens) = textRange(if (index == 0) 0 else quotes[index - 1].end, token.start)
+            if (body.isNotBlank()) SelectionContainer {
+                Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+            }
+            val reference = token.reference!!
+            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "bio:${reference.id}", onReference)
+        }
+        val (body, tokens) = textRange(quotes.lastOrNull()?.end ?: 0, profile.about.length)
+        if (body.isNotBlank()) SelectionContainer {
+            Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+        }
+    }
 }

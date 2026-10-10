@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Render Nostr event previews, profile mentions, hashtags, and links in profile biographies; resolve referenced events and profiles in the background.
+- Keep profile tab switches anchored at the tab bar instead of jumping to the profile header; hide the toolbar so it cannot cover the tabs.
+
 ## [0.7.0] - 2026-10-10
 
 ### Fixed

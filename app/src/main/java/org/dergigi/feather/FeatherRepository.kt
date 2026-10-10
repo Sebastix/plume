@@ -27,7 +27,7 @@ class FeatherApplication : Application() {
     val media by lazy { MediaStore(this) }
 }
 
-data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null)
+data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null, val aboutTokens: List<NostrContent.Token> = emptyList())
 data class FeedState(
     val notes: List<Event> = emptyList(),
     val threadId: String? = null,
@@ -284,8 +284,17 @@ class FeatherRepository(context: Context) {
         val visible = visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
             if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.take(12)
         }
-        val refs = visible.flatMap(NostrContent::references).distinctBy { it.id }.take(64)
-        val quoteIds = visible.flatMap(NostrContent::quotes).map { it.id }.distinct().take(24)
+        val biography = profile?.let { author -> mutex.withLock {
+            db.query<Event>(Filter(kinds = listOf(0), authors = listOf(author), limit = 1)).firstOrNull()
+        } }
+        val bioTokens = biography?.let { event ->
+            val about = runCatching { JSONObject(event.content).optString("about") }.getOrDefault("").take(2000)
+            NostrContent.tokens(about, event)
+        }.orEmpty()
+        val bioRefs = bioTokens.mapNotNull { it.reference }.filter { it.hashtag == null }.distinctBy { it.id }
+        val bioQuotes = bioRefs.filter { !it.profile && it.external == null }.take(3)
+        val refs = (bioRefs + visible.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
+        val quoteIds = (bioQuotes + visible.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
         val embedded = if (quoteIds.isEmpty()) emptyMap() else mutex.withLock {
             db.query<Event>(Filter(ids = quoteIds, kinds = listOf(1, 9802), limit = 24))
         }.associateBy { it.id }
@@ -301,13 +310,15 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
         }.associate { event ->
             val data = runCatching { JSONObject(event.content) }.getOrNull()
+            val about = data?.optString("about").orEmpty().take(2000)
             event.pubKey to Profile(
                 data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
-                data?.optString("about").orEmpty().take(2000),
+                about,
                 MediaContent.secureUrl(data?.optString("picture")?.trim()),
                 data?.optString("name")?.trim()?.takeIf { it.isNotBlank() },
                 listOf("banner", "cover", "header").firstNotNullOfOrNull { field -> MediaContent.secureUrl(data?.optString(field)?.trim()) },
                 data?.optString("lud16")?.takeIf { it.isNotBlank() } ?: data?.optString("lud06")?.takeIf { it.isNotBlank() },
+                NostrContent.tokens(about, event),
             )
         }
         val counts = countTargets.associate { target ->

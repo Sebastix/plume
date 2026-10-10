@@ -77,3 +77,8 @@ Debug build passed. Detail navigation immediately retains the clicked event, or 
 ## 0.7.0 — October 10, 2026
 
 Signed optimized release build passed for natural image sizing, native hashtag feeds, and immediate cached-note detail navigation. Verified APK version 0.7.0 (code 14) and the existing signing certificate. No additional automated tests or device visual pass were run.
+
+
+## Unreleased profile refinements — October 10, 2026
+
+Debug build passed. Profile tab switches retain the list state and request the tab-bar item as the next scroll anchor, hiding the overlay toolbar. Biography references are tokenized in the repository background scope, included in bounded event/profile discovery, and rendered as in-place previews or rich links. At most three biography event previews are fetched; unsupported event types remain external links. No device visual pass or new automated tests were run.
