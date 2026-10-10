@@ -1,5 +1,9 @@
 # Soft Plume
 
+Tagline: **a lightweight android client**. Keep it lowercase.
+
+Supporting line: “Your people. Their notes. Room to breathe.”
+
 Feather uses a rounded sky-blue feather, a lowercase wordmark, and white backgrounds. The selected direction is concept 02, Soft Plume. Production marks are lightweight vectors, adapted from that direction.
 
 - Feather blue: `#79C4F2` (brand mark and decorative accents).

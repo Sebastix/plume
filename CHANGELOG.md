@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Brand tagline changed to “a lightweight android client” across the website and social preview.
+
 ## [0.3.0] - 2026-10-10
 
 ### Added
