@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Open tapped notes immediately from memory in detail views, including profile activity, hashtag results, and embeds. Retain the selected note independently of feed limits while cached replies and relay updates load in the background.
+
 ### Added
 - Clickable hashtags in notes, embedded posts, and highlights open a native chronological hashtag feed, with pull-to-refresh and older posts.
 

@@ -30,6 +30,8 @@ class FeatherApplication : Application() {
 data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null)
 data class FeedState(
     val notes: List<Event> = emptyList(),
+    val threadId: String? = null,
+    val threadNotes: List<Event> = emptyList(),
     val profileEvents: List<Event> = emptyList(),
     val hashtagNotes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
@@ -164,7 +166,7 @@ class FeatherRepository(context: Context) {
     }
     private fun discoverRelays() {
         val s = state.value
-        val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
+        val threadAuthor = s.threadNotes.find { it.id == viewedThread }?.pubKey
         val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + profileAuthors.take(64) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
         if (authors.isEmpty()) client.unsubscribe("relay-lists")
         else client.subscribe("relay-lists", routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(authors = authors, kinds = listOf(10002), limit = authors.size)) }, listener)
@@ -178,7 +180,7 @@ class FeatherRepository(context: Context) {
         val base = (personal.take(3) + seeds.take(4 - personal.take(3).size)).distinct()
         _state.update { it.copy(relays = base) }
         val s = state.value
-        val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
+        val threadAuthor = s.threadNotes.find { it.id == viewedThread }?.pubKey
         val fallback = if (embeddedIds.any { it !in s.embedded })
             (RelayDefaults.seeds.drop(embeddedSeedOffset) + RelayDefaults.seeds.take(embeddedSeedOffset)).filter(::healthy).take(2)
             else emptyList()
@@ -253,12 +255,22 @@ class FeatherRepository(context: Context) {
     }
     private suspend fun snapshot() {
         val key = _state.value.publicKey
+        val thread = viewedThread
         val contact = key?.let { mutex.withLock { db.query<Event>(Filter(kinds = listOf(3), authors = listOf(it), limit = 1)).firstOrNull() } }
         val following = Protocol.follows(contact)
         val filters = mutableListOf(Filter(kinds = listOf(1), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600))
         viewedProfile?.let { filters += Filter(kinds = listOf(1), authors = listOf(it), limit = 100) }
-        viewedThread?.let { filters += Filter(kinds = listOf(1, 9802), ids = listOf(it)); filters += Filter(kinds = listOf(1), tags = mapOf("e" to listOf(it)), limit = 100) }
         val all = mutex.withLock { db.query<Event>(filters) }.distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(800)
+        val threadNotes = thread?.let { id ->
+            val cached = mutex.withLock {
+                db.query<Event>(listOf(Filter(kinds = listOf(1, 9802), ids = listOf(id)),
+                    Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 100)))
+            }
+            val root = cached.find { it.id == id } ?: state.value.threadNotes.find { it.id == id }
+            listOfNotNull(root) + cached.filter { it.id != id && it.tags.any { tag ->
+                tag.size >= 2 && tag[0] == "e" && tag[1] == id && (tag.size < 4 || tag[3] != "mention")
+            } }.distinctBy { it.id }.sortedWith(compareBy<Event> { it.createdAt }.thenBy { it.id })
+        }.orEmpty()
         val profile = viewedProfile
         val tab = profileTab
         val profileEvents = profile?.let { author -> mutex.withLock {
@@ -268,9 +280,9 @@ class FeatherRepository(context: Context) {
         val hashtagNotes = hashtag?.let { tag -> mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = 200, until = hashtagUntil))
         } }.orEmpty().sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
-        val readingPool = (hashtagNotes + profileEvents + all).distinctBy { it.id }
+        val readingPool = (threadNotes + hashtagNotes + profileEvents + all).distinctBy { it.id }
         val visible = visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
-            if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.take(12)
+            if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.take(12)
         }
         val refs = visible.flatMap(NostrContent::references).distinctBy { it.id }.take(64)
         val quoteIds = visible.flatMap(NostrContent::quotes).map { it.id }.distinct().take(24)
@@ -310,15 +322,15 @@ class FeatherRepository(context: Context) {
         references = refs
         embeddedIds = quoteIds
         profileAuthors = authors
-        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag) { changed.tryEmit(Unit); return }
+        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread) { changed.tryEmit(Unit); return }
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
         val routesChanged = lists != relayLists
         relayLists = lists
         val previous = _state.value.following
-        val previousThreadAuthor = _state.value.notes.find { it.id == viewedThread }?.pubKey
-        _state.update { it.copy(notes = all, hashtagNotes = hashtagNotes, profileEvents = profileEvents, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
-        if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != all.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
+        val previousThreadAuthor = _state.value.threadNotes.find { it.id == viewedThread }?.pubKey
+        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
+        if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
         else if (active) subscribeReadingData()
     }
 
@@ -355,10 +367,28 @@ class FeatherRepository(context: Context) {
         discoverRelays()
         client.subscribe("profile", authorFilters(listOf(key), listOf(profileTab.kind), 80), listener)
     }
-    fun viewThread(id: String?) { if (viewedThread == id) return; viewedThread = id; changed.tryEmit(Unit); if (id == null) client.unsubscribe("thread"); if (active) subscribeFeed() }
+    fun viewThread(id: String?, clicked: Event? = null) {
+        if (viewedThread == id) return
+        val cached = state.value
+        val root = clicked?.takeIf { it.id == id && it.kind in listOf(1, 9802) }
+            ?: cached.threadNotes.find { it.id == id }
+            ?: cached.embedded[id]
+            ?: cached.profileEvents.find { it.id == id }
+            ?: cached.hashtagNotes.find { it.id == id }
+            ?: cached.notes.find { it.id == id }
+        viewedThread = id
+        // Hand off the already rendered event synchronously; no disk or relay round trip.
+        _state.update { it.copy(threadId = id, threadNotes = listOfNotNull(root).takeIf { id != null }.orEmpty(),
+            loading = id != null && root == null) }
+        changed.tryEmit(Unit)
+        scope.launch {
+            if (viewedThread == null) client.unsubscribe("thread")
+            if (active) subscribeFeed()
+        }
+    }
     private fun subscribeThread(id: String) {
         discoverRelays()
-        val author = state.value.notes.find { it.id == id }?.pubKey
+        val author = state.value.threadNotes.find { it.id == id }?.pubKey
         val routes = (state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
         val filters = listOf(Filter(ids = listOf(id), kinds = listOf(1, 9802)), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))
         client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)

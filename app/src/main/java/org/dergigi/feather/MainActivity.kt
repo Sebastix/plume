@@ -129,7 +129,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
         vm.repo.openReference(ref)
         if (ref.profile) { profileKey = ref.id; screen = "profile"; vm.repo.viewProfile(ref.id); vm.repo.viewThread(null) }
-        else { threadId = ref.id; screen = "thread"; vm.repo.viewThread(ref.id); vm.repo.viewProfile(null) }
+        else { vm.repo.viewThread(ref.id); threadId = ref.id; screen = "thread"; vm.repo.viewProfile(null) }
     }
     fun openProfile(key: String) { vm.repo.openReference(NostrContent.Reference(key, profile = true)); profileKey = key; screen = "profile"; vm.repo.viewProfile(key); vm.repo.viewThread(null) }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -180,15 +180,21 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     ) { padding ->
         when (screen) {
             else -> {
-                val notes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
+                val preparedNotes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
                     value = withContext(Dispatchers.Default) { when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
-                    "thread" -> s.notes.filter { it.id == threadId || it.tags.any { tag -> tag.size >= 2 && tag[0] == "e" && tag[1] == threadId && (tag.size < 4 || tag[3] != "mention") } }.sortedBy { it.createdAt }
+                    "thread" -> emptyList()
                     else -> s.notes.filter { it.kind == 1 && !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
                 }
                     }
                 }
+                // The selected note is handed off immediately; background filtering never blanks it.
+                val notes = if (screen == "thread") {
+                    // StateFlow already holds the handoff even if lifecycle collection resumes next frame.
+                    val current = vm.repo.state.value
+                    current.threadNotes.takeIf { current.threadId == threadId }.orEmpty()
+                } else preparedNotes
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
@@ -295,11 +301,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
                         if (notes.isEmpty() && !s.loading) item("empty") {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Icon(painterResource(R.drawable.feather), "No notes yet", Modifier.size(64.dp), tint = Color.Unspecified)
+                                if (screen == "thread") Icon(Icons.Default.Info, "Post unavailable", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                else Icon(painterResource(R.drawable.feather), "No notes yet", Modifier.size(64.dp), tint = Color.Unspecified)
                             }
                         }
                         items(notes, key = { it.id }) { note ->
-                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { threadId = note.id; screen = "thread" } }, compact = screen != "thread")
+                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { vm.repo.viewThread(note.id, note); threadId = note.id; screen = "thread" } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
                         if ((notes.isNotEmpty() || (screen == "profile" && s.profileEvents.isNotEmpty())) && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }

@@ -67,3 +67,8 @@ Debug build passed. Inline images request a width-constrained decode with uncons
 ## Unreleased hashtags — October 10, 2026
 
 Debug build passed. Hashtags share the link tokenizer across notes, quotes, and highlights and are excluded from event/author lookups. Hashtag feeds query kind-1 events by normalized `t` tags, use existing bounded relays, page older posts, and unsubscribe on navigation. Unicode letters, numbers, combining marks, and underscores are recognized; URL fragments stay part of their URL. No new tests or device visual pass were run.
+
+
+## Unreleased detail handoff — October 10, 2026
+
+Debug build passed. Detail navigation immediately retains the clicked event, or resolves it from in-memory feed/profile/hashtag/embed state. The selected event is stored independently of the general feed limit, precedes replies, and survives delayed database snapshots. Snapshot updates guard against replacing a newer navigation target. Disk and relay work remains on the repository background scope. No device smoke test or automated suite was run.
