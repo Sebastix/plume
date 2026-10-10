@@ -181,3 +181,7 @@ Debug build passed. Successful mappings are stored in an indexed SQLite table in
 ## Video preloading and portrait sizing — October 10, 2026
 
 Debug build passed. The existing image-only prefetch plan now also schedules up to three video URLs within a twelve-note look-ahead window, including originals inside reposts and embedded quotes. Two interruptible IO jobs warm the first 4 MiB using the playback cache and a separate HTTP dispatcher; autoplay remains limited to one player. Active-video changes cancel overlapping speculative work, and fullscreen/background transitions cancel prefetch. Metadata extraction reads only a cached prefix; Media3 video-size callbacks correct dimensions as decoding begins. Removed the imeta aspect-ratio clamp and made inline video height respond to the actual ratio. No automated tests or device/network performance measurements were run.
+
+## YouTube app routing — October 10, 2026
+
+Debug build passed. Preview cards, inline note/profile links, and highlight links share the same external-link routing. YouTube domains first attempt an explicit NewPipe intent, then the official YouTube package, then Android's non-browser handler on API 30+, with normal URL handling as fallback. Each launch handles missing/disabled activities; package visibility queries are unnecessary for explicit activity launches. Original URLs and timestamp parameters are preserved. No automated tests or device app-handoff checks were run.

@@ -2,7 +2,6 @@
 package org.dergigi.feather
 
 import android.net.Uri
-import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import android.util.Log
@@ -71,9 +70,9 @@ private fun passage(content: AnnotatedString, context: AnnotatedString, compact:
 internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, compact: Boolean, onReference: (NostrContent.Reference) -> Unit) {
     val context = LocalContext.current
     val currentNavigate by rememberUpdatedState(onReference)
-    val uriHandler = remember { object : UriHandler {
+    val uriHandler = remember(context) { object : UriHandler {
         override fun openUri(uri: String) {
-            if (Uri.parse(uri).scheme?.lowercase() in listOf("http", "https")) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+            if (Uri.parse(uri).scheme?.lowercase() in listOf("http", "https")) context.openWebLink(uri)
             else NostrContent.decode(uri)?.let(currentNavigate)
         }
     } }

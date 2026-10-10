@@ -1,7 +1,5 @@
 package org.dergigi.feather
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -129,7 +127,7 @@ internal fun YouTubePreview(link: YouTubeLink) {
         if (resources != null && media.active && visible) value = YouTubeMetadata.get(link, resources)
     }
     Spacer(Modifier.height(12.dp))
-    Surface(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } },
+    Surface(onClick = { context.openWebLink(link.url) },
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth().onGloballyPositioned {
             val bounds = it.boundsInWindow()

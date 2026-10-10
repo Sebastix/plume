@@ -1,7 +1,5 @@
 package org.dergigi.feather
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -187,7 +185,7 @@ private fun OpenGraphCard(link: PreviewLink) {
     }
     // The small host-only card remains useful offline or when a server blocks preview requests.
     Spacer(Modifier.height(12.dp))
-    Surface(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url))) } },
+    Surface(onClick = { context.openWebLink(link.url) },
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth().onGloballyPositioned {
             val bounds = it.boundsInWindow()

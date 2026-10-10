@@ -512,8 +512,9 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
 private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: Map<String, Profile>,
     onReference: (NostrContent.Reference) -> Unit, embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
     val open by rememberUpdatedState(onReference)
+    val context = LocalContext.current
     val linkColor = MaterialTheme.colorScheme.primary
-    return remember(body, tokens, profiles, embeddedIds, linkColor) {
+    return remember(body, tokens, profiles, embeddedIds, linkColor, context) {
         buildAnnotatedString {
             var offset = 0
             tokens.forEach { token ->
@@ -526,7 +527,7 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
                         }
                     }
                 } else if (token.url != null) {
-                    withLink(LinkAnnotation.Url(token.url, TextLinkStyles(style = SpanStyle(color = linkColor)))) { append(token.text) }
+                    withLink(LinkAnnotation.Url(token.url, TextLinkStyles(style = SpanStyle(color = linkColor))) { context.openWebLink(token.url) }) { append(token.text) }
                 }
                 offset = token.end
             }
