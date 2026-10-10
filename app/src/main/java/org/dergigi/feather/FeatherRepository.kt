@@ -53,7 +53,7 @@ data class FeedState(
 class FeatherRepository(context: Context) {
     private val prefs = context.getSharedPreferences("feather", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    internal val blocktime = Blocktime(context.applicationContext, scope)
+    internal val blocktime = Blocktime(context.applicationContext)
     private val dbPath = context.getDatabasePath("events.db").also { it.parentFile?.mkdirs() }.absolutePath
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()

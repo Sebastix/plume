@@ -1,10 +1,10 @@
 package org.dergigi.feather
 
+import android.content.ContentValues
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 import android.util.AtomicFile
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -23,25 +23,15 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resumeWithException
 
-/** Resolve only explicitly tapped timestamps. One lookup at a time; all disk/JSON work stays on IO. */
-internal class Blocktime(private val context: Context, scope: CoroutineScope) {
-    private data class Entry(val height: Int?, val expires: Long)
+/** Successful mappings never expire. Memory stays bounded; SQLite retains every resolved timestamp. */
+internal class Blocktime(context: Context) {
+    private data class Entry(val height: Int?, val retryAfter: Long = 0)
     private val entries = object : LinkedHashMap<Long, Entry>(128, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Entry>?) = size > 512
     }
     private val mutex = Mutex()
-    private var loaded = false
-    private val writes = Channel<String>(Channel.CONFLATED)
-    init {
-        scope.launch(Dispatchers.IO) {
-            for (snapshot in writes) runCatching {
-                val file = AtomicFile(File(context.cacheDir, "blocktime.json"))
-                val output = file.startWrite()
-                try { output.write(snapshot.toByteArray()); file.finishWrite(output) }
-                catch (e: Exception) { file.failWrite(output); throw e }
-            }
-        }
-    }
+    // SQLiteOpenHelper does not open or read the database until height() accesses it on IO.
+    private val store = BlocktimeStore(context.applicationContext)
     private val http = OkHttpClient.Builder().callTimeout(8, TimeUnit.SECONDS).followSslRedirects(false).build()
     fun stop() { http.dispatcher.cancelAll() }
 
@@ -49,30 +39,12 @@ internal class Blocktime(private val context: Context, scope: CoroutineScope) {
         mutex.withLock {
             val now = System.currentTimeMillis() / 1_000
             if (timestamp !in 1231006505L..now) return@withLock null
-            val file = AtomicFile(File(context.cacheDir, "blocktime.json"))
-            if (!loaded) {
-                loaded = true
-                runCatching {
-                    file.openRead().use { input ->
-                        val bytes = ByteArray(65_537)
-                        var size = 0
-                        while (size < bytes.size) {
-                            val read = input.read(bytes, size, bytes.size - size)
-                            if (read < 0) break
-                            size += read
-                        }
-                        require(size <= 65_536)
-                        val json = JSONArray(String(bytes, 0, size, Charsets.UTF_8))
-                        for (index in 0 until minOf(json.length(), 512)) {
-                            val row = json.getJSONObject(index)
-                            val height = row.getInt("height")
-                            val expires = row.getLong("expires")
-                            if (height >= 0 && expires > now) entries[row.getLong("time")] = Entry(height, expires)
-                        }
-                    }
-                }
+            entries[timestamp]?.takeIf { it.height != null || it.retryAfter > now }?.let { return@withLock it.height }
+            val cached = store.find(timestamp)
+            if (cached != null) {
+                entries[timestamp] = Entry(cached)
+                return@withLock cached
             }
-            entries[timestamp]?.takeIf { it.expires > now }?.let { return@withLock it.height }
             val height = try {
                 val request = Request.Builder().url("https://mempool.space/api/v1/mining/blocks/timestamp/$timestamp").build()
                 http.newCall(request).await().use { response ->
@@ -87,17 +59,51 @@ internal class Blocktime(private val context: Context, scope: CoroutineScope) {
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { null }
-            val ttl = if (height == null) 60L else if (now - timestamp < 86_400) 300L else 30L * 86_400
-            entries[timestamp] = Entry(height, now + ttl)
-            if (height != null) runCatching {
-                val json = JSONArray()
-                entries.forEach { (time, entry) ->
-                    if (entry.height != null && entry.expires > now) json.put(JSONObject().put("time", time).put("height", entry.height).put("expires", entry.expires))
-                }
-                writes.trySend(json.toString())
-            }
+            // Persist before returning: no deferred writer window can lose an already-shown result.
+            if (height != null) store.save(timestamp, height)
+            entries[timestamp] = Entry(height, if (height == null) now + 60 else 0)
             height
         }
+    }
+}
+
+/** App data, not Android's reclaimable cache directory. No expiry or pruning of successful lookups. */
+private class BlocktimeStore(private val context: Context) : SQLiteOpenHelper(context, "blocktime.db", null, 1) {
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE blocktime (timestamp INTEGER PRIMARY KEY, height INTEGER NOT NULL CHECK (height >= 0))")
+        // Keep all valid legacy results, including ones that the old TTL would have expired.
+        val rows = runCatching {
+            AtomicFile(File(context.cacheDir, "blocktime.json")).openRead().use { input ->
+                val bytes = ByteArray(65_537)
+                var size = 0
+                while (size < bytes.size) {
+                    val read = input.read(bytes, size, bytes.size - size)
+                    if (read < 0) break
+                    size += read
+                }
+                require(size <= 65_536)
+                JSONArray(String(bytes, 0, size, Charsets.UTF_8))
+            }
+        }.getOrNull() ?: return
+        val now = System.currentTimeMillis() / 1000
+        for (index in 0 until minOf(rows.length(), 512)) {
+            val row = rows.optJSONObject(index) ?: continue
+            val timestamp = row.optLong("time", -1)
+            val height = row.optInt("height", -1)
+            if (timestamp in 1231006505L..now && height >= 0) insert(db, timestamp, height)
+        }
+    }
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+
+    fun find(timestamp: Long): Int? = readableDatabase.rawQuery(
+        "SELECT height FROM blocktime WHERE timestamp = ?", arrayOf(timestamp.toString()),
+    ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else null }
+
+    fun save(timestamp: Long, height: Int) = insert(writableDatabase, timestamp, height)
+
+    private fun insert(db: SQLiteDatabase, timestamp: Long, height: Int) {
+        val values = ContentValues(2).apply { put("timestamp", timestamp); put("height", height) }
+        db.insertOrThrow("blocktime", null, values)
     }
 }
 

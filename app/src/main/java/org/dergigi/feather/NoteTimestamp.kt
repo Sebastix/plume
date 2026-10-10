@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import java.text.NumberFormat
 import java.util.Locale
 import java.time.Instant
@@ -70,7 +71,9 @@ internal fun NoteTimestamp(note: Event) {
         } else if (mode == 1) {
             loading = true
             try {
-                height = blocktime.height(note.createdAt)
+                height = try { blocktime.height(note.createdAt) }
+                    catch (e: CancellationException) { throw e }
+                    catch (_: Exception) { null }
                 if (height == null) Toast.makeText(context, "Couldn't load block height.", Toast.LENGTH_SHORT).show()
             } finally { loading = false }
         }

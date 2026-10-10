@@ -173,3 +173,7 @@ Volume gestures clear the player's mute, restore full player gain, and change on
 ## 0.10.0 — October 10, 2026
 
 Signed optimized release build passed for rich Open Graph previews, text-note reposts, relative timestamps and timestamp cycling, fullscreen media-volume gestures, and the accumulated gallery/profile/expand-control refinements. Verified APK version 0.10.0 (code 23) and the existing signing certificate. No automated tests were run; the user validates on-device through Zapstore.
+
+## Permanent block-height mappings — October 10, 2026
+
+Debug build passed. Successful mappings are stored in an indexed SQLite table in app data without expiry or pruning; the 512-entry memory LRU now falls back to SQLite before any HTTP request. A single coroutine mutex serializes cache reads and requests so concurrent requests for the same timestamp reuse the first success. Writes complete on IO before the result is returned; there is no deferred snapshot writer. Initial database creation imports valid legacy JSON results regardless of their old expiry. Failed requests retain a short in-memory cooldown and remain retryable. Lookup/storage errors fall back to the existing timestamp display; no automated tests or device checks were run.
