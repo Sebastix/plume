@@ -21,7 +21,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -33,6 +32,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -95,24 +95,25 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
     val mediaStore = (context.applicationContext as FeatherApplication).media
-    var screen by rememberSaveable { mutableStateOf("feed") }
-    var profileKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var hashtag by rememberSaveable { mutableStateOf<String?>(null) }
-    var threadId by rememberSaveable { mutableStateOf<String?>(null) }
+    val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
+    val entry = navigation.current
+    val screen = entry.screen
+    val profileKey = entry.target.takeIf { screen == "profile" }
+    val hashtag = entry.target.takeIf { screen == "hashtag" }
+    val threadId = entry.target.takeIf { screen == "thread" }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
-    var profileTab by rememberSaveable(profileKey) { mutableStateOf(ProfileTab.POSTS) }
-    val visibleProfileTabs = remember(profileKey, s.profileTabsFor, s.profileTabs) {
-        ProfileTab.entries.filter { s.profileTabsFor == profileKey && it in s.profileTabs }
-    }
-    LaunchedEffect(profileKey, visibleProfileTabs) {
+    var profileTab by entry::tab
+    val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
+        ProfileTab.entries.filter { it in s.profileTabs }.also { entry.tabs = it }
+    } else entry.tabs
+    LaunchedEffect(entry.key, visibleProfileTabs) {
         if (visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
     }
-    val listState = rememberLazyListState()
-    var topBarVisible by remember(screen, profileKey, hashtag) { mutableStateOf(true) }
+    var topBarVisible by entry::toolbar
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val profileListState = key(screen, profileKey, threadId, hashtag) { rememberLazyListState() }
-    val activeListState = if (screen == "feed") listState else profileListState
+    val activeListState = entry.list
+    val savedScreens = rememberSaveableStateHolder()
     val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
     val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
     val toolbarOverBanner by remember(hasProfileBanner, activeListState, bannerBelowToolbarPx) {
@@ -127,19 +128,37 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         if (profileTab == tab) return
         profileTab = tab
     }
-    fun goHome() { hashtag = null; vm.repo.viewHashtag(null); vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
-    fun openReference(ref: NostrContent.Reference) {
-        if (ref.hashtag != null) {
-            hashtag = ref.hashtag; screen = "hashtag"; vm.repo.openReference(null)
-            vm.repo.viewProfile(null); vm.repo.viewThread(null); vm.repo.viewHashtag(ref.hashtag)
-            return
-        }
-        if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
-        vm.repo.openReference(ref)
-        if (ref.profile) { profileKey = ref.id; screen = "profile"; vm.repo.viewProfile(ref.id); vm.repo.viewThread(null) }
-        else { vm.repo.viewThread(ref.id); threadId = ref.id; screen = "thread"; vm.repo.viewProfile(null) }
+    fun activate(destination: ReaderEntry, clicked: Event? = null) {
+        vm.repo.openReference(destination.reference)
+        vm.repo.viewHashtag(destination.target.takeIf { destination.screen == "hashtag" })
+        vm.repo.viewProfile(destination.target.takeIf { destination.screen == "profile" })
+        if (destination.screen == "profile") vm.repo.profileTab(destination.tab)
+        vm.repo.viewThread(destination.target.takeIf { destination.screen == "thread" },
+            clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.id == destination.target } })
     }
-    fun openProfile(key: String) { vm.repo.openReference(NostrContent.Reference(key, profile = true)); profileKey = key; screen = "profile"; vm.repo.viewProfile(key); vm.repo.viewThread(null) }
+    fun goHome() {
+        navigation.entries.forEach { savedScreens.removeState(it.key) }
+        navigation.home(); activate(navigation.current)
+    }
+    fun goBack() {
+        val removed = navigation.current
+        navigation.back()
+        savedScreens.removeState(removed.key)
+        activate(navigation.current)
+    }
+    fun openReference(ref: NostrContent.Reference) {
+        if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
+        val destination = ReaderEntry(if (ref.hashtag != null) "hashtag" else if (ref.profile) "profile" else "thread", ref.hashtag ?: ref.id)
+        destination.reference = ref.takeIf { ref.hashtag == null }
+        navigation.push(destination); activate(navigation.current)
+    }
+    fun openProfile(key: String) = openReference(NostrContent.Reference(key, profile = true))
+    fun openNote(note: Event) {
+        val destination = ReaderEntry("thread", note.id)
+        destination.reference = NostrContent.Reference(note.id, profile = false)
+        destination.notes[ProfileTab.POSTS] = listOf(note)
+        navigation.push(destination); activate(navigation.current, note)
+    }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         val data = it.data
         if (it.resultCode == RESULT_OK && data != null) {
@@ -150,15 +169,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }
     }
     LaunchedEffect(message) { message?.let { snack.showSnackbar(it); vm.message.value = null } }
-    LaunchedEffect(screen, profileKey, threadId, hashtag) {
-        vm.repo.viewHashtag(hashtag.takeIf { screen == "hashtag" })
-        vm.repo.viewProfile(profileKey.takeIf { screen == "profile" })
-        vm.repo.viewThread(threadId.takeIf { screen == "thread" })
-    }
-    LaunchedEffect(screen, profileKey, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
-    BackHandler(screen != "feed") { goHome() }
+    LaunchedEffect(entry.key) { activate(entry) }
+    LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
+    BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     GalleryHost {
     MediaHost(mediaStore, reading = !showSettings && !showAccount) {
+    savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
@@ -169,7 +185,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(48.dp).then(toolbarButtonSurface).padding(8.dp), tint = Color.Unspecified)
                 }
             }, navigationIcon = {
-                if (screen != "feed") IconButton(onClick = { goHome() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (screen == "profile") IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
@@ -188,21 +204,28 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     ) { padding ->
         when (screen) {
             else -> {
-                val preparedNotes by produceState<List<Event>>(emptyList(), s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
-                    value = withContext(Dispatchers.Default) { when (screen) {
+                val preparedNotes by key(profileTab) { produceState<List<Event>>(entry.notes[profileTab].orEmpty(), entry.key, s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
+                    val retained = entry.notes[profileTab].orEmpty()
+                    value = withContext(Dispatchers.Default) {
+                    val filtered = when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
                     "thread" -> emptyList()
                     else -> s.notes.filter { ((it.kind == 1 && !Protocol.isReply(it)) || (it.kind == 6 && repostTarget(it) != null)) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
-                }
                     }
-                }
+                    // Returning to a paginated profile must not discard its already displayed pages.
+                    if ((screen == "profile" || screen == "hashtag") && filtered.size < retained.size)
+                        (filtered + retained).distinctBy { it.id }.sortedByDescending { it.createdAt }.take(600)
+                    else filtered
+                    }
+                } }
                 // The selected note is handed off immediately; background filtering never blanks it.
                 val notes = if (screen == "thread") {
                     // StateFlow already holds the handoff even if lifecycle collection resumes next frame.
                     val current = vm.repo.state.value
-                    current.threadNotes.takeIf { current.threadId == threadId }.orEmpty()
+                    (current.threadNotes.takeIf { current.threadId == threadId && it.size >= entry.notes[profileTab].orEmpty().size } ?: entry.notes[profileTab]).orEmpty()
                 } else preparedNotes
+                SideEffect { if (notes.isNotEmpty()) entry.notes[profileTab] = notes }
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
@@ -343,8 +366,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         }
                         items(notes, key = { it.id }) { note ->
                             if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
-                                vm.repo.viewThread(original.id, original); threadId = original.id; screen = "thread"
-                            } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { vm.repo.viewThread(note.id, note); threadId = note.id; screen = "thread" } }, compact = screen != "thread")
+                                openNote(original)
+                            } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
                         if (s.loadingOlder && screen != "thread") item("older-progress") {
@@ -357,6 +380,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             }
         }
     }
+    } // Per-visit saved UI state.
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {

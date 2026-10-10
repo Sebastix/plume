@@ -189,3 +189,7 @@ Debug build passed. Preview cards, inline note/profile links, and highlight link
 ## 0.10.1 — October 10, 2026
 
 Signed optimized release build passed for video preloading, portrait sizing, permanent block-height caching, external YouTube app routing, and the highlight/reaction UI refinements. Timestamp targets now reserve at least 64 × 48 dp, keeping compact labels right-aligned while accepting taps across the wider area. Verified APK version 0.10.1 (code 24) and the existing signing certificate. No automated tests or device checks were run; the user validates on-device through Zapstore.
+
+## Reader navigation stack — October 10, 2026
+
+Debug build passed. Replaced independent destination fields and unconditional goHome back handlers with per-visit stack entries shared by Android Back and the toolbar arrow. Entries own list state, profile tab, toolbar visibility, relay hints, and lightweight saved route state. SaveableStateHolder preserves expanded-note/profile UI per visit; popped entries are removed. Up to eight recent visits retain event references, and profile/hashtag page merging runs on Default to avoid list collapse while repository subscriptions switch. Sheets/gallery/fullscreen remain modal; login/logout clear history. No automated tests or on-device back-gesture checks were run. This change is not in the already published 0.10.1.
