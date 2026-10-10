@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-10-10
+
+### Changed
+- Move settings to the top-left toolbar position on profile views, with back navigation on the right. Remove the settings gear from the profile body.
+
 ## [0.5.3] - 2026-10-10
 
 ### Changed
@@ -96,7 +101,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/dergigi/feather/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/dergigi/feather/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/dergigi/feather/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/dergigi/feather/compare/v0.5.0...v0.5.1

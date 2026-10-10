@@ -141,8 +141,10 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             TopAppBar(title = {
                 Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
             }, navigationIcon = {
-                if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen == "profile") IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") }
+                else if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
+                if (screen == "profile") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = Modifier.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
@@ -241,7 +243,6 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 }
                                 if (key == s.publicKey) {
                                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.End) {
-                                        IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
                                         IconButton(onClick = { vm.logout(); goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account", tint = Blue) }
                                     }
                                 }
