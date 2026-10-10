@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
 ### Added
+- Tap note timestamps to toggle Bitcoin block height; resolve blocktime on demand in the background with a bounded persistent cache and date/time fallback.
 - Fullscreen video playback with native controls, timeline scrubbing, playback speed, and subtitles when available. Keep the same decoder and playback position across fullscreen transitions and rotation.
 - VLC-style video gestures: double-tap left/right to seek ten seconds in the feed and fullscreen; swipe horizontally to scrub, or vertically for brightness (left) and volume (right) in fullscreen.
 - Download videos to Movies, share video files, and copy video URLs from the fullscreen toolbar. Export cached video ranges and missing bytes on IO with bounded temporary storage.
@@ -166,7 +169,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/dergigi/feather/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/dergigi/feather/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/dergigi/feather/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dergigi/feather/compare/v0.6.0...v0.7.0

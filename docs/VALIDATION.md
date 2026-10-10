@@ -107,3 +107,8 @@ Debug build passed. Reviewed single-player handoff, fullscreen lifecycle/rotatio
 ## Unreleased blocktime — October 10, 2026
 
 Verified the mempool.space timestamp endpoint with Unix time 1700000000: height 816785, block timestamp 2023-11-14T21:51:06Z. Checked the upstream query selects a non-stale block timestamp at or before the requested time. Note timestamps retain date/time during lookup, toggle independently, and fall back on failure. Network and bounded cache persistence run on IO; writes are conflated and do not delay showing a resolved height. No device UI pass or automated suite was run.
+
+
+## 0.8.0 — October 10, 2026
+
+Signed optimized release build passed for fullscreen video gestures and export actions, sats-based zap totals, and blocktime timestamps. Verified APK version 0.8.0 (code 17) and the existing signing certificate. No device was connected; gesture, rotation, and sharing behavior have not had a device smoke pass.
