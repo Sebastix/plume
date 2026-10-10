@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,8 +43,6 @@ import coil3.request.ImageRequest
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.*
 
-private val MediaMist = Color(0xFFF0F9FF)
-private val MediaBlue = Color(0xFF2479A9)
 
 data class MediaEnvironment(val resources: MediaStore.Resources?, val active: Boolean, val playback: VisibleVideoPlayer?)
 val LocalMedia = staticCompositionLocalOf { MediaEnvironment(null, false, null) }
@@ -156,7 +155,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                 val playback = media.playback
                 val selected = attachment.kind == MediaContent.Kind.VIDEO && playback?.activeKey == identity
                 DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }
-                Box(Modifier.fillMaxWidth().aspectRatio(attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MediaMist)
+                Box(Modifier.fillMaxWidth().aspectRatio(attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
                         if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat())
                     }) {
@@ -169,8 +168,8 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 modifier = Modifier.fillMaxSize(),
                                 onRelease = { it.player = null },
                                 update = { it.player = playback.player })
-                            IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd).background(Color.White.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
-                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MediaBlue)
+                            IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
+                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

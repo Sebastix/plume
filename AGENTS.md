@@ -6,7 +6,7 @@
 - Convention over configuration: sensible defaults, automatic profile relay sets and discovery, no relay editor or setup wizard. Settings should remain exceptional.
 - Keep work off the UI thread unless Android UI APIs require it. Run disk/network I/O, database access, image processing, and substantial parsing on background dispatchers. Bound queues and concurrency; optional cache work must never delay display.
 - Keep features, dependencies, relay subscriptions, and caches small and bounded.
-- Use standard Android components; white backgrounds and Soft Plume blue branding.
+- Use standard Android components; system-following light/dark surfaces and Soft Plume blue branding. No theme setting.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.
 - Maintain CHANGELOG.md (Keep a Changelog) and Semantic Versioning 2.0.0.
 - Increment versionCode for each published APK. Initial development uses 0.x.y.

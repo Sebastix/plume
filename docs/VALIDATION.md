@@ -45,3 +45,8 @@ Signed optimized release build passed for visible-note profile fetching, Nostr r
 ## 0.5.7 — October 10, 2026
 
 Traced the avatar/gallery mismatch to Coil 3.6.3's `RealInterceptorChain.checkRequest`: interceptors must preserve the original size resolver. Removed the request-builder size override; both original and cached-thumbnail paths already use the supported `Chain.withSize` API. Background thumbnail writes and shared cache limits are unchanged. Signed release build passed. No device smoke test or automated suite was run, following the requested fast iteration workflow.
+
+
+## Unreleased — October 10, 2026
+
+Clean debug build passed for the profile banner/toolbar overlay, feed-only toolbar logo, transparent launcher artwork, and system-following dark theme. Checked store-icon alpha and inspected the regenerated artwork. No automated suite, emulator, or device visual pass was run. No version bump, release tag, or store publication.

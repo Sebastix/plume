@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -73,9 +74,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val Sky = Color(0xFF79C4F2)
-private val Ink = Color(0xFF293945)
-private val Blue = Color(0xFF2479A9)
-private val Mist = Color(0xFFF0F9FF)
 
 class MainActivity : ComponentActivity() {
     private val repo get() = (application as FeatherApplication).repository
@@ -83,10 +81,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Blue, onPrimary = Color.White,
-                primaryContainer = Mist, onPrimaryContainer = Ink, background = Color.White,
-                surface = Color.White, onSurface = Ink, onBackground = Ink, surfaceContainer = Mist,
-                outlineVariant = Color(0xFFEDF1F4))) { FeatherApp() }
+            FeatherTheme { FeatherApp() }
         }
     }
     override fun onStart() { super.onStart(); repo.foreground() }
@@ -109,6 +104,17 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val listState = rememberLazyListState()
     var topBarVisible by remember(screen) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
+    val profileListState = key(screen, profileKey, threadId) { rememberLazyListState() }
+    val activeListState = if (screen == "feed") listState else profileListState
+    val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
+    val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
+    val toolbarOverBanner by remember(hasProfileBanner, activeListState, bannerBelowToolbarPx) {
+        derivedStateOf {
+            hasProfileBanner && activeListState.firstVisibleItemIndex == 0 &&
+                activeListState.firstVisibleItemScrollOffset < bannerBelowToolbarPx
+        }
+    }
+    val toolbarButtonSurface = if (toolbarOverBanner) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
     fun goHome() { vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
     fun openReference(ref: NostrContent.Reference) {
         if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
@@ -139,11 +145,13 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         topBar = {
             AnimatedVisibility(topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
-                Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
+                if (screen == "feed") {
+                    Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
+                }
             }, navigationIcon = {
-                if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen != "feed") IconButton(onClick = { goHome() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
-                if (screen == "profile") IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") }
+                if (screen == "profile") IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = Modifier.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
@@ -151,10 +159,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                     }
                 }
-            }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, actionIconContentColor = Blue, navigationIconContentColor = Blue))
+            }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = if (toolbarOverBanner) Color.Transparent else MaterialTheme.colorScheme.surface,
+                actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
             }
         },
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { padding ->
         when (screen) {
             else -> {
@@ -163,7 +173,6 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     "thread" -> s.notes.filter { it.id == threadId || it.tags.any { tag -> tag.size >= 2 && tag[0] == "e" && tag[1] == threadId && (tag.size < 4 || tag[3] != "mention") } }.sortedBy { it.createdAt }
                     else -> s.notes.filter { !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
                 }
-                val activeListState = if (screen == "feed") listState else rememberLazyListState()
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
@@ -204,7 +213,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 PullToRefreshBox(
                     isRefreshing = refreshing && s.loading,
                     onRefresh = refresh,
-                    modifier = Modifier.padding(padding).fillMaxSize().nestedScroll(toolbarScroll).semantics {
+                    modifier = Modifier.padding(
+                        if (hasProfileBanner) PaddingValues(
+                            top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                            bottom = padding.calculateBottomPadding(),
+                            start = padding.calculateStartPadding(LocalLayoutDirection.current),
+                            end = padding.calculateEndPadding(LocalLayoutDirection.current),
+                        ) else padding
+                    ).fillMaxSize().nestedScroll(toolbarScroll).semantics {
                         customActions = listOf(
                             CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
                             CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
@@ -218,7 +234,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             val openGallery = LocalOpenGallery.current
                             Column(Modifier.fillMaxWidth()) {
                                 p?.banner?.let { banner ->
-                                    RemoteImage(banner, Modifier.fillMaxWidth().height(112.dp)
+                                    RemoteImage(banner, Modifier.fillMaxWidth().height(176.dp)
                                         .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }, "Profile banner")
                                 }
                                 Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -229,20 +245,20 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             p?.username?.takeIf { it != p.name }?.let {
-                                                Text("@$it", style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582),
+                                                Text("@$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
                                         IconButton(onClick = {
                                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
-                                        }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = Blue) }
+                                        }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                     }
                                     if (!p?.about.isNullOrBlank()) SelectionContainer {
                                         Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
                                     }
                                 }
-                                HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 24.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                             }
                         }
                         if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
@@ -254,7 +270,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         }
                         items(notes, key = { it.id }) { note ->
                             NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
-                            HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 20.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
                         if (notes.isNotEmpty() && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
                     }
@@ -263,7 +279,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }
     }
     if (showSettings) {
-        ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = Color.White,
+        ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Settings(s, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
@@ -271,7 +287,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     }
     if (showAccount) {
         var error by remember { mutableStateOf<String?>(null) }
-        ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = Color.White,
+        ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -291,7 +307,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                         catch (_: Exception) { error = "Install an Android signer such as Amber first." }
                     }, modifier = Modifier.size(56.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Connect Android signer") }
-                    IconButton(onClick = { showAccount = false; showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
+                    IconButton(onClick = { showAccount = false; showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.primary) }
                 }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -309,8 +325,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
 @Composable
 private fun Avatar(name: String, size: Int = 36, picture: String? = null, openImage: Boolean = false) {
     val openGallery = LocalOpenGallery.current
-    Box(Modifier.size(size.dp).background(Mist, CircleShape), contentAlignment = Alignment.Center) {
-        Text(name.take(1).uppercase(), color = Blue, fontWeight = FontWeight.Medium)
+    Box(Modifier.size(size.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+        Text(name.take(1).uppercase(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
         RemoteImage(picture, Modifier.fillMaxSize().clip(CircleShape).then(if (openImage && picture != null) Modifier.clickable(onClickLabel = "Open profile picture") { openGallery(listOf(picture), 0) } else Modifier), avatar = true)
     }
 }
@@ -327,7 +343,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Row(Modifier.weight(1f).clickable(onClick = onProfile), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name, picture = profile?.picture); Spacer(Modifier.width(10.dp)); Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
-            Text(remember(note.createdAt) { DateTimeFormatter.ofPattern("MMM d · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(note.createdAt)) }, style = MaterialTheme.typography.labelSmall, color = Color(0xFF647582))
+            Text(remember(note.createdAt) { DateTimeFormatter.ofPattern("MMM d · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(note.createdAt)) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(12.dp))
         val attachments = remember(note.id) { MediaContent.attachments(note) }
@@ -342,9 +358,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         if (expanded || truncated) IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onOpen) { Icon(painterResource(R.drawable.conversation), "Read conversation", Modifier.size(20.dp), tint = Color(0xFF647582)) }
+            IconButton(onClick = onOpen) { Icon(painterResource(R.drawable.conversation), "Read conversation", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = Color(0xFF647582)) }
+            IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -355,7 +371,8 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
     embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
     val tokens = remember(body, note.id) { NostrContent.tokens(body, note) }
     val open by rememberUpdatedState(onReference)
-    return remember(body, tokens, profiles, embeddedIds) {
+    val linkColor = MaterialTheme.colorScheme.primary
+    return remember(body, tokens, profiles, embeddedIds, linkColor) {
         buildAnnotatedString {
             var offset = 0
             tokens.forEach { token ->
@@ -363,12 +380,12 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
                 val ref = token.reference
                 if (ref != null) {
                     if (ref.id !in embeddedIds || ref.profile) {
-                        withLink(LinkAnnotation.Clickable(token.text, TextLinkStyles(style = SpanStyle(color = Blue))) { open(ref) }) {
+                        withLink(LinkAnnotation.Clickable(token.text, TextLinkStyles(style = SpanStyle(color = linkColor))) { open(ref) }) {
                             append(if (ref.profile) "@${profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}" else "↗ ${FeatherRepository.shortKey(ref.id)}")
                         }
                     }
                 } else if (token.url != null) {
-                    withLink(LinkAnnotation.Url(token.url, TextLinkStyles(style = SpanStyle(color = Blue)))) { append(token.text) }
+                    withLink(LinkAnnotation.Url(token.url, TextLinkStyles(style = SpanStyle(color = linkColor)))) { append(token.text) }
                 }
                 offset = token.end
             }
@@ -380,12 +397,12 @@ private fun richNoteText(body: String, note: Event, profiles: Map<String, Profil
 @Composable
 private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit) {
     Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-        color = Mist, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
+        color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (note == null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = Blue)
-                    Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = Blue)
+                    Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             } else {
                 val profile = profiles[note.pubKey]
@@ -428,7 +445,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
         }
         Column {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.storage), "Media cache storage", tint = Blue)
+                Icon(painterResource(R.drawable.storage), "Media cache storage", tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
                 Text(if (mb >= 1024) "${mb / 1024} GB" else "$mb MB", style = MaterialTheme.typography.titleMedium)
@@ -441,7 +458,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
-                Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback", tint = Blue)
+                Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback", tint = MaterialTheme.colorScheme.primary)
             }
         }
     }

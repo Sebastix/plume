@@ -5,5 +5,4 @@
         <item name="android:colorAccent">#2479A9</item><item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
-    <color name="icon_background">#F0F9FF</color>
 </resources>

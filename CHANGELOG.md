@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Follow the Android system dark-mode setting automatically across reading, profiles, settings, media controls, and launch surfaces; no theme preference.
+- Use a transparent feather launcher icon and matching store/web icon artwork, removing the solid background. Launcher-imposed icon styling can still vary.
+- Show the feather logo only on the main feed; screens with back navigation omit it.
+- Extend profile banners behind a transparent toolbar, with theme-aware circular backgrounds to keep navigation icons legible. Restore the solid toolbar once the banner scrolls out from behind it.
+
 ## [0.5.7] - 2026-10-10
 
 ### Fixed

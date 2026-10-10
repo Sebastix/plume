@@ -2,7 +2,7 @@
 
 October 10, 2026
 
-Feather is a native Android reader for Nostr. It should feel immediate, quiet, and beautiful: a white page, a soft blue feather, and room for people’s words. Its small feature set is the foundation of its speed and identity.
+Feather is a native Android reader for Nostr. It should feel immediate, quiet, and beautiful: a clean page, a soft blue feather, and room for people’s words. Its small feature set is the foundation of its speed and identity.
 
 ## Convention over configuration
 
@@ -10,7 +10,7 @@ Feather should work as soon as it opens. Choose sensible shared defaults and use
 
 Connecting a signer supplies identity; its public relay list and follows supply the reading context. Relay discovery, fallback, and connection recovery happen quietly. People should never need to know a relay address to use Feather. The media cache budget is a deliberate exception: device storage is finite, so keep that one useful control, with a sensible 512 MB default.
 
-Account and settings use standard white bottom sheets, generous spacing, a pale blue accent, and familiar accessible icons. Show only the account's avatar in the toolbar. Open the signed-in profile from that avatar. Profile views place settings at the top-right and back navigation at the top-left; logout sits at the top of the settings sheet beside the connected identity, accessible without scrolling through a biography. Guests find settings alongside signer login in the account sheet. The account sheet presents identity and only the relevant actions; the profile follows ants-android’s layout with Feather styling: an optional banner, avatar beside name and username, a left-aligned biography, and compact icon actions. Keep its surface white, its spacing generous, and its dividers quiet. Public keys are available through a copy action without occupying the page. Avoid raw protocol values and redundant controls.
+Account and settings use standard theme-aware bottom sheets, generous spacing, a pale blue accent, and familiar accessible icons. Show only the account's avatar in the toolbar. Open the signed-in profile from that avatar. Show the feather logo only on the main feed; omit it whenever a back button is present. Profile views place settings at the top-right and back navigation at the top-left; logout sits at the top of the settings sheet beside the connected identity, accessible without scrolling through a biography. Guests find settings alongside signer login in the account sheet. The account sheet presents identity and only the relevant actions; the profile follows ants-android’s layout with Feather styling: an optional banner extending behind a transparent toolbar, avatar beside name and username, a left-aligned biography, and compact icon actions. Use theme-aware circular surfaces behind toolbar icons over a banner, and restore the solid toolbar as the banner scrolls away. Keep its surface uncluttered, its spacing generous, and its dividers quiet. Public keys are available through a copy action without occupying the page. Avoid raw protocol values and redundant controls.
 
 ## Reading comes first
 
@@ -28,7 +28,7 @@ Every actionable icon needs an accurate accessibility description and a touch ta
 
 ## Lightness is visible
 
-Use the Soft Plume feather, white backgrounds, pale blue surfaces, sky-blue accents, and dark readable text. Keep the decorative blue gentle; use the darker action blue where contrast matters. Favor space, alignment, and typography over borders, cards, shadows, and decoration.
+Use the Soft Plume feather, white backgrounds, pale blue surfaces, sky-blue accents, and dark readable text in light mode. Follow Android’s system dark-mode setting automatically: deep blue-charcoal surfaces, soft light text, and the same feather-blue accents. No theme configuration. Use semantic theme colors for controls, links, placeholders, dividers, sheets, and launch surfaces. Keep the decorative blue gentle; use the darker action blue where contrast matters. Favor space, alignment, and typography over borders, cards, shadows, and decoration.
 
 Use Android typography and standard Material components. Set comfortable line spacing for notes, keep author details secondary, and separate entries with restrained dividers. Avoid remote fonts and heavy animations. A feed should feel like reading a page rather than operating a dashboard.
 
