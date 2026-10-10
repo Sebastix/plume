@@ -26,18 +26,6 @@ class ProtocolTest {
         assertEquals("wss://relay.example/nostr", Protocol.relay("wss://relay.example/nostr"))
         listOf("ws://relay.example", "https://relay.example", "wss://user:pass@relay.example", "wss://relay.example/#fragment", "wss://", "wss://relay.example:99999").forEach { assertNull(it, Protocol.relay(it)) }
     }
-    @Test fun directReplyUsesOneRootAndDoesNotMentionSelf() {
-        val tags = Protocol.replyTags(event(tags = arrayOf(arrayOf("p", bob))), bob)
-        assertEquals(1, tags.count { it[0] == "e" })
-        assertArrayEquals(arrayOf("e", root, "", "root"), tags.first())
-        assertTrue(tags.any { it.contentEquals(arrayOf("p", alice)) })
-        assertFalse(tags.any { it.contentEquals(arrayOf("p", bob)) })
-    }
-    @Test fun nestedReplyKeepsRootAndDirectParent() {
-        val tags = Protocol.replyTags(event(child, arrayOf(arrayOf("e", root, "", "root"))), bob)
-        assertTrue(tags.any { it.contentEquals(arrayOf("e", root, "", "root")) })
-        assertTrue(tags.any { it.contentEquals(arrayOf("e", child, "", "reply")) })
-    }
     @Test fun mentionsDoNotTurnOriginalNotesIntoReplies() {
         assertFalse(Protocol.isReply(event(tags = arrayOf(arrayOf("e", root, "", "mention")))))
         assertTrue(Protocol.isReply(event(tags = arrayOf(arrayOf("e", root, "", "root")))))

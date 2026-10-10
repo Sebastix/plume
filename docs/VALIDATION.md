@@ -1,3 +1,17 @@
+# 0.2.0 validation
+
+Checked locally on October 10, 2026, before the request to skip further tests:
+
+- Twenty JVM tests passed, covering protocol parsing, signature verification, NIP-65 relay directions and bounded routing, media metadata, storage budgets, and autoplay visibility eligibility.
+- Android Lint passed with no errors before the final minor media-memory-cap adjustment.
+- Android 15 emulator: signer-only account dialog, missing-signer recovery, legacy npub-session removal, following feed from a debug preference fixture, and 151 verified NIP-65 relay lists in the local cache.
+- Local signed media fixtures exercised automatic avatars, inline images, muted video autoplay, and persistent image/video cache writes. No fixture event was published.
+- A scripted cache-slider tap did not change the displayed value; cache-size persistence was not confirmed before further testing was stopped.
+- Desktop and mobile website layout checked before final media-copy changes.
+- Custom-domain DNS and HTTPS were verified after the DNS update.
+
+The user requested direct master publication without additional tests. Final packaging therefore uses the signed release build without another test/lint pass. No physical-device benchmarks or real Amber approval round trip were performed. Storage-limit and background behavior have unit coverage and implementation guards, but have not received a complete final device regression pass.
+
 # 0.1.0 validation
 
 Checked locally on October 10, 2026:

@@ -1,6 +1,8 @@
 # Feather
 
-- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. No DMs.
+- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader only: no publishing, replies, follow editing, profile search, or DMs.
+- Signer-only login (NIP-55, e.g. Amber); no account creation or key import. No signing permissions.
+- Follow docs/DESIGN.md: icon-only interface chrome, accessible descriptions, content-first typography.
 - Keep features, dependencies, relay subscriptions, and caches small and bounded.
 - Use standard Android components; white backgrounds and Soft Plume blue branding.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.
@@ -9,4 +11,5 @@
 - Releases include a signed APK on GitHub and a Zapstore publication, following boris-android.
 - Never commit credentials, local.properties, .env, or signing keys.
 - Website is static HTML/CSS on Vercel at feather.dergigi.com.
-- Validate protocol/state behavior with unit tests and build/lint before release.
+- Prefer fast iteration. Build before publishing; run additional tests only when requested or needed to investigate a concrete issue.
+- Load media automatically, cache aggressively within the chosen storage budget, and autoplay only one visible video, muted.

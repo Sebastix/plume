@@ -23,14 +23,6 @@ object Protocol {
         require(uri.port == -1 || uri.port in 1..65535)
         uri.toASCIIString().trimEnd('/')
     }.getOrNull()
-    fun replyTags(parent: Event, self: String): Array<Array<String>> {
-        val root = parent.tags.firstOrNull { it.size >= 4 && it[0] == "e" && it[3] == "root" }?.get(1) ?: parent.id
-        val result = mutableListOf(arrayOf("e", root, "", "root"))
-        if (root != parent.id) result += arrayOf("e", parent.id, "", "reply")
-        val people = (parent.tags.filter { it.size >= 2 && it[0] == "p" }.map { it[1] } + parent.pubKey).distinct()
-        people.filter { it != self && hex.matches(it) }.take(50).forEach { result += arrayOf("p", it) }
-        return result.toTypedArray()
-    }
     fun follows(event: Event?): Set<String> = event?.tags.orEmpty().filter { it.size >= 2 && it[0] == "p" && hex.matches(it[1]) }.map { it[1] }.toSet()
     fun isReply(event: Event): Boolean = event.tags.any { it.size >= 2 && it[0] == "e" && (it.size < 4 || it[3] in listOf("root", "reply")) }
     fun isNewer(candidate: Event, current: Event?): Boolean = current == null || candidate.createdAt > current.createdAt || (candidate.createdAt == current.createdAt && candidate.id < current.id)

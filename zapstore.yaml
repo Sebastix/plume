@@ -7,11 +7,13 @@ description: |
   Your people. Their notes. Room to breathe.
 
   Feather is a minimal native Android client for Nostr. Read a chronological
-  following feed, browse profiles, follow people, and publish public notes and
-  replies using an Android signer such as Amber. Recent notes stay cached locally.
+  following feed, profiles, and conversations. Connect an Android signer such as
+  Amber to read your existing follows. Icon-only controls and NIP-65 outbox routing
+  keep reading simple. Images load automatically and visible videos autoplay muted.
+  Recent notes and media stay cached locally, with a configurable storage budget.
 
-  No DMs, wallets, ads, analytics, or background feed service.
-  The first release focuses on text; links open in your browser.
+  No posting, replying, follow editing, search, DMs, wallets, ads, or analytics.
+  Standard Android controls, a white background, and the Soft Plume feather identity.
 
   https://feather.dergigi.com/
 license: MIT
