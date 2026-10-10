@@ -34,7 +34,7 @@ data class FeedState(
     val following: Set<String> = emptySet(),
     val publicKey: String? = null,
     val signerPackage: String? = null,
-    val relays: List<String> = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"),
+    val relays: List<String> = RelayDefaults.seeds.take(4),
     val connected: Set<String> = emptySet(),
     val loading: Boolean = true,
     val error: String? = null,
@@ -48,10 +48,8 @@ class FeatherRepository(context: Context) {
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
-    private val initialRelays = prefs.getString("relays", null)?.lines()?.mapNotNull(Protocol::relay)?.distinct()?.take(4)
     private val _state = MutableStateFlow(FeedState(
         publicKey = prefs.getString("pubkey", null)?.takeIf { !prefs.getString("signer", null).isNullOrBlank() }, signerPackage = prefs.getString("signer", null)?.takeIf { it.isNotBlank() },
-        relays = initialRelays?.takeIf { it.isNotEmpty() } ?: FeedState().relays,
     ))
     val state: StateFlow<FeedState> = _state.asStateFlow()
     private val client = NostrClient(RelayTransport(), scope)
@@ -66,28 +64,38 @@ class FeatherRepository(context: Context) {
     private var refreshTimeout: Job? = null
     @Volatile private var routingPool: Set<String> = emptySet()
     @Volatile private var relayLists: Map<String, Outbox.RelayList> = emptyMap()
+    private var discoveryJob: Job? = null
+    private var seedOffset = 0
+    private val unavailableUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private fun healthy(url: String) = (unavailableUntil[Protocol.relay(url) ?: url] ?: 0) <= android.os.SystemClock.elapsedRealtime()
+    private fun unavailable(url: String) {
+        if (active) unavailableUntil[Protocol.relay(url) ?: url] = android.os.SystemClock.elapsedRealtime() + 120_000
+    }
     private var inserts = 0
     private val listener = object : SubscriptionListener {
         override suspend fun onEvent(event: Event, isLive: Boolean, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
             if (forFilters?.any { it.match(event) } == true) accept(event)
         }
         override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+            unavailableUntil.remove(Protocol.relay(relay.url) ?: relay.url)
             if (forFilters?.any { it.kinds?.contains(1) == true } == true) _state.update { it.copy(loading = false) }
         }
         override fun onClosed(message: String, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
-            _state.update { it.copy(loading = false, error = "A relay could not serve this feed. Check your relays or try again.") }
+            unavailable(relay.url)
         }
     }
     init {
         client.disconnect()
-        prefs.edit().remove("draft").remove("draftReply").remove("pending").apply()
+        prefs.edit().remove("relays").remove("draft").remove("draftReply").remove("pending").apply()
         if (_state.value.publicKey == null) prefs.edit().remove("pubkey").remove("signer").apply()
         client.addConnectionListener(object : RelayConnectionListener {
             override fun onConnected(relay: IRelayClient, pingMillis: Int, compressed: Boolean) {
+                unavailableUntil.remove(Protocol.relay(relay.url.url) ?: relay.url.url)
                 _state.update { it.copy(connected = it.connected + relay.url.url, error = null) }
             }
             override fun onDisconnected(relay: IRelayClient) { _state.update { it.copy(connected = it.connected - relay.url.url) } }
             override fun onCannotConnect(relay: IRelayClient, errorMessage: String) {
+                unavailable(relay.url.url)
                 _state.update { it.copy(connected = it.connected - relay.url.url) }
             }
         })
@@ -99,34 +107,57 @@ class FeatherRepository(context: Context) {
     }
     fun foreground() {
         active = true
-        scope.launch { ready.await(); if (active) { client.connect(); subscribeFeed() } }
+        scope.launch { ready.await(); if (active) { subscribeFeed(); client.connect() } }
+        discoveryJob?.cancel()
+        discoveryJob = scope.launch {
+            ready.await()
+            var ticks = 0
+            while (isActive && active) {
+                delay(10_000)
+                if (!active) break
+                val now = android.os.SystemClock.elapsedRealtime()
+                unavailableUntil.entries.removeIf { it.value <= now }
+                // Try another seed batch while an identity's relay list remains undiscovered.
+                if (++ticks % 3 == 0 && (state.value.connected.isEmpty() || (state.value.publicKey != null && relayLists[state.value.publicKey] == null))) {
+                    seedOffset = (seedOffset + 4) % RelayDefaults.seeds.size
+                }
+                subscribeFeed()
+            }
+        }
     }
-    fun background() { active = false; historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
+    fun background() { active = false; discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         _state.update { it.copy(loading = true, error = null) }
         scope.launch { ready.await(); if (active) { subscribeFeed(); client.connect() } }
     }
-    private fun relayFilters(filters: List<Filter>) = _state.value.relays.associate { it.normalizeRelayUrl() to filters }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
-        if (authors == null) return relayFilters(listOf(Filter(kinds = kinds, limit = limit, until = until)))
+        if (authors == null) return routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
         return Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
             .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }
     }
     private fun discoverRelays() {
         val s = state.value
         val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
-        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999)).distinct()
+        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
         if (authors.isEmpty()) client.unsubscribe("relay-lists")
-        else client.subscribe("relay-lists", relayFilters(listOf(Filter(authors = authors, kinds = listOf(10002), limit = authors.size))), listener)
+        else client.subscribe("relay-lists", routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(authors = authors, kinds = listOf(10002), limit = authors.size)) }, listener)
     }
     private fun updateRoutingPool() {
+        val own = relayLists[state.value.publicKey]
+        val personal = (own?.read.orEmpty() + own?.write.orEmpty()).distinct().filter(::healthy).take(4)
+        val seeds = (RelayDefaults.seeds.drop(seedOffset) + RelayDefaults.seeds.take(seedOffset)).filter(::healthy)
+            .ifEmpty { RelayDefaults.seeds }
+        // Keep a bootstrap route for finding relay-list updates beyond the account's own relays.
+        val base = (personal.take(3) + seeds.take(4 - personal.take(3).size)).distinct()
+        _state.update { it.copy(relays = base) }
         val s = state.value
         val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
         val priority = (relayLists[viewedProfile]?.write.orEmpty().take(2) +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
-            relayLists[s.publicKey]?.write.orEmpty().take(2)).distinct()
-        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999)).distinct()
-        val popular = Outbox.readRoutes(authors, relayLists, s.relays).keys
+            own?.read.orEmpty() + own?.write.orEmpty()).distinct().filter(::healthy)
+        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
+        val usableLists = relayLists.mapValues { (_, list) -> Outbox.RelayList(list.read.filter(::healthy), list.write.filter(::healthy)) }
+        val popular = Outbox.readRoutes(authors, usableLists, s.relays).keys
         val next = (s.relays + (priority + popular).distinct().filter { it !in s.relays }.take(8)).toSet()
         if (next != routingPool) {
             routingPool = next
@@ -135,9 +166,11 @@ class FeatherRepository(context: Context) {
             client.unsubscribe("profiles")
         }
     }
+    @Synchronized
     private fun subscribeFeed() {
-        val s = _state.value
+        if (!active) return
         updateRoutingPool()
+        val s = _state.value
         discoverRelays()
         s.publicKey?.let { client.subscribe("account", authorFilters(listOf(it), listOf(0, 3), 2), listener) }
             ?: client.unsubscribe("account")
@@ -145,7 +178,7 @@ class FeatherRepository(context: Context) {
         client.subscribe("feed", authorFilters(authors, listOf(1), 80), listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
-        refreshTimeout?.cancel()
+        if (refreshTimeout?.isActive == true) return
         refreshTimeout = scope.launch {
             delay(12_000)
             _state.update { it.copy(loading = false, error = if (it.connected.isEmpty()) "No relay connection. Cached notes are still available." else it.error) }
@@ -212,15 +245,6 @@ class FeatherRepository(context: Context) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
         _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet()) }
         snapshot(); if (active) subscribeFeed()
-    }
-    fun setRelays(text: String) {
-        val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
-        require(lines.size in 1..4 && lines.all { Protocol.relay(it) != null }) { "Use one to four wss:// relay addresses, one per line." }
-        val relays = lines.mapNotNull(Protocol::relay).distinct()
-        prefs.edit().putString("relays", relays.joinToString("\n")).apply()
-        client.disconnect()
-        _state.update { it.copy(relays = relays, connected = emptySet(), loading = true, error = null) }
-        refresh()
     }
     fun viewProfile(key: String?) { if (viewedProfile == key) return; viewedProfile = key; changed.tryEmit(Unit); if (key == null) client.unsubscribe("profile"); if (active) subscribeFeed() }
     private fun subscribeProfile(key: String) {

@@ -2,7 +2,7 @@ package org.dergigi.feather
 
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
-/** NIP-65 routing. Unknown, invalid, or unselected routes fall back to configured relays. */
+/** NIP-65 routing. Unknown, invalid, or unselected routes fall back to automatically selected base relays. */
 object Outbox {
     data class RelayList(val read: List<String>, val write: List<String>)
 

@@ -4,8 +4,7 @@ A release is complete when both the signed GitHub APK and Zapstore publication e
 
 - Version name follows SemVer; Android versionCode always increases.
 - Keep a Changelog entry includes date, user-visible changes, and important limitations.
-- Run protocol tests, Android Lint, and the optimized release build.
-- Smoke-test the release APK, including startup, cached feed, account/profile UI, and relay settings.
+- Build the optimized signed release APK. Run additional checks only when requested or needed to investigate a concrete issue.
 - Verify APK signature using Android build-tools `apksigner verify --verbose --print-certs`.
 - Commit with Conventional Commits, tag `vX.Y.Z`, push master and tag.
 - Publish signed APK plus SHA256SUMS to GitHub.

@@ -14,14 +14,16 @@ A small, native Android reader for Nostr. White space, a chronological feed, and
 - Pull to refresh; the top bar hides/shows after 32 dp of directional scrolling.
 - Open images in a full-screen gallery with swipe, zoom, background switching, save, and share.
 - Use icon-only controls with screen-reader descriptions; notes and profile content remain text.
-- Choose up to four discovery relays; share up to eight additional discovered relays across subscriptions.
+- Use your profile’s relay set automatically, with twelve seed candidates and background outbox discovery; no relay configuration.
 - Automatically load avatars and inline images; autoplay one visible video, muted.
 - Cache media aggressively with a selectable 128 MB–2 GB disk budget (512 MB default).
 - Cache recent notes locally and pause relay connections and media work in the background.
 
 No account creation, npub login, key import, posting, replying, follow editing, profile search, DMs, wallet, zaps, reactions, media uploads, push notifications, or analytics. Signer login requests no event-signing or encryption permissions. The app renders images and progressive video from HTTPS links and NIP-92 metadata, up to four attachments per note. Other links open externally. Initials remain as avatar fallbacks. Following subscriptions cover up to 1,000 authors including your account.
 
-Outbox routing selects up to two write relays per author within the shared connection budget, preferring relays covering multiple authors and the current profile/conversation. Authors without a usable selected route fall back to configured relays. Conversation queries include the author’s advertised read relays within the same budget. Kind-10002 metadata is signature-verified and cached. Authenticated relays and exhaustive retrieval are not supported.
+Feather favors convention over configuration. White account and settings sheets keep the interface quiet; only the media cache budget is configurable. Twelve seed candidates bootstrap a shared pool of up to four base and eight additional routes. Your signed relay list takes priority. Failed routes cool down for two minutes; discovery pauses in the background. NIP-66 monitor reports are not yet used.
+
+Outbox routing selects up to two write relays per author within the shared connection budget, preferring relays covering multiple authors and the current profile/conversation. Authors without a usable selected route fall back to automatically selected routes. Conversation queries include the author’s advertised read relays within the same budget. Kind-10002 metadata is signature-verified and cached. Authenticated relays and exhaustive retrieval are not supported.
 
 ## Stack
 
@@ -62,7 +64,7 @@ OEM_KEY_PASSWORD=...
 Work goes directly to `master` when authorized. Use Conventional Commits and maintain [CHANGELOG.md](CHANGELOG.md). Versions follow Semantic Versioning; increment Android `versionCode` with each published APK.
 
 1. Update `versionName` and `versionCode` in `app/build.gradle.kts`, the website version, and the dated changelog entry.
-2. Run unit tests, lint, and a signed release build. Smoke-test the resulting APK on Android.
+2. Build the signed release APK. Run additional checks when requested or needed for a concrete issue.
 3. Commit `chore: release X.Y.Z`, tag `vX.Y.Z`, and push `master` and the tag.
 4. Create a GitHub release with `feather-X.Y.Z.apk` and its SHA-256 checksum.
 5. Run `./scripts/zapstore-publish.sh`. It uses `zapstore.yaml`, changelog notes, and the same publishing workflow as boris-android.
@@ -80,7 +82,7 @@ python3 -m http.server 4173 --directory website
 
 ## Privacy
 
-Read [the privacy policy](https://feather.dergigi.com/privacy.html). Public events are exchanged directly with configured and discovered Nostr relays; those relays see your IP address and subscription filters. The app has no application backend.
+Read [the privacy policy](https://feather.dergigi.com/privacy.html). Public events are exchanged directly with automatically selected seed and discovered Nostr relays; those relays see your IP address and subscription filters. The app has no application backend.
 
 ## License
 

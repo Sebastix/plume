@@ -104,6 +104,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var profileKey by rememberSaveable { mutableStateOf<String?>(null) }
     var threadId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     var topBarVisible by remember(screen) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
@@ -125,7 +126,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     }
     BackHandler(screen != "feed") { goHome() }
     GalleryHost {
-    MediaHost(mediaStore, reading = screen != "settings") {
+    MediaHost(mediaStore, reading = !showSettings && !showAccount) {
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
@@ -136,8 +137,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (screen == "feed") {
-                    IconButton(onClick = { showAccount = true }) { Icon(Icons.Default.Person, "Account") }
-                    IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, "Settings") }
+                    IconButton(onClick = { showAccount = true }, modifier = Modifier.semantics { contentDescription = "Account" }) {
+                        val account = s.profiles[s.publicKey]
+                        if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 28, account?.picture)
+                        else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
+                    }
+                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", Modifier.size(22.dp)) }
                 }
             }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, actionIconContentColor = Blue, navigationIconContentColor = Blue))
             }
@@ -145,7 +150,6 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         containerColor = Color.White,
     ) { padding ->
         when (screen) {
-            "settings" -> Settings(s, vm, Modifier.padding(padding))
             else -> {
                 val notes = when (screen) {
                     "profile" -> s.notes.filter { it.pubKey == profileKey }
@@ -194,12 +198,19 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
-                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
-                                Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall)
-                                if (!p?.about.isNullOrBlank()) Text(p.about)
-                                SelectionContainer { Text(Protocol.npub(key), style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582)) }
-
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Avatar(p?.name ?: key, 80, p?.picture, openImage = true)
+                                Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                if (!p?.about.isNullOrBlank()) SelectionContainer {
+                                    Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                                IconButton(onClick = {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
+                                }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = Blue) }
                             }
                         }
                         if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
@@ -219,25 +230,43 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             }
         }
     }
+    if (showSettings) {
+        ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = Color.White,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Settings(Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
+        }
+    }
     if (showAccount) {
         var error by remember { mutableStateOf<String?>(null) }
-        AlertDialog(onDismissRequest = { showAccount = false }, icon = { Icon(Icons.Default.Person, "Account") }, text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (s.publicKey != null) {
-                    Text(s.profiles[s.publicKey]?.name ?: FeatherRepository.shortKey(s.publicKey!!))
-                    SelectionContainer { Text(Protocol.npub(s.publicKey!!), style = MaterialTheme.typography.bodySmall) }
+        ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = Color.White,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                val key = s.publicKey
+                val profile = s.profiles[key]
+                if (key != null) {
+                    Avatar(profile?.name ?: FeatherRepository.shortKey(key), 72, profile?.picture)
+                    Text(profile?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }) { Icon(Icons.Default.Person, "View your profile") }
+                        IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account") }
+                    }
+                } else {
+                    Icon(painterResource(R.drawable.feather), null, Modifier.size(64.dp), tint = Color.Unspecified)
+                    FilledTonalIconButton(onClick = {
+                        try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
+                        catch (_: Exception) { error = "Install an Android signer such as Amber first." }
+                    }, modifier = Modifier.size(56.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Connect Android signer") }
                 }
-                FilledTonalIconButton(onClick = {
-                    try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
-                    catch (_: Exception) { error = "Install an Android signer such as Amber first." }
-                }) { Icon(Icons.Default.Person, "Connect Android signer") }
-                if (error != null) {
-                    Text(error!!, color = MaterialTheme.colorScheme.error)
-                    IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Get Amber") }
+                error?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, "Get Amber")
+                    }
                 }
-                if (s.publicKey != null) IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account") }
             }
-        }, confirmButton = { IconButton(onClick = { showAccount = false }) { Icon(Icons.Default.Close, "Close account") } })
+        }
     }
     }
     }
@@ -292,9 +321,7 @@ private fun NoteRow(note: Event, profile: Profile?, onProfile: () -> Unit, onOpe
 }
 
 @Composable
-private fun Settings(state: FeedState, vm: FeatherViewModel, modifier: Modifier) {
-    var relays by remember(state.relays) { mutableStateOf(state.relays.joinToString("\n")) }
-    var error by remember { mutableStateOf<String?>(null) }
+private fun Settings(modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -302,8 +329,8 @@ private fun Settings(state: FeedState, vm: FeatherViewModel, modifier: Modifier)
     val resources by mediaStore.resources.collectAsStateWithLifecycle()
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        item {
+    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.storage), "Media cache storage", tint = Blue)
                 Spacer(Modifier.width(16.dp))
@@ -316,14 +343,9 @@ private fun Settings(state: FeedState, vm: FeatherViewModel, modifier: Modifier)
                 onValueChangeFinished = { scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[selectedBudget]) } })
             mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-        item {
-            OutlinedTextField(relays, { relays = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Discovery relays, up to four secure WebSocket addresses, one per line" }, minLines = 4, isError = error != null)
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                FilledTonalIconButton(onClick = { try { vm.repo.setRelays(relays); error = null } catch (e: IllegalArgumentException) { error = e.message } }) { Icon(Icons.Default.Check, "Save relays") }
-                IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) { Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
+                Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback", tint = Blue)
             }
         }
     }

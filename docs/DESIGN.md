@@ -1,8 +1,16 @@
 # Feather design philosophy
 
-Draft · October 10, 2026
+October 10, 2026
 
 Feather is a native Android reader for Nostr. It should feel immediate, quiet, and beautiful: a white page, a soft blue feather, and room for people’s words. Its small feature set is the foundation of its speed and identity.
+
+## Convention over configuration
+
+Feather should work as soon as it opens. Choose sensible shared defaults and use the conventions already attached to a Nostr identity. Every new preference is a cost in attention, interface complexity, and maintenance. Prefer automatic behavior; add a setting only when a meaningful device or accessibility constraint requires it. No setup wizard, relay editor, or technical dashboard belongs in the reading experience.
+
+Connecting a signer supplies identity; its public relay list and follows supply the reading context. Relay discovery, fallback, and connection recovery happen quietly. People should never need to know a relay address to use Feather. The media cache budget is a deliberate exception: device storage is finite, so keep that one useful control, with a sensible 512 MB default.
+
+Account and settings use standard white bottom sheets, generous spacing, a pale blue accent, and familiar accessible icons. Show the account's avatar in the toolbar. The account sheet presents identity and only the relevant actions; the profile presents the person's image, name, and biography. Public keys are available through a copy action without occupying the page. Avoid raw protocol values and redundant controls.
 
 ## Reading comes first
 
@@ -14,7 +22,7 @@ Feather does not create accounts, import keys, compose notes, send replies, edit
 
 Use familiar icons instead of visible labels wherever an icon can express the action. Refresh by pulling down on the reading list; expose the same action to screen readers without a visible button. Navigation, account access, settings, expansion, conversation, sharing, and confirmation should not introduce interface prose. Avoid screen titles, empty-state slogans, onboarding copy, and explanatory paragraphs inside the app.
 
-The text people came to read remains: notes, names, biographies, timestamps, public keys, and link destinations. Editable relay addresses and media storage amounts are values, not labels. A concise error may explain a failure when an icon cannot tell someone how to recover. Android’s signer chooser and system dialogs retain their platform UI.
+The text people came to read remains: notes, names, biographies, timestamps, public keys, and link destinations. Media storage amounts are values, not labels. A concise error may explain a failure when an icon cannot tell someone how to recover. Android’s signer chooser and system dialogs retain their platform UI.
 
 Every actionable icon needs an accurate accessibility description and a touch target of at least 48 dp. Support TalkBack, large text, and Android navigation. Never make color the only way to identify an action or state. If a feature cannot be understood with familiar controls, simplify its interaction before adding it.
 
@@ -48,13 +56,15 @@ Account access uses an Android NIP-55 signer such as Amber, exclusively. Feather
 
 Existing follows come from the account’s public contact list. Feather never publishes events or changes those follows.
 
-## Relays should be unobtrusive
+## Relays are automatic
 
-Use [NIP-65 relay lists](https://github.com/nostr-protocol/nips/blob/master/65.md) to find people’s notes on their advertised write relays. Use the conversation author’s read relays to help find replies. Verify relay-list events before using them, follow replaceable-event ordering, and fall back to configured relays when discovery provides no usable route.
+Use the account’s signed [NIP-65 relay list](https://github.com/nostr-protocol/nips/blob/master/65.md) automatically. Prioritize its read and write relays, discover followed authors’ write relays, and use a conversation author’s read relays to help find replies. Verify events before using them, respect replaceable-event ordering, and cache relay lists across launches. There is no relay configuration UI; old manual preferences are discarded.
 
-Share a bounded relay pool across feed, profile, metadata, conversation, and history requests. Prioritize the current reading context and relays serving multiple followed authors. Release obsolete subscriptions. Present relay addresses only in settings; outbox routing should not add a new workflow to the feed.
+Keep twelve built-in seed candidates for bootstrap and fallback, selecting up to four base routes at a time. Once the account’s list is available, its relays take priority in the base routes, retaining a seed for discovery. A shared pool adds up to eight routes for the account, current reading context, and authors covered by common outboxes. Route each author's notes through up to two advertised write relays, with automatic fallback when none is usable. Guests also discover relay lists for a bounded sample of visible-feed authors.
 
-The current reader selects up to eight discovered relays in addition to up to four configured discovery relays, and up to two write relays per author. These limits favor a small client over exhaustive retrieval. Secure public relays are supported; authenticated relays and full-history completeness are outside the current scope.
+Reconcile discovery quietly while the app is in the foreground. Failed or refused connections receive a two-minute cooldown; choose another candidate without exposing a relay error or asking the reader to fix anything. Rotate seed batches every thirty seconds when no connection is available or an account's relay list is still missing. Keep healthy guest routes stable. Existing WebSocket heartbeats detect broken connections. Cancel discovery work when the app goes to the background. This is opportunistic recovery, not a guarantee that every relay is live or every note retrievable. Authenticated relays remain outside the reader's scope.
+
+[NIP-66](https://github.com/nostr-protocol/nips/blob/master/66.md) monitor reports may eventually supplement local connection evidence. They are not implemented yet. Before adding them, define trusted independent monitors, freshness limits, and a bounded query budget. Never depend on monitoring data to connect, and never let one monitor silently remove an account's relay set. Lightweight discovery should serve reading, not turn Feather into a relay crawler.
 
 ## Review every addition
 

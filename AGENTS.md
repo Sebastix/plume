@@ -3,6 +3,7 @@
 - Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader only: no publishing, replies, follow editing, profile search, or DMs.
 - Signer-only login (NIP-55, e.g. Amber); no account creation or key import. No signing permissions.
 - Follow docs/DESIGN.md: icon-only interface chrome, accessible descriptions, content-first typography.
+- Convention over configuration: sensible defaults, automatic profile relay sets and discovery, no relay editor or setup wizard. Settings should remain exceptional.
 - Keep features, dependencies, relay subscriptions, and caches small and bounded.
 - Use standard Android components; white backgrounds and Soft Plume blue branding.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.

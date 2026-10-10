@@ -4,8 +4,18 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-10
+
+### Added
+- Automatic relay selection from the account’s NIP-65 relay set, with twelve bootstrap candidates, background outbox discovery for guest-feed authors, and connection-failure cooldowns.
+
 ### Changed
+- Convention over configuration is a core design principle: shared defaults, no relay setup, and only a media cache budget preference.
+- White account and settings bottom sheets, a toolbar account avatar, and a calmer profile header with a copy-key icon.
 - Brand tagline changed to “a lightweight android client” across the website and social preview.
+
+### Removed
+- Manual relay configuration and its saved preferences.
 
 ## [0.3.0] - 2026-10-10
 
@@ -56,7 +66,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dergigi/feather/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dergigi/feather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dergigi/feather/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dergigi/feather/releases/tag/v0.1.0

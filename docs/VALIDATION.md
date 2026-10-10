@@ -30,3 +30,8 @@ Checked locally on October 10, 2026:
 - Website checked in Chromium at 1440px and 390px widths; no horizontal overflow; privacy page loads.
 
 Limits: no physical-device testing or end-to-end Amber approval/public posting test has been performed. Tests do not publish notes or change a real account's follows. Performance observations from an emulator are not device benchmarks.
+
+
+## 0.4.0 — October 10, 2026
+
+Signed optimized release build passed after automatic relay selection and account/settings/profile changes. No additional automated tests or device smoke test, following the requested fast iteration workflow. NIP-66 is documented future work; no monitor-based liveness claims are made.
