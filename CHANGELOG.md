@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-10
+
+### Changed
+- Tap a note's body or surrounding row to open its detail/thread view. Author names, links, media, quoted notes, and action buttons keep their own interactions.
+
 ## [0.5.1] - 2026-10-10
 
 ### Fixed
@@ -86,7 +91,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/dergigi/feather/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/dergigi/feather/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/dergigi/feather/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dergigi/feather/compare/v0.3.0...v0.4.0

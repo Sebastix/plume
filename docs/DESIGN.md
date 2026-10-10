@@ -14,7 +14,7 @@ Account and settings use standard white bottom sheets, generous spacing, a pale 
 
 ## Reading comes first
 
-The main experience is a chronological feed. Hide the top bar after 32 dp of downward scrolling and restore it after 32 dp upward; ignore tiny direction changes and restore it at the top. Open a note to read its conversation; tap its author to read their profile. Preserve the reader’s position when they leave and return. Show cached content promptly, then reconcile relay updates without interrupting reading.
+The main experience is a chronological feed. Hide the top bar after 32 dp of downward scrolling and restore it after 32 dp upward; ignore tiny direction changes and restore it at the top. Tap a note’s body or surrounding row to read its conversation. Preserve independent tap actions for links, media, quote previews, and controls; tap its author to read their profile. Preserve the reader’s position when they leave and return. Show cached content promptly, then reconcile relay updates without interrupting reading.
 
 Feather does not create accounts, import keys, compose notes, send replies, edit follows, search for profiles, or support DMs. There are no wallets, zaps, reactions, engagement counters, recommendations, notifications, or analytics. Feature proposals must justify the attention, network traffic, memory, and maintenance they add.
 

@@ -309,7 +309,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var truncated by remember(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp)) {
+    Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = 24.dp, vertical = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).clickable(onClick = onProfile), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name, picture = profile?.picture); Spacer(Modifier.width(10.dp)); Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
