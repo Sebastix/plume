@@ -323,7 +323,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)
                                             ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))
                                             ProfileTab.REACTIONS -> Icon(Icons.Default.FavoriteBorder, tab.label)
-                                            ProfileTab.HIGHLIGHTS -> Icon(Icons.Default.Edit, tab.label)
+                                            ProfileTab.HIGHLIGHTS -> Icon(painterResource(R.drawable.highlighter), tab.label, Modifier.size(24.dp))
                                         }
                                     })
                                 }
