@@ -1,3 +1,7 @@
+# 0.3.0 validation
+
+Signed release build only, following the requested fast-iteration workflow. No new tests or emulator regression pass were run. The gallery reuses the ants-android implementation, adapted to Feather’s media cache and icon-only controls. Pull-to-refresh uses Material 3; toolbar visibility requires 32 dp of directional user scrolling.
+
 # 0.2.0 validation
 
 Checked locally on October 10, 2026, before the request to skip further tests:

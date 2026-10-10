@@ -6,13 +6,13 @@ Feather is a native Android reader for Nostr. It should feel immediate, quiet, a
 
 ## Reading comes first
 
-The main experience is a chronological feed. Open a note to read its conversation; tap its author to read their profile. Preserve the reader’s position when they leave and return. Show cached content promptly, then reconcile relay updates without interrupting reading.
+The main experience is a chronological feed. Hide the top bar after 32 dp of downward scrolling and restore it after 32 dp upward; ignore tiny direction changes and restore it at the top. Open a note to read its conversation; tap its author to read their profile. Preserve the reader’s position when they leave and return. Show cached content promptly, then reconcile relay updates without interrupting reading.
 
 Feather does not create accounts, import keys, compose notes, send replies, edit follows, search for profiles, or support DMs. There are no wallets, zaps, reactions, engagement counters, recommendations, notifications, or analytics. Feature proposals must justify the attention, network traffic, memory, and maintenance they add.
 
 ## Content supplies the words
 
-Use familiar icons instead of visible labels wherever an icon can express the action. Navigation, refresh, account access, settings, expansion, conversation, sharing, and confirmation should not introduce interface prose. Avoid screen titles, empty-state slogans, onboarding copy, and explanatory paragraphs inside the app.
+Use familiar icons instead of visible labels wherever an icon can express the action. Refresh by pulling down on the reading list; expose the same action to screen readers without a visible button. Navigation, account access, settings, expansion, conversation, sharing, and confirmation should not introduce interface prose. Avoid screen titles, empty-state slogans, onboarding copy, and explanatory paragraphs inside the app.
 
 The text people came to read remains: notes, names, biographies, timestamps, public keys, and link destinations. Editable relay addresses and media storage amounts are values, not labels. A concise error may explain a failure when an icon cannot tell someone how to recover. Android’s signer chooser and system dialogs retain their platform UI.
 
@@ -34,7 +34,7 @@ Performance claims need measurements from release builds on real devices. Track 
 
 ## Media appears automatically
 
-Load profile pictures and inline images automatically. Reuse a shared image loader, decode to display size, and prefetch only the next few notes. Preserve fixed media space while content loads so the feed does not jump. Show initials while an avatar is unavailable. Tap an image to open its original, never as a prerequisite for loading it.
+Load profile pictures and inline images automatically. Reuse a shared image loader, decode to display size, and prefetch only the next few notes. Preserve fixed media space while content loads so the feed does not jump. Show initials while an avatar is unavailable. Tap an image to open the full-screen gallery, never as a prerequisite for loading it. Reuse the gallery behavior from ants-android and boris-android: swiping, pinch/double-tap zoom, background switching, and image save/share actions. Keep search out of the reader. Gallery controls remain icons, with a numeric page counter.
 
 Autoplay a mostly visible video, muted by default. Keep one player and decoder active across the reading screen; choose the video nearest its center. Stop off-screen and background playback. Reuse standard Android media controls and provide an accessible sound toggle.
 

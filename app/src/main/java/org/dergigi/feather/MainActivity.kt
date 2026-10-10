@@ -10,6 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
@@ -26,10 +30,15 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.boundsInWindow
@@ -39,6 +48,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.LinkAnnotation
@@ -94,6 +105,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var threadId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    var topBarVisible by remember(screen) { mutableStateOf(true) }
+    val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
     fun goHome() { screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
     fun openProfile(key: String) { profileKey = key; screen = "profile"; vm.repo.viewProfile(key); vm.repo.viewThread(null) }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -111,21 +124,23 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         vm.repo.viewThread(threadId.takeIf { screen == "thread" })
     }
     BackHandler(screen != "feed") { goHome() }
+    GalleryHost {
     MediaHost(mediaStore, reading = screen != "settings") {
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
+            AnimatedVisibility(topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
                 Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (screen == "feed") {
-                    IconButton(onClick = vm.repo::refresh, enabled = !s.loading) { Icon(Icons.Default.Refresh, "Refresh feed", tint = Blue) }
                     IconButton(onClick = { showAccount = true }) { Icon(Icons.Default.Person, "Account") }
                     IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, "Settings") }
                 }
             }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, actionIconContentColor = Blue, navigationIconContentColor = Blue))
+            }
         },
         containerColor = Color.White,
     ) { padding ->
@@ -138,34 +153,68 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     else -> s.notes.filter { !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
                 }
                 val activeListState = if (screen == "feed") listState else rememberLazyListState()
+                val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
+                    object : NestedScrollConnection {
+                        private var distance = 0f
+                        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                            if (source != NestedScrollSource.UserInput) return Offset.Zero
+                            if (!activeListState.canScrollBackward) {
+                                topBarVisible = true; distance = 0f
+                                return Offset.Zero
+                            }
+                            val delta = consumed.y
+                            if (delta == 0f) return Offset.Zero
+                            if (distance * delta < 0f) distance = 0f
+                            distance += delta
+                            if (distance <= -scrollThreshold) { topBarVisible = false; distance = 0f }
+                            else if (distance >= scrollThreshold) { topBarVisible = true; distance = 0f }
+                            return Offset.Zero
+                        }
+                    }
+                }
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
                 PrefetchMedia(notes, s.profiles, activeListState, widthPx)
-                LazyColumn(Modifier.padding(padding).fillMaxSize().onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(bottom = 24.dp)) {
-                    if (screen == "profile") item("profile-header") {
-                        val key = profileKey!!
-                        val p = s.profiles[key]
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Avatar(p?.name ?: key, 56, p?.picture)
-                            Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall)
-                            if (!p?.about.isNullOrBlank()) Text(p.about)
-                            SelectionContainer { Text(Protocol.npub(key), style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582)) }
+                var refreshing by remember(screen) { mutableStateOf(false) }
+                LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
+                val refresh = {
+                    if (!s.loading) { refreshing = true; vm.repo.refresh() }
+                }
+                PullToRefreshBox(
+                    isRefreshing = refreshing && s.loading,
+                    onRefresh = refresh,
+                    modifier = Modifier.padding(padding).fillMaxSize().nestedScroll(toolbarScroll).semantics {
+                        customActions = listOf(
+                            CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
+                            CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
+                        )
+                    },
+                ) {
+                    LazyColumn(Modifier.fillMaxSize().onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(bottom = 24.dp)) {
+                        if (screen == "profile") item("profile-header") {
+                            val key = profileKey!!
+                            val p = s.profiles[key]
+                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
+                                Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.headlineSmall)
+                                if (!p?.about.isNullOrBlank()) Text(p.about)
+                                SelectionContainer { Text(Protocol.npub(key), style = MaterialTheme.typography.bodySmall, color = Color(0xFF647582)) }
 
+                            }
                         }
-                    }
-                    if (s.loading) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
-                    s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
-                    if (notes.isEmpty() && !s.loading) item("empty") {
-                        Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(painterResource(R.drawable.feather), "No notes yet", Modifier.size(64.dp), tint = Color.Unspecified)
-                            IconButton(onClick = vm.repo::refresh) { Icon(Icons.Default.Refresh, "Refresh") }
+                        if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
+                        s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
+                        if (notes.isEmpty() && !s.loading) item("empty") {
+                            Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(painterResource(R.drawable.feather), "No notes yet", Modifier.size(64.dp), tint = Color.Unspecified)
+                            }
                         }
+                        items(notes, key = { it.id }) { note ->
+                            NoteRow(note, s.profiles[note.pubKey], onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
+                            HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 20.dp))
+                        }
+                        if (notes.isNotEmpty() && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
                     }
-                    items(notes, key = { it.id }) { note ->
-                        NoteRow(note, s.profiles[note.pubKey], onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
-                        HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 20.dp))
-                    }
-                    if (notes.isNotEmpty() && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
                 }
             }
         }
@@ -191,13 +240,15 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         }, confirmButton = { IconButton(onClick = { showAccount = false }) { Icon(Icons.Default.Close, "Close account") } })
     }
     }
+    }
 }
 
 @Composable
-private fun Avatar(name: String, size: Int = 36, picture: String? = null) {
+private fun Avatar(name: String, size: Int = 36, picture: String? = null, openImage: Boolean = false) {
+    val openGallery = LocalOpenGallery.current
     Box(Modifier.size(size.dp).background(Mist, CircleShape), contentAlignment = Alignment.Center) {
         Text(name.take(1).uppercase(), color = Blue, fontWeight = FontWeight.Medium)
-        RemoteImage(picture, Modifier.fillMaxSize().clip(CircleShape), avatar = true)
+        RemoteImage(picture, Modifier.fillMaxSize().clip(CircleShape).then(if (openImage && picture != null) Modifier.clickable(onClickLabel = "Open profile picture") { openGallery(listOf(picture), 0) } else Modifier), avatar = true)
     }
 }
 

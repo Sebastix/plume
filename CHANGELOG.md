@@ -4,6 +4,17 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-10
+
+### Added
+- Full-screen image gallery adapted from ants-android and boris-android: swipe between images, pinch and double-tap zoom, black/white/gray backgrounds, save, share, copy URL, and external opening.
+- Gallery for note images and profile pictures, reusing the existing media cache. Video playback pauses while the gallery is open.
+
+### Changed
+- Top bar hides after scrolling down 32 dp and reappears after scrolling up 32 dp, with a short animation and automatic restoration at the top.
+- Pull down to refresh feeds, profiles, and conversations, including empty lists. Removed the toolbar and empty-state refresh buttons.
+- Added a screen-reader refresh action without a visible label.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added
@@ -42,6 +53,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/dergigi/feather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dergigi/feather/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dergigi/feather/releases/tag/v0.1.0

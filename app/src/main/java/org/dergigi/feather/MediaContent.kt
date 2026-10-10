@@ -16,7 +16,7 @@ object MediaContent {
         it
     }.getOrNull() }
 
-    fun attachments(event: Event): List<Attachment> {
+    fun attachments(event: Event, limit: Int = 4): List<Attachment> {
         val metadata = event.tags.filter { it.firstOrNull() == "imeta" }.take(32).mapNotNull { tag ->
             val fields = tag.drop(1).mapNotNull { entry ->
                 val split = entry.indexOf(' ')
@@ -38,7 +38,7 @@ object MediaContent {
             val dimensions = fields["dim"]?.split('x')?.mapNotNull(String::toFloatOrNull)
             val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.coerceIn(.6f, 2f) ?: (16f / 9f)
             Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500))
-        }.take(4).toList()
+        }.take(limit.coerceIn(1, 32)).toList()
     }
     fun text(event: Event, attachments: List<Attachment>): String {
         val mediaUrls = attachments.map { it.url }.toSet()

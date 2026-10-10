@@ -11,6 +11,8 @@ A small, native Android reader for Nostr. White space, a chronological feed, and
 - Browse a public feed or connect one account through an Android NIP-55 signer such as Amber.
 - Read your existing following feed, profiles, and conversations.
 - Discover NIP-65 relay lists and read authors from their advertised write relays.
+- Pull to refresh; the top bar hides/shows after 32 dp of directional scrolling.
+- Open images in a full-screen gallery with swipe, zoom, background switching, save, and share.
 - Use icon-only controls with screen-reader descriptions; notes and profile content remain text.
 - Choose up to four discovery relays; share up to eight additional discovered relays across subscriptions.
 - Automatically load avatars and inline images; autoplay one visible video, muted.

@@ -103,17 +103,19 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     val resources by store.resources.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
-    val active = lifecycleState.isAtLeast(Lifecycle.State.STARTED)
+    val galleryVisible = LocalGalleryVisible.current
+    val active = lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible
     val context = LocalContext.current
     val playback = remember(resources, reading) { resources?.takeIf { reading }?.let { VisibleVideoPlayer(context, it) } }
-    DisposableEffect(playback, lifecycle) {
+    DisposableEffect(playback, lifecycle, galleryVisible) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) { playback?.enabled(false); store.background() }
-            if (event == Lifecycle.Event.ON_START) playback?.enabled(true)
+            if (event == Lifecycle.Event.ON_START) playback?.enabled(!galleryVisible)
         }
         lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer); playback?.close() }
+        onDispose { lifecycle.removeObserver(observer) }
     }
+    DisposableEffect(playback) { onDispose { playback?.close() } }
     SideEffect { playback?.enabled(active) }
     CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback), content = content)
 }
@@ -139,7 +141,8 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
 @Composable
 fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>) {
     val media = LocalMedia.current
-    val context = LocalContext.current
+    val openGallery = LocalOpenGallery.current
+    val gallery = remember(note.id) { MediaContent.attachments(note, limit = 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { it.url } }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         attachments.forEach { attachment ->
             key(attachment.url) {
@@ -152,7 +155,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>) {
                         if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat())
                     }) {
                     if (attachment.kind == MediaContent.Kind.IMAGE) {
-                        RemoteImage(attachment.url, Modifier.fillMaxSize().clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(attachment.url))) } }, attachment.alt ?: "Image", crop = false)
+                        RemoteImage(attachment.url, Modifier.fillMaxSize().clickable(onClickLabel = "Open image gallery") { openGallery(gallery, gallery.indexOf(attachment.url)) }, attachment.alt ?: "Image", crop = false)
                     } else {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
                         if (selected && playback.player != null) {
