@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Center the expand/collapse chevron below note text.
+
 ## [0.9.1] - 2026-10-10
 
 ### Changed

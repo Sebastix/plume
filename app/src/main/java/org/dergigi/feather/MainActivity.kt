@@ -449,7 +449,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Spacer(Modifier.height(12.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference, compact)
         }
-        if (expanded || truncated) IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
+        if (expanded || truncated) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
         YouTubePreviews(note.content)
             }
