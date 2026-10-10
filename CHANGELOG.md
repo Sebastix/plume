@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-10
+
 ### Added
 - Rich Open Graph link cards with preview images, titles, descriptions, and source domains; fall back to Twitter/HTML metadata and retain YouTube cards. Fetch and parse in the background with bounded local caching.
 - Include NIP-18 text-note reposts in the main feed and pagination. Show a repost icon and the reposter’s name above the original note; reuse verified enclosed originals or resolve them from relays.
@@ -219,7 +221,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/dergigi/feather/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/dergigi/feather/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/dergigi/feather/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/dergigi/feather/compare/v0.8.2...v0.8.3

@@ -169,3 +169,7 @@ Open Graph fetches use a separate dispatcher, a two-request semaphore, same-key 
 Reposts are included in live subscriptions, local snapshots, historical queries, and cache pruning. Enclosed originals are parsed and independently verified off-main; e/p tags constrain the target. Missing originals use the existing bounded embedded-event discovery. Original-note media keys include the repost ID to avoid collisions between repeated appearances. Tapping a resolved repost hands the original directly to thread view.
 
 Volume gestures clear the player's mute, restore full player gain, and change only discrete Android media-volume steps; brightness and seek gestures remain independent. Relative timestamps start in compact mode, retain explicit US grouping for block height, and schedule their next update at the next visible unit boundary. Offscreen/background effects are canceled. All changes remain unreleased at the user's request.
+
+## 0.10.0 — October 10, 2026
+
+Signed optimized release build passed for rich Open Graph previews, text-note reposts, relative timestamps and timestamp cycling, fullscreen media-volume gestures, and the accumulated gallery/profile/expand-control refinements. Verified APK version 0.10.0 (code 23) and the existing signing certificate. No automated tests were run; the user validates on-device through Zapstore.
