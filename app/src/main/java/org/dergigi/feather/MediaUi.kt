@@ -99,7 +99,10 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
     }
     fun bindInline(view: PlayerView) {
         inlineView = view
-        if (!fullscreen && view.player !== player) view.player = player
+        if (!fullscreen) {
+            if (view.player !== player) view.player = player
+            view.setFullscreenButtonState(false)
+        }
     }
     fun unbindInline(view: PlayerView) {
         view.player = null
@@ -244,13 +247,17 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                         if (selected && playback.player != null) {
                             var feedback by remember(identity) { mutableStateOf<VideoFeedback?>(null) }
                             var feedbackTick by remember(identity) { mutableIntStateOf(0) }
+                            var controlsVisible by remember(identity) { mutableStateOf(false) }
                             LaunchedEffect(feedbackTick) { delay(900); feedback = null }
-                            AndroidView(factory = { GestureVideoView(it, playback, false) { value -> feedback = value; feedbackTick++ } },
+                            AndroidView(factory = { GestureVideoView(it, playback, false) { value -> feedback = value; feedbackTick++ }.apply {
+                                setFullscreenButtonClickListener { isFullscreen -> if (isFullscreen) playback.enterFullscreen() }
+                                setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility -> controlsVisible = visibility == android.view.View.VISIBLE })
+                            } },
                                 modifier = Modifier.fillMaxSize(),
                                 onRelease = playback::unbindInline,
                                 update = playback::bindInline)
                             VideoGestureFeedback(feedback, Modifier.align(Alignment.Center))
-                            IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.TopStart).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
+                            if (!controlsVisible) IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.BottomEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
                                 Icon(painterResource(R.drawable.fullscreen), "Fullscreen video", tint = MaterialTheme.colorScheme.primary)
                             }
                             IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
