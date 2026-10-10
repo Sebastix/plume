@@ -393,6 +393,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             ProfileTab.PHOTOS -> Icon(painterResource(R.drawable.photos), tab.label, Modifier.size(24.dp))
                                             ProfileTab.VIDEOS -> Icon(Icons.Default.PlayArrow, tab.label)
                                             ProfileTab.BOOKMARKS -> Icon(painterResource(R.drawable.bookmark), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.APPS -> Icon(painterResource(R.drawable.apps), tab.label, Modifier.size(24.dp))
                                         }
                                     })
                                 }
@@ -432,7 +433,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 }
                             }
                         } else items(notes, key = { it.id }) { note ->
-                            if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                            if (note.kind == 32267) SoftwareAppCard(note)
+                            else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                 openNote(original)
                             } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))

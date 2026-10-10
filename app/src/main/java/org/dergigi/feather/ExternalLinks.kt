@@ -25,6 +25,9 @@ internal fun Context.openWebLink(url: String) {
     val host = uri.host?.lowercase(Locale.ROOT)
     val youtube = host == "youtu.be" || host == "youtube.com" || host?.endsWith(".youtube.com") == true ||
         host == "youtube-nocookie.com" || host?.endsWith(".youtube-nocookie.com") == true
+    if (host == "zapstore.dev" && uri.path?.startsWith("/apps/") == true) {
+        if (launch("dev.zapstore.app")) return
+    }
     if (youtube) {
         // Prefer the user's requested lightweight client, then the official app.
         if (launch("org.schabi.newpipe") || launch("com.google.android.youtube")) return

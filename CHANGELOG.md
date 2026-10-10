@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Dynamic Apps profile tab for publisher-signed Zapstore app metadata (kind 32267), with cached icons, name/summary cards, catalog relay discovery, and publisher-specific links opening in Zapstore or the browser.
+- Website dark mode follows the system setting, using Feather’s app palette on the homepage and privacy page.
+
 ## [0.11.1] - 2026-10-11
 
 ### Fixed

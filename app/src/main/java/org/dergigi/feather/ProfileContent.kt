@@ -7,19 +7,20 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
 internal val readableKinds = listOf(1, 20, 9802) + videoKinds
-internal val profileKinds = listOf(1, 7, 9802, 20, 10003, 30003) + videoKinds
+internal val profileKinds = listOf(1, 7, 9802, 20, 10003, 30003, 32267) + videoKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     POSTS(listOf(1), "Posts"), REPLIES(listOf(1), "Replies"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
-    BOOKMARKS(listOf(10003, 30003), "Bookmarks");
+    BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps");
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
         PHOTOS -> MediaContent.attachments(event, 32).any { it.kind == MediaContent.Kind.IMAGE }
         VIDEOS -> MediaContent.attachments(event, 32).any { it.kind == MediaContent.Kind.VIDEO }
         BOOKMARKS -> bookmarkReferences(event).isNotEmpty()
+        APPS -> !event.tagValue("d").isNullOrBlank()
         else -> true
     }
 }
@@ -50,7 +51,7 @@ internal fun latestProfileEvents(events: List<Event>): List<Event> = events
     .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
     .distinctBy { event -> when {
         event.kind == 10003 -> "${event.kind}:${event.pubKey}"
-        event.kind in listOf(30003, 34235, 34236) -> "${event.kind}:${event.pubKey}:${event.tagValue("d").orEmpty()}"
+        event.kind in listOf(30003, 34235, 34236, 32267) -> "${event.kind}:${event.pubKey}:${event.tagValue("d").orEmpty()}"
         else -> event.id
     } }
 

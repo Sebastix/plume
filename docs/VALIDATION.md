@@ -213,3 +213,9 @@ Removed the full-width author-row profile click target from embedded cards. Only
 ## 0.11.1 — October 11, 2026
 
 Signed optimized release build passed for gallery swiping across loaded profile photos, own-profile settings visibility, and embedded-note tap targets. Verified APK version 0.11.1 (code 26) and the existing signing certificate. No automated tests or device checks were run; the user validates live through Zapstore.
+
+## Apps tab and website dark mode — October 11, 2026
+
+Debug build passed. Read-only author-filtered kind-32267 queries to Zapstore returned Feather, ants, Boris, FishyFishy, and Offline Entropy Manual with app identifiers and icons. Checked Zapstore’s manifest/package and naddr route handling in its official source. Metadata parsing/link encoding run on Default; app icons use existing background fetching/cache limits. The catalog subscription is profile-scoped and pagination includes the catalog relay. No automated tests or Android app-handoff checks were run.
+
+Website theme uses prefers-color-scheme CSS with the Android palette, explicit light/dark theme-color metadata, and matching foreground/button colors on both HTML pages. No JavaScript or theme setting added. Source and deployment checks only; no browser visual checks were run.

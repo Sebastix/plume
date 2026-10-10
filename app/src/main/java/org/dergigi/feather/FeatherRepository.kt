@@ -174,8 +174,10 @@ class FeatherRepository(context: Context) {
     }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
         if (authors == null) return routingPool.filter { it != "wss://purplepag.es" }.associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
-        return Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
+        val routes = Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
             .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }
+        return if (32267 in kinds) routes + (ZAPSTORE_RELAY.normalizeRelayUrl() to
+            listOf(Filter(authors = authors, kinds = listOf(32267), limit = limit, until = until))) else routes
     }
     private fun discoverRelays() {
         val s = state.value
@@ -405,7 +407,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
+        for ((kind, max) in listOf(32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -424,7 +426,7 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet()) }
         snapshot(); if (active) subscribeFeed()
     }
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity") }; if (active) subscribeFeed() }
+    fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
@@ -436,6 +438,9 @@ class FeatherRepository(context: Context) {
     }
     private fun subscribeProfile(key: String) {
         discoverRelays()
+        // Apps are commonly published only to the catalog relay, not personal write relays.
+        client.subscribe("profile-apps", mapOf(ZAPSTORE_RELAY.normalizeRelayUrl() to
+            listOf(Filter(kinds = listOf(32267), authors = listOf(key), limit = if (profileTab == ProfileTab.APPS) 80 else 8))), listener)
         val routes = authorFilters(listOf(key), listOf(1), 80).keys
         // Separate kind filters keep ordinary notes from starving dedicated media posts.
         client.subscribe("profile", routes.associateWith {

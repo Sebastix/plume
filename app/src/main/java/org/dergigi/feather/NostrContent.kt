@@ -51,6 +51,7 @@ object NostrContent {
     fun references(event: Event): List<Reference> = referenceCache.getOrPut(event.id) { parseReferences(event) }
 
     private fun parseReferences(event: Event): List<Reference> {
+        if (event.kind == 32267) return emptyList()
         // Repost content is an encoded event, not user-facing text to tokenize.
         if (event.kind in listOf(6, 10003, 30003)) return activityReferences(event)
         return (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
