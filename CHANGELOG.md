@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Hide the image counter and previous/next arrows in galleries containing only one image.
 - Preserve the current scroll position and toolbar visibility when tapping or swiping between profile tabs.
 - Center the expand/collapse chevron below note text.
 

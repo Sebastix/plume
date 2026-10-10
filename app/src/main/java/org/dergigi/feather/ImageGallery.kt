@@ -141,7 +141,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, onPage: (Int) ->
                     }
                 }
             }
-            Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (urls.size > 1) Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous image", tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
                 Text("${pager.currentPage + 1} / ${urls.size}", color = foreground, modifier = Modifier.padding(horizontal = 16.dp))
                 IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next image", tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
