@@ -59,6 +59,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("org.jsoup:jsoup:1.23.1")
     implementation("com.mikepenz:multiplatform-markdown-renderer-android:0.35.0")
     implementation("io.coil-kt.coil3:coil-compose:3.6.3")
     implementation("io.coil-kt.coil3:coil-gif:3.6.3")

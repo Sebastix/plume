@@ -119,15 +119,7 @@ private object YouTubeMetadata {
 }
 
 @Composable
-internal fun YouTubePreviews(content: String, limit: Int = 2) {
-    val links by produceState(emptyList<YouTubeLink>(), content, limit) {
-        value = withContext(Dispatchers.Default) { YouTubeLinks.parse(content, limit) }
-    }
-    links.forEach { link -> key(link.id) { YouTubePreview(link) } }
-}
-
-@Composable
-private fun YouTubePreview(link: YouTubeLink) {
+internal fun YouTubePreview(link: YouTubeLink) {
     val context = LocalContext.current
     val view = LocalView.current
     val media = LocalMedia.current

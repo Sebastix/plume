@@ -15,22 +15,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 
 private data class PrefetchImage(val url: String, val avatar: Boolean)
-private data class PrefetchInput(val notes: List<Event>, val profiles: Map<String, Profile>, val visible: List<String>)
+private data class PrefetchInput(val notes: List<Event>, val profiles: Map<String, Profile>, val visible: List<String>, val embedded: Map<String, Event>)
 private data class PrefetchPlan(val upcoming: List<PrefetchImage>, val visible: Set<PrefetchImage>)
 
 /** Parsing and URL planning run off the UI thread. Only two speculative requests run at once. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Composable
-fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: LazyListState, widthPx: Int) {
+fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: LazyListState, widthPx: Int, embedded: Map<String, Event> = emptyMap()) {
     val media = LocalMedia.current
     val context = LocalContext.current.applicationContext
     val currentNotes by rememberUpdatedState(notes)
     val currentProfiles by rememberUpdatedState(profiles)
+    val currentEmbedded by rememberUpdatedState(embedded)
     LaunchedEffect(state, media.resources, media.active, widthPx) {
         val resources = media.resources ?: return@LaunchedEffect
         if (!media.active) return@LaunchedEffect
         val prefetch = MediaPrefetcher(this, resources, context, widthPx)
-        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }) }
+        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, currentEmbedded) }
             .mapLatest { input -> withContext(Dispatchers.Default) { plan(input) } }
             .distinctUntilChanged()
             .collect { prefetch.update(it) }
@@ -41,12 +42,14 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
     val visibleIds = input.visible.toSet()
     val first = input.notes.indexOfFirst { it.id in visibleIds }
     val last = input.notes.indexOfLast { it.id in visibleIds }
-    fun images(note: Event): List<PrefetchImage> =
-        listOfNotNull(input.profiles[note.pubKey]?.picture?.let { PrefetchImage(it, true) }) +
+    fun images(event: Event): List<PrefetchImage> {
+        val note = if (event.kind == 6) input.embedded[repostTarget(event)?.id] ?: return emptyList() else event
+        return listOfNotNull(input.profiles[note.pubKey]?.picture?.let { PrefetchImage(it, true) }) +
             MediaContent.attachments(note).mapNotNull {
                 val url = if (it.kind == MediaContent.Kind.IMAGE) it.url else it.preview
                 url?.let { value -> PrefetchImage(value, false) }
             } + YouTubeLinks.parse(note.content).map { PrefetchImage(it.thumbnail, false) }
+    }
     val upcoming = input.notes.drop(last + 1).take(6) + input.notes.take(first.coerceAtLeast(0)).takeLast(2).asReversed()
     return PrefetchPlan(upcoming.flatMap(::images).filter { MediaContent.secureUrl(it.url) != null }.distinct().take(40),
         input.notes.filter { it.id in visibleIds }.flatMap(::images).toSet())

@@ -221,7 +221,7 @@ class FeatherRepository(context: Context) {
         s.publicKey?.let { client.subscribe("account", authorFilters(listOf(it), listOf(0, 3), 2), listener) }
             ?: client.unsubscribe("account")
         val authors = s.publicKey?.let { (listOf(it) + s.following).take(1000) }
-        client.subscribe("feed", authorFilters(authors, listOf(1), 80), listener)
+        client.subscribe("feed", authorFilters(authors, listOf(1, 6), 80), listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
         viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it), listener) }
@@ -255,7 +255,7 @@ class FeatherRepository(context: Context) {
     }
 
     private suspend fun accept(event: Event, history: Boolean = false): Boolean {
-        if (event.kind !in setOf(0, 1, 3, 7, 9735, 9802, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind !in setOf(0, 1, 3, 6, 7, 9735, 9802, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
             if (verified.containsKey(event.id) && !history) return true
             if (!verified.containsKey(event.id)) {
@@ -266,6 +266,13 @@ class FeatherRepository(context: Context) {
             }
             if (history) olderEvents = (olderEvents + event).distinctBy { it.id }
                 .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).takeLast(600)
+        }
+        if (event.kind == 6 && event.content.isNotBlank()) {
+            val target = repostTarget(event)
+            val original = runCatching { Event.fromJson(event.content) }.getOrNull()
+                ?.takeIf { it.kind == 1 && it.id == target?.id && (target.author == null || it.pubKey == target.author) }
+            // Independently validate the enclosed original on IO before storing/displaying it.
+            if (original != null) accept(original)
         }
         changed.tryEmit(Unit)
         return true
@@ -285,7 +292,7 @@ class FeatherRepository(context: Context) {
         val contact = key?.let { mutex.withLock { db.query<Event>(Filter(kinds = listOf(3), authors = listOf(it), limit = 1)).firstOrNull() } }
         val following = Protocol.follows(contact)
         val feedCeiling = feedUntil
-        val all = timeline(Filter(kinds = listOf(1), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600, until = feedCeiling), state.value.notes, 600)
+        val all = timeline(Filter(kinds = listOf(1, 6), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600, until = feedCeiling), state.value.notes, 600)
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {
                 db.query<Event>(listOf(Filter(kinds = listOf(1, 9802), ids = listOf(id)),
@@ -334,8 +341,13 @@ class FeatherRepository(context: Context) {
         }.orEmpty()
         val bioRefs = bioTokens.mapNotNull { it.reference }.filter { it.hashtag == null }.distinctBy { it.id }
         val bioQuotes = bioRefs.filter { !it.profile && it.external == null }.take(3)
-        val refs = (bioRefs + visible.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
-        val quoteIds = (bioQuotes + visible.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
+        val repostIds = visible.mapNotNull(::repostTarget).map { it.id }.distinct().take(24)
+        val reposts = if (repostIds.isEmpty()) emptyList() else mutex.withLock {
+            db.query<Event>(Filter(ids = repostIds, kinds = listOf(1), limit = 24))
+        }
+        val readingContent = visible + reposts
+        val refs = (bioRefs + readingContent.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
+        val quoteIds = (bioQuotes + readingContent.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
         val embedded = if (quoteIds.isEmpty()) emptyMap() else mutex.withLock {
             db.query<Event>(Filter(ids = quoteIds, kinds = listOf(1, 9802), limit = 24))
         }.associateBy { it.id }
@@ -390,7 +402,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(1 to 2000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
+        for ((kind, max) in listOf(1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -489,16 +501,16 @@ class FeatherRepository(context: Context) {
                 if (!sameScreen()) return@launch
                 val current = state.value
                 val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
-                val kind = if (author != null) tab.kind else 1
+                val kinds = if (author != null) listOf(tab.kind) else if (tag != null) listOf(1) else listOf(1, 6)
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
-                    .filter { it.kind == kind && (authors == null || it.pubKey in authors) }
+                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors) }
                 val oldest = events.minOfOrNull { it.createdAt } ?: return@launch
                 if (oldest <= 0) return@launch
-                val filter = Filter(kinds = listOf(kind), authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
+                val filter = Filter(kinds = kinds, authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
                 val cached = mutex.withLock { db.query<Event>(filter) }
                 var found = cached.isNotEmpty()
                 if (!found) {
-                    val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, listOf(kind), 80, oldest - 1)
+                    val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
                     if (routes.isEmpty()) return@launch
                     val complete = CompletableDeferred<Unit>()
                     val ended = java.util.concurrent.ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()

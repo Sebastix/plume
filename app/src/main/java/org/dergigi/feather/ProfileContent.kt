@@ -15,6 +15,15 @@ enum class ProfileTab(val kind: Int, val label: String) {
 
 internal fun Event.tagValue(name: String): String? = tags.firstOrNull { it.size >= 2 && it[0] == name }?.get(1)
 
+/** NIP-18 text-note reposts resolve via their e/p tags; content may be empty. */
+internal fun repostTarget(event: Event): NostrContent.Reference? {
+    if (event.kind != 6) return null
+    val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" } ?: return null
+    val id = Protocol.publicKey(tag[1]) ?: return null
+    return NostrContent.Reference(id, relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)),
+        author = event.tagValue("p")?.let(Protocol::publicKey), kind = 1)
+}
+
 internal fun reactionTarget(event: Event): NostrContent.Reference? {
     if (event.kind != 7) return null
     val tag = event.tags.lastOrNull { it.size >= 2 && it[0] == "e" } ?: return null
@@ -48,6 +57,7 @@ internal fun highlightSource(event: Event): HighlightSource? {
 }
 
 internal fun activityReferences(event: Event): List<NostrContent.Reference> = when (event.kind) {
+    6 -> listOfNotNull(repostTarget(event))
     7 -> listOfNotNull(reactionTarget(event))
     9802 -> listOfNotNull(highlightAuthor(event)?.let { NostrContent.Reference(it, profile = true) }) +
         listOf("context", "comment").flatMap { NostrContent.tokens(event.tagValue(it).orEmpty(), event).mapNotNull { token -> token.reference } }

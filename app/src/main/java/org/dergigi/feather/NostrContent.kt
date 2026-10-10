@@ -50,12 +50,17 @@ object NostrContent {
     @Synchronized
     fun references(event: Event): List<Reference> = referenceCache.getOrPut(event.id) { parseReferences(event) }
 
-    private fun parseReferences(event: Event): List<Reference> = (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
+    private fun parseReferences(event: Event): List<Reference> {
+        // Repost content is an encoded event, not user-facing text to tokenize.
+        if (event.kind == 6) return activityReferences(event)
+        return (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))
         }).filter { it.hashtag == null }.groupBy { it.id }.values.take(16).map { group ->
             group.first().copy(relays = group.flatMap { it.relays }.distinct().take(2), author = group.firstNotNullOfOrNull { it.author })
         }
+
+    }
 
     fun quotes(event: Event) = references(event).filter { !it.profile && it.external == null && it.id != event.id }.take(3)
 }

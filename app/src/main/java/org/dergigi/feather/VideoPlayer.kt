@@ -8,6 +8,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.media.AudioManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,7 +70,9 @@ internal class GestureVideoView(
     private var startX = 0f
     private var startY = 0f
     private var startPosition = 0L
+    private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var startVolume = 0f
+    private var lastVolumeStep = -1
     private var startBrightness = .5f
     private var seekPosition: Long? = null
     private val slop = ViewConfiguration.get(context).scaledTouchSlop * 2
@@ -112,8 +115,17 @@ internal class GestureVideoView(
                 feedback(VideoFeedback("brightness", "${(brightness * 100).roundToInt()}%"))
             } else {
                 val volume = (startVolume - dy / height.coerceAtLeast(1)).coerceIn(0f, 1f)
-                playback.setVolume(volume)
-                feedback(VideoFeedback("volume", "${(volume * 100).roundToInt()}%"))
+                val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                val step = (volume * maxVolume).roundToInt()
+                // A volume gesture is an explicit request for sound, even after muted autoplay.
+                // Adjust the device media stream as well as clearing the player's mute/gain.
+                playback.setVolume(1f)
+                if (step != lastVolumeStep) {
+                    runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, step, 0) }
+                    lastVolumeStep = step
+                }
+                val actual = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+                feedback(VideoFeedback("volume", "${(actual * 100f / maxVolume).roundToInt()}%"))
             }
             return true
         }
@@ -144,7 +156,9 @@ internal class GestureVideoView(
             axis = 0; seekPosition = null
             startX = event.x; startY = event.y
             startPosition = player?.currentPosition ?: 0L
-            startVolume = player?.volume ?: 0f
+            val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            lastVolumeStep = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            startVolume = lastVolumeStep.toFloat() / maxVolume
             startBrightness = brightnessWindow?.attributes?.screenBrightness?.takeIf { it >= 0f } ?: systemBrightness
         }
         if (nativeTouch) return super.dispatchTouchEvent(event)

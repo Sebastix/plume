@@ -4,7 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Rich Open Graph link cards with preview images, titles, descriptions, and source domains; fall back to Twitter/HTML metadata and retain YouTube cards. Fetch and parse in the background with bounded local caching.
+- Include NIP-18 text-note reposts in the main feed and pagination. Show a repost icon and the reposter’s name above the original note; reuse verified enclosed originals or resolve them from relays.
+
+### Fixed
+- Fullscreen volume swipes explicitly unmute playback and adjust Android’s media volume, with feedback showing the actual device level.
+
 ### Changed
+- Default note timestamps to short relative time (`5h`, `2d`, `1w`). Each tap cycles through date/time, comma-separated block height, and relative time; update relative labels only when visible and active.
 - Hide the image counter and previous/next arrows in galleries containing only one image.
 - Preserve the current scroll position and toolbar visibility when tapping or swiping between profile tabs.
 - Center the expand/collapse chevron below note text.

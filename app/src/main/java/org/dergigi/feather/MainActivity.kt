@@ -193,7 +193,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
                     "thread" -> emptyList()
-                    else -> s.notes.filter { it.kind == 1 && !Protocol.isReply(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
+                    else -> s.notes.filter { ((it.kind == 1 && !Protocol.isReply(it)) || (it.kind == 6 && repostTarget(it) != null)) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
                 }
                     }
                 }
@@ -224,7 +224,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 }
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
-                PrefetchMedia(notes, s.profiles, activeListState, widthPx)
+                PrefetchMedia(notes, s.profiles, activeListState, widthPx, s.embedded)
                 val currentNotes by rememberUpdatedState(notes)
                 LaunchedEffect(activeListState, screen) {
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
@@ -342,7 +342,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         items(notes, key = { it.id }) { note ->
-                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { vm.repo.viewThread(note.id, note); threadId = note.id; screen = "thread" } }, compact = screen != "thread")
+                            if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                                vm.repo.viewThread(original.id, original); threadId = original.id; screen = "thread"
+                            } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { vm.repo.viewThread(note.id, note); threadId = note.id; screen = "thread" } }, compact = screen != "thread")
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                         }
                         if (s.loadingOlder && screen != "thread") item("older-progress") {
@@ -409,13 +411,43 @@ private fun Avatar(name: String, size: Int = 36, picture: String? = null, openIm
 }
 
 @Composable
-private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true) {
+private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> Unit) {
+    Row(Modifier.clickable(onClickLabel = "View reposting profile", onClick = onProfile),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(painterResource(R.drawable.repost), "Reposted by", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(state.profiles[repost.pubKey]?.name ?: FeatherRepository.shortKey(repost.pubKey),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit,
+    onProfile: (String) -> Unit, onOpen: (Event) -> Unit) {
+    val target = remember(repost.id) { repostTarget(repost) } ?: return
+    val original = state.embedded[target.id]?.takeIf { it.kind == 1 }
+    if (original != null) {
+        NoteRow(original, state, onReference, { onProfile(original.pubKey) }, { onOpen(original) }, repost = repost)
+    } else {
+        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            RepostAttribution(repost, state) { onProfile(repost.pubKey) }
+            EmbeddedNote(target, null, state.profiles, repost.id, onReference)
+        }
+    }
+}
+
+@Composable
+private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null) {
     val profile = state.profiles[note.pubKey]
     val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var truncated by remember(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
     Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = 24.dp, vertical = 24.dp)) {
+        if (repost != null) {
+            RepostAttribution(repost, state) { onReference(NostrContent.Reference(repost.pubKey, profile = true)) }
+            Spacer(Modifier.height(12.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).clickable(onClick = onProfile), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name, picture = profile?.picture); Spacer(Modifier.width(10.dp)); Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
@@ -433,7 +465,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 else Text(if (reaction == "-") "−" else reaction.take(80), style = MaterialTheme.typography.titleLarge)
                 reactionTarget(note)?.let { reference ->
                     Spacer(Modifier.height(12.dp))
-                    EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference, compact)
+                    EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
                 }
             }
             else -> {
@@ -444,11 +476,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         quotes.forEach { reference ->
             Spacer(Modifier.height(12.dp))
-            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference, compact)
+            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
         }
         if (expanded || truncated) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
-        if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
-        YouTubePreviews(note.content)
+        if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
+        LinkPreviews(body)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -531,7 +563,7 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                 if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
-                YouTubePreviews(note.content, limit = 1)
+                LinkPreviews(body, limit = 1)
                 }
             }
         }

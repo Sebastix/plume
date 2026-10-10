@@ -159,3 +159,13 @@ Signed optimized release build passed, including the bottom-right fullscreen con
 ## 0.9.1 — October 10, 2026
 
 Debug and signed release builds passed for comma-separated block-height display (`987,654`, without a prefix). Explicit US integer formatting preserves the requested comma separators across device locales; formatting is remembered by height. Verified APK version 0.9.1 (code 22) and the existing signing certificate. No automated tests were run.
+
+## Unreleased reading improvements — October 10, 2026
+
+Debug builds passed for Open Graph cards, NIP-18 text-note reposts, fullscreen volume gestures, and three timestamp modes with relative age as default. Build verification only; no automated tests or device checks were run.
+
+Open Graph fetches use a separate dispatcher, a two-request semaphore, same-key serialization, public-address DNS checks, HTTPS-only redirects, bounded HTML reads, and jsoup parsing on IO. Metadata uses the existing media disk budget and a bounded memory cache. The UI keeps original links clickable and displays a domain fallback if metadata is unavailable.
+
+Reposts are included in live subscriptions, local snapshots, historical queries, and cache pruning. Enclosed originals are parsed and independently verified off-main; e/p tags constrain the target. Missing originals use the existing bounded embedded-event discovery. Original-note media keys include the repost ID to avoid collisions between repeated appearances. Tapping a resolved repost hands the original directly to thread view.
+
+Volume gestures clear the player's mute, restore full player gain, and change only discrete Android media-volume steps; brightness and seek gestures remain independent. Relative timestamps start in compact mode, retain explicit US grouping for block height, and schedule their next update at the next visible unit boundary. Offscreen/background effects are canceled. All changes remain unreleased at the user's request.
