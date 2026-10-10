@@ -92,3 +92,8 @@ Signed optimized release build passed for profile biography reference rendering 
 ## Unreleased compact biographies — October 10, 2026
 
 Debug build passed. Biographies initially lay out at most three lines with ellipsis and retain clickable rich links. An accessible chevron reveals the existing full biography renderer and embedded cards; expansion resets when the profile or biography changes. Hidden cards are composed only when expanded. Short plain biographies have no redundant toggle. No device visual pass or new automated tests were run.
+
+
+## 0.7.2 — October 10, 2026
+
+Signed optimized release build passed for compact profile biographies. Verified APK version 0.7.2 (code 16) and the existing signing certificate. No additional automated tests or device visual pass were run.

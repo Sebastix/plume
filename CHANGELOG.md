@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-10
+
 ### Changed
 - Collapse profile biographies to three lines, with an accessible chevron to expand the full text and embedded event previews.
 
@@ -156,7 +158,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/dergigi/feather/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/dergigi/feather/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dergigi/feather/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dergigi/feather/compare/v0.5.7...v0.6.0
