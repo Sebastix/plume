@@ -102,6 +102,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var profileTab by rememberSaveable(profileKey) { mutableStateOf(ProfileTab.POSTS) }
+    val visibleProfileTabs = remember(profileKey, s.profileTabsFor, s.profileTabs) {
+        ProfileTab.entries.filter { s.profileTabsFor == profileKey && it in s.profileTabs }
+    }
+    LaunchedEffect(profileKey, visibleProfileTabs) {
+        if (visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
+    }
     val listState = rememberLazyListState()
     var topBarVisible by remember(screen, profileKey, hashtag) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
@@ -273,7 +279,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             end = padding.calculateEndPadding(LocalLayoutDirection.current),
                         ) else padding
                     ).fillMaxSize().nestedScroll(toolbarScroll)
-                        .profileTabSwipes(screen == "profile", profileTab, ::selectProfileTab).semantics {
+                        .profileTabSwipes(screen == "profile", visibleProfileTabs, profileTab, ::selectProfileTab).semantics {
                         customActions = listOf(
                             CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
                             CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
@@ -312,9 +318,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                             }
                         }
-                        if (screen == "profile") item("profile-tabs") {
-                            TabRow(selectedTabIndex = profileTab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
-                                ProfileTab.entries.forEach { tab ->
+                        if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
+                            TabRow(selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
+                                visibleProfileTabs.forEach { tab ->
                                     Tab(selected = profileTab == tab, onClick = { selectProfileTab(tab) }, icon = {
                                         when (tab) {
                                             ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)

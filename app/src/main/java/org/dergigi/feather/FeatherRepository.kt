@@ -33,6 +33,8 @@ data class FeedState(
     val threadId: String? = null,
     val threadNotes: List<Event> = emptyList(),
     val profileEvents: List<Event> = emptyList(),
+    val profileTabsFor: String? = null,
+    val profileTabs: Set<ProfileTab> = emptySet(),
     val hashtagNotes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
     val embedded: Map<String, Event> = emptyMap(),
@@ -301,6 +303,18 @@ class FeatherRepository(context: Context) {
         val profileEvents = profile?.let { author ->
             timeline(Filter(kinds = listOf(tab.kind), authors = listOf(author), limit = profileCount, until = profileCeiling), state.value.profileEvents, profileCount)
         }.orEmpty()
+        val availableTabs = profile?.let { author ->
+            val discovered = mutex.withLock {
+                db.query<Event>(listOf(
+                    Filter(kinds = listOf(1), authors = listOf(author), limit = 600),
+                    Filter(kinds = listOf(7), authors = listOf(author), limit = 1),
+                    Filter(kinds = listOf(9802), authors = listOf(author), limit = 1),
+                ))
+            }
+            val events = discovered + profileEvents + olderEvents.filter { it.pubKey == author }
+            val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }.toSet()
+            found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty()
+        }.orEmpty()
         val hashtag = viewedHashtag
         val hashtagCeiling = hashtagUntil
         val hashtagCount = hashtagLimit
@@ -369,7 +383,7 @@ class FeatherRepository(context: Context) {
         relayLists = lists
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.threadNotes.find { it.id == viewedThread }?.pubKey
-        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
+        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
         if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
         else if (active) subscribeReadingData()
     }
@@ -395,7 +409,7 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet()) }
         snapshot(); if (active) subscribeFeed()
     }
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) client.unsubscribe("profile"); if (active) subscribeFeed() }
+    fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
@@ -408,6 +422,13 @@ class FeatherRepository(context: Context) {
     private fun subscribeProfile(key: String) {
         discoverRelays()
         client.subscribe("profile", authorFilters(listOf(key), listOf(profileTab.kind), 80), listener)
+        // Small independent existence probes keep rare kinds from being crowded out by notes.
+        val routes = authorFilters(listOf(key), listOf(1), 80).keys
+        client.subscribe("profile-activity", routes.associateWith {
+            listOf(1, 7, 9802).filter { it != profileTab.kind }.map { kind ->
+                Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else 1)
+            }
+        }, listener)
     }
     fun viewThread(id: String?, clicked: Event? = null) {
         if (viewedThread == id) return

@@ -137,3 +137,8 @@ The main toolbar uses the profile overlay treatment. Feed content extends behind
 ## 0.8.2 — October 10, 2026
 
 Signed optimized release build passed for automatic timeline pagination and the transparent main toolbar. Verified APK version 0.8.2 (code 19) and the existing signing certificate. No automated tests were run; the user tests live through Zapstore.
+
+
+## Dynamic profile tabs — October 10, 2026
+
+Debug build passed. Cached and newly discovered events determine the visible tabs; rare kinds have separate one-event relay probes, excluding the active tab's existing subscription. Posts and replies are classified from discovered kind-1 events. Availability is scoped to the viewed profile and remains stable during that visit. Tab indices and swipes use the filtered tab list, with automatic selection of an available tab when necessary. No automated tests were run; device testing is performed live by the user through Zapstore.

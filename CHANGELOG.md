@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Show profile tabs only for discovered activity: posts, replies, reactions, and highlights. Probe rare kinds independently in the background, and make swipes skip hidden tabs.
+
 ## [0.8.2] - 2026-10-10
 
 ### Changed

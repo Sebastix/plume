@@ -14,8 +14,9 @@ import kotlin.math.abs
 
 /** Horizontal-only recognition leaves vertical scrolling, refresh, taps and long presses alone. */
 @Composable
-internal fun Modifier.profileTabSwipes(enabled: Boolean, selected: ProfileTab, onSelect: (ProfileTab) -> Unit): Modifier {
-    if (!enabled) return this
+internal fun Modifier.profileTabSwipes(enabled: Boolean, tabs: List<ProfileTab>, selected: ProfileTab, onSelect: (ProfileTab) -> Unit): Modifier {
+    if (!enabled || tabs.size < 2) return this
+    val currentTabs by rememberUpdatedState(tabs)
     val currentTab by rememberUpdatedState(selected)
     val select by rememberUpdatedState(onSelect)
     val threshold = with(LocalDensity.current) { 56.dp.toPx() }
@@ -29,7 +30,8 @@ internal fun Modifier.profileTabSwipes(enabled: Boolean, selected: ProfileTab, o
             onDragEnd = {
                 if (abs(distance) >= threshold) {
                     val step = (if (distance < 0f) 1 else -1) * direction
-                    ProfileTab.entries.getOrNull(currentTab.ordinal + step)?.let(select)
+                    val index = currentTabs.indexOf(currentTab)
+                    if (index >= 0) currentTabs.getOrNull(index + step)?.let(select)
                 }
                 distance = 0f
             },
