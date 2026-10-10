@@ -1,0 +1,26 @@
+repository: https://github.com/dergigi/feather
+pubkey: npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc
+release_notes: ./CHANGELOG.md
+name: Feather
+summary: A small, native Android client for Nostr
+description: |
+  Your people. Their notes. Room to breathe.
+
+  Feather is a minimal native Android client for Nostr. Read a chronological
+  following feed, browse profiles, follow people, and publish public notes and
+  replies using an Android signer such as Amber. Recent notes stay cached locally.
+
+  No DMs, wallets, ads, analytics, or background feed service.
+  The first release focuses on text; links open in your browser.
+
+  https://feather.dergigi.com/
+license: MIT
+website: https://feather.dergigi.com/
+icon: ./zapstore-icon.png
+tags:
+  - nostr
+  - social
+  - minimal
+  - android
+metadata_sources:
+  - github

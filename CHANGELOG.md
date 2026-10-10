@@ -5,4 +5,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
-- Initial native Android MVP and Soft Plume identity.
+- Native Kotlin/Compose app with the Soft Plume feather identity and white/light-blue theme.
+- Chronological public and following feeds backed by a bounded local Quartz/SQLite cache.
+- Android signer login, read-only npub accounts, profiles, follows, public notes, and replies.
+- Saved drafts, signature verification, and relay-acknowledged publishing.
+- Up to four configurable secure relays; connections pause in the background.
+- Static website, privacy policy, CI, and GitHub/Zapstore release tooling.
