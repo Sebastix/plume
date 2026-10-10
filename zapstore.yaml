@@ -10,7 +10,9 @@ description: |
   following feed, profiles, and conversations. Connect an Android signer such as
   Amber to read your existing follows. Icon-only controls and NIP-65 outbox routing
   keep reading simple. Images load automatically and visible videos autoplay muted.
-  Recent notes and media stay cached locally, with a configurable storage budget.
+  Profile mentions become tappable names and quoted notes appear inline.
+  Local avatar thumbnails, recent notes, and media stay cached within your chosen
+  storage budget. Settings lives on your profile; relay selection is automatic.
 
   No posting, replying, follow editing, search, DMs, wallets, ads, or analytics.
   Standard Android controls, a white background, and the Soft Plume feather identity.

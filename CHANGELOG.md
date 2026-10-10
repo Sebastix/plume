@@ -4,7 +4,19 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-10
+
+### Added
+- Tappable profile mentions for npub/nprofile references and legacy indexed mentions, resolved to display names.
+- Embedded text-note previews for note/nevent references and quote tags, with relay hints, cached content, and one level of previews. Unsupported event kinds open externally.
+- Local 256-pixel WebP avatar thumbnails sharing the existing image cache budget; original files remain separate for full-size viewing.
+
+### Fixed
+- Profile metadata requests now follow visible notes and nearby content rather than only the newest 100 notes, with a metadata indexer and subscriptions restored after routing changes.
+- Images retry transient failures twice automatically while visible and active.
+
 ### Changed
+- The toolbar has one account icon. Settings and disconnect move to your profile; guests can access settings from the account sheet.
 - Aligned the README, GitHub description, Zapstore summary, and website description metadata with the tagline “a lightweight android client”.
 
 ## [0.4.0] - 2026-10-10
@@ -69,7 +81,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/dergigi/feather/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dergigi/feather/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dergigi/feather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dergigi/feather/compare/v0.1.0...v0.2.0

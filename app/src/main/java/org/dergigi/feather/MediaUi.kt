@@ -128,25 +128,33 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
     val loader = media.resources?.images ?: return
     if (safeUrl == null) return
     val week = if (avatar) System.currentTimeMillis() / (7 * 24 * 60 * 60 * 1000L) else 0L
-    val request = remember(safeUrl, media.active, week) {
+    var retries by remember(safeUrl, media.active) { mutableIntStateOf(0) }
+    var failed by remember(safeUrl, media.active) { mutableStateOf(false) }
+    LaunchedEffect(failed, media.active, retries) {
+        if (failed && media.active && retries < 2) { delay(if (retries == 0) 1_000 else 4_000); failed = false; retries++ }
+    }
+    val request = remember(safeUrl, media.active, week, retries) {
         ImageRequest.Builder(context).data(safeUrl)
             .diskCacheKey(if (avatar) "$safeUrl:avatar:$week" else safeUrl)
             .networkCachePolicy(if (media.active) CachePolicy.ENABLED else CachePolicy.DISABLED)
             .build()
     }
-    AsyncImage(model = request, imageLoader = loader, contentDescription = description, modifier = modifier,
-        contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
+    key(safeUrl, media.active, retries) {
+        AsyncImage(model = request, imageLoader = loader, contentDescription = description, modifier = modifier,
+            onError = { failed = true }, onSuccess = { failed = false },
+            contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
+    }
 }
 
 @Composable
-fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>) {
+fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey: String = note.id) {
     val media = LocalMedia.current
     val openGallery = LocalOpenGallery.current
     val gallery = remember(note.id) { MediaContent.attachments(note, limit = 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { it.url } }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         attachments.forEach { attachment ->
             key(attachment.url) {
-                val identity = "${note.id}:${attachment.url}"
+                val identity = "$mediaKey:${attachment.url}"
                 val playback = media.playback
                 val selected = attachment.kind == MediaContent.Kind.VIDEO && playback?.activeKey == identity
                 DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }

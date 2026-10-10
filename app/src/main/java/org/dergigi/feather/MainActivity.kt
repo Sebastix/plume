@@ -67,6 +67,7 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip55AndroidSigner.api.SignerResult
 import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -108,8 +109,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val listState = rememberLazyListState()
     var topBarVisible by remember(screen) { mutableStateOf(true) }
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    fun goHome() { screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
-    fun openProfile(key: String) { profileKey = key; screen = "profile"; vm.repo.viewProfile(key); vm.repo.viewThread(null) }
+    fun goHome() { vm.repo.openReference(null); screen = "feed"; profileKey = null; threadId = null; vm.repo.viewProfile(null); vm.repo.viewThread(null) }
+    fun openReference(ref: NostrContent.Reference) {
+        if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
+        vm.repo.openReference(ref)
+        if (ref.profile) { profileKey = ref.id; screen = "profile"; vm.repo.viewProfile(ref.id); vm.repo.viewThread(null) }
+        else { threadId = ref.id; screen = "thread"; vm.repo.viewThread(ref.id); vm.repo.viewProfile(null) }
+    }
+    fun openProfile(key: String) { vm.repo.openReference(NostrContent.Reference(key, profile = true)); profileKey = key; screen = "profile"; vm.repo.viewProfile(key); vm.repo.viewThread(null) }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         val data = it.data
         if (it.resultCode == RESULT_OK && data != null) {
@@ -137,12 +144,11 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (screen == "feed") {
-                    IconButton(onClick = { showAccount = true }, modifier = Modifier.semantics { contentDescription = "Account" }) {
+                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = Modifier.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
                         if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 28, account?.picture)
                         else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                     }
-                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", Modifier.size(22.dp)) }
                 }
             }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, actionIconContentColor = Blue, navigationIconContentColor = Blue))
             }
@@ -179,6 +185,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
                 PrefetchMedia(notes, s.profiles, activeListState, widthPx)
+                val currentNotes by rememberUpdatedState(notes)
+                LaunchedEffect(activeListState, screen) {
+                    snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
+                        .distinctUntilChanged().collect { keys ->
+                            val last = currentNotes.indexOfLast { it.id in keys }
+                            vm.repo.readingNotes(keys + if (last >= 0) currentNotes.drop(last + 1).take(3).map { it.id } else emptyList())
+                        }
+                }
                 var refreshing by remember(screen) { mutableStateOf(false) }
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
@@ -207,10 +221,16 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                     Text(p.about, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                                 }
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 IconButton(onClick = {
                                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
                                 }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = Blue) }
+                                if (key == s.publicKey) {
+                                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
+                                    IconButton(onClick = { vm.logout(); goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account", tint = Blue) }
+                                }
+                                }
                             }
                         }
                         if (s.loading && !refreshing) item("progress") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = Sky) }
@@ -221,7 +241,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         items(notes, key = { it.id }) { note ->
-                            NoteRow(note, s.profiles[note.pubKey], onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
+                            NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { threadId = note.id; screen = "thread" })
                             HorizontalDivider(color = Color(0xFFEDF1F4), modifier = Modifier.padding(horizontal = 20.dp))
                         }
                         if (notes.isNotEmpty() && screen != "thread") item("older") { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { IconButton(onClick = { vm.repo.older(profileKey.takeIf { screen == "profile" }) }, enabled = !s.loading) { Icon(Icons.Default.KeyboardArrowDown, "Load older notes") } } }
@@ -258,6 +278,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                         catch (_: Exception) { error = "Install an Android signer such as Amber first." }
                     }, modifier = Modifier.size(56.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Connect Android signer") }
+                    IconButton(onClick = { showAccount = false; showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = Blue) }
                 }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -282,7 +303,8 @@ private fun Avatar(name: String, size: Int = 36, picture: String? = null, openIm
 }
 
 @Composable
-private fun NoteRow(note: Event, profile: Profile?, onProfile: () -> Unit, onOpen: () -> Unit) {
+private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit) {
+    val profile = state.profiles[note.pubKey]
     val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var truncated by remember(note.id) { mutableStateOf(false) }
@@ -297,25 +319,76 @@ private fun NoteRow(note: Event, profile: Profile?, onProfile: () -> Unit, onOpe
         Spacer(Modifier.height(12.dp))
         val attachments = remember(note.id) { MediaContent.attachments(note) }
         val body = remember(note.id) { MediaContent.text(note, attachments) }
-        val content = remember(note.id) {
-            buildAnnotatedString {
-                var offset = 0
-                Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE).findAll(body).take(30).forEach { match ->
-                    val url = match.value.trimEnd('.', ',', ')', ']', '!', '?')
-                    append(body.substring(offset, match.range.first))
-                    withLink(LinkAnnotation.Url(url, TextLinkStyles(style = SpanStyle(color = Blue)))) { append(url) }
-                    offset = match.range.first + url.length
-                }
-                append(body.substring(offset))
-            }
+        val quotes = remember(note.id) { NostrContent.quotes(note) }
+        val content = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
+        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        quotes.forEach { reference ->
+            Spacer(Modifier.height(12.dp))
+            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${note.id}:${reference.id}", onReference)
         }
-        if (body.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         if (expanded || truncated) IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onOpen) { Icon(painterResource(R.drawable.conversation), "Read conversation", Modifier.size(20.dp), tint = Color(0xFF647582)) }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = Color(0xFF647582)) }
+        }
+    }
+}
+
+/** Text and links stay selectable; mention labels update when metadata arrives. */
+@Composable
+private fun richNoteText(body: String, note: Event, profiles: Map<String, Profile>, onReference: (NostrContent.Reference) -> Unit,
+    embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
+    val tokens = remember(body, note.id) { NostrContent.tokens(body, note) }
+    val open by rememberUpdatedState(onReference)
+    return remember(body, tokens, profiles, embeddedIds) {
+        buildAnnotatedString {
+            var offset = 0
+            tokens.forEach { token ->
+                append(body.substring(offset, token.start))
+                val ref = token.reference
+                if (ref != null) {
+                    if (ref.id !in embeddedIds || ref.profile) {
+                        withLink(LinkAnnotation.Clickable(token.text, TextLinkStyles(style = SpanStyle(color = Blue))) { open(ref) }) {
+                            append(if (ref.profile) "@${profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}" else "↗ ${FeatherRepository.shortKey(ref.id)}")
+                        }
+                    }
+                } else if (token.url != null) {
+                    withLink(LinkAnnotation.Url(token.url, TextLinkStyles(style = SpanStyle(color = Blue)))) { append(token.text) }
+                }
+                offset = token.end
+            }
+            append(body.substring(offset))
+        }
+    }
+}
+
+@Composable
+private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit) {
+    Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        color = Mist, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (note == null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = Blue)
+                    Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = Blue)
+                }
+            } else {
+                val profile = profiles[note.pubKey]
+                val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
+                Row(Modifier.fillMaxWidth().clickable { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Avatar(name, 28, profile?.picture)
+                    Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                val attachments = remember(note.id) { MediaContent.attachments(note, limit = 1) }
+                val body = remember(note.id) { MediaContent.text(note, attachments) }
+                val text = richNoteText(body, note, profiles, onReference)
+                if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = 8, overflow = TextOverflow.Ellipsis)
+                // One level only. Deeper references remain links, avoiding recursive network/render work.
+                if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
+            }
         }
     }
 }

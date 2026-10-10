@@ -31,6 +31,7 @@ data class Profile(val name: String, val about: String = "", val picture: String
 data class FeedState(
     val notes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
+    val embedded: Map<String, Event> = emptyMap(),
     val following: Set<String> = emptySet(),
     val publicKey: String? = null,
     val signerPackage: String? = null,
@@ -64,7 +65,20 @@ class FeatherRepository(context: Context) {
     private var refreshTimeout: Job? = null
     @Volatile private var routingPool: Set<String> = emptySet()
     @Volatile private var relayLists: Map<String, Outbox.RelayList> = emptyMap()
+    @Volatile private var visibleIds: List<String> = emptyList()
+    @Volatile private var references: List<NostrContent.Reference> = emptyList()
+    @Volatile private var embeddedIds: List<String> = emptyList()
+    @Volatile private var profileAuthors: List<String> = emptyList()
+    @Volatile private var openedReference: NostrContent.Reference? = null
     private var discoveryJob: Job? = null
+    fun readingNotes(ids: List<String>) {
+        val bounded = ids.distinct().take(32)
+        if (bounded == visibleIds) return
+        visibleIds = bounded
+        changed.tryEmit(Unit)
+    }
+    fun openReference(reference: NostrContent.Reference?) { openedReference = reference }
+
     private var seedOffset = 0
     private val unavailableUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private fun healthy(url: String) = (unavailableUntil[Protocol.relay(url) ?: url] ?: 0) <= android.os.SystemClock.elapsedRealtime()
@@ -131,14 +145,14 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) { subscribeFeed(); client.connect() } }
     }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
-        if (authors == null) return routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
+        if (authors == null) return routingPool.filter { it != "wss://purplepag.es" }.associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
         return Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
             .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }
     }
     private fun discoverRelays() {
         val s = state.value
         val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
-        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
+        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + profileAuthors.take(64) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
         if (authors.isEmpty()) client.unsubscribe("relay-lists")
         else client.subscribe("relay-lists", routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(authors = authors, kinds = listOf(10002), limit = authors.size)) }, listener)
     }
@@ -152,10 +166,12 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(relays = base) }
         val s = state.value
         val threadAuthor = s.notes.find { it.id == viewedThread }?.pubKey
-        val priority = (relayLists[viewedProfile]?.write.orEmpty().take(2) +
+        val priority = (listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+            references.flatMap { it.relays }.distinct().take(2) + relayLists[viewedProfile]?.write.orEmpty().take(2) +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
-            own?.read.orEmpty() + own?.write.orEmpty()).distinct().filter(::healthy)
-        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
+            own?.read.orEmpty() + own?.write.orEmpty() +
+            profileAuthors.take(12).flatMap { relayLists[it]?.write.orEmpty().take(1) }).distinct().filter(::healthy)
+        val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + profileAuthors.take(64) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
         val usableLists = relayLists.mapValues { (_, list) -> Outbox.RelayList(list.read.filter(::healthy), list.write.filter(::healthy)) }
         val popular = Outbox.readRoutes(authors, usableLists, s.relays).keys
         val next = (s.relays + (priority + popular).distinct().filter { it !in s.relays }.take(8)).toSet()
@@ -178,12 +194,29 @@ class FeatherRepository(context: Context) {
         client.subscribe("feed", authorFilters(authors, listOf(1), 80), listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
+        subscribeReadingData()
         if (refreshTimeout?.isActive == true) return
         refreshTimeout = scope.launch {
             delay(12_000)
             _state.update { it.copy(loading = false, error = if (it.connected.isEmpty()) "No relay connection. Cached notes are still available." else it.error) }
         }
     }
+    /** Small batches keep metadata filters within common relay request limits. */
+    private fun subscribeReadingData() {
+        if (!active) return
+        val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + profileAuthors).distinct().take(160)
+        val metadata = routingPool.associate { url ->
+            url.normalizeRelayUrl() to targets.chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) }
+        }.filterValues { it.isNotEmpty() }
+        if (metadata.isEmpty()) client.unsubscribe("profiles")
+        else client.subscribe("profiles", metadata, listener)
+        val ids = embeddedIds.filter { it !in state.value.embedded }
+        if (ids.isEmpty()) client.unsubscribe("embedded")
+        else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
+            it.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = listOf(1), limit = ids.size))
+        }, listener)
+    }
+
     private suspend fun accept(event: Event) {
         if (event.kind !in setOf(0, 1, 3, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return
         mutex.withLock {
@@ -203,14 +236,29 @@ class FeatherRepository(context: Context) {
         viewedProfile?.let { filters += Filter(kinds = listOf(1), authors = listOf(it), limit = 100) }
         viewedThread?.let { filters += Filter(kinds = listOf(1), ids = listOf(it)); filters += Filter(kinds = listOf(1), tags = mapOf("e" to listOf(it)), limit = 100) }
         val all = mutex.withLock { db.query<Event>(filters) }.distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(800)
-        val profiles = mutex.withLock { db.query<Event>(Filter(kinds = listOf(0), limit = 1000)) }.associate { event ->
+        val visible = visibleIds.mapNotNull { id -> all.find { it.id == id } }.ifEmpty { all.take(12) }
+        val refs = visible.flatMap(NostrContent::references).distinctBy { it.id }.take(64)
+        val quoteIds = visible.flatMap(NostrContent::quotes).map { it.id }.distinct().take(24)
+        val embedded = if (quoteIds.isEmpty()) emptyMap() else mutex.withLock {
+            db.query<Event>(Filter(ids = quoteIds, kinds = listOf(1), limit = 24))
+        }.associateBy { it.id }
+        val authors = (listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
+            refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
+            embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
+        val profiles = if (authors.isEmpty()) emptyMap() else mutex.withLock {
+            db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
+        }.associate { event ->
             val data = runCatching { JSONObject(event.content) }.getOrNull()
             event.pubKey to Profile(
                 data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
                 data?.optString("about").orEmpty().take(2000),
-                data?.optString("picture")?.takeIf { it.startsWith("https://") },
+                MediaContent.secureUrl(data?.optString("picture")?.trim()),
             )
         }
+        val readingChanged = references != refs || profileAuthors != authors
+        references = refs
+        embeddedIds = quoteIds
+        profileAuthors = authors
         if (key != _state.value.publicKey) { changed.tryEmit(Unit); return }
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
@@ -218,13 +266,9 @@ class FeatherRepository(context: Context) {
         relayLists = lists
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.notes.find { it.id == viewedThread }?.pubKey
-        _state.update { it.copy(notes = all, profiles = profiles, following = following) }
-        if (active && (following != previous || routesChanged || previousThreadAuthor != all.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
-        if (active) {
-            val missing = (all.take(100).map { it.pubKey } + listOfNotNull(key, viewedProfile)).distinct().filter { it !in profiles }.take(100)
-            if (missing.isNotEmpty()) client.subscribe("profiles", authorFilters(missing, listOf(0), 100), listener)
-            else client.unsubscribe("profiles")
-        }
+        _state.update { it.copy(notes = all, embedded = embedded, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
+        if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != all.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
+        else if (active) subscribeReadingData()
     }
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
@@ -255,7 +299,7 @@ class FeatherRepository(context: Context) {
     private fun subscribeThread(id: String) {
         discoverRelays()
         val author = state.value.notes.find { it.id == id }?.pubKey
-        val routes = (state.value.relays + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
+        val routes = (state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
         val filters = listOf(Filter(ids = listOf(id), kinds = listOf(1)), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))
         client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)
     }

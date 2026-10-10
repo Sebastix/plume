@@ -61,7 +61,7 @@ class MediaStore(private val context: Context) {
                 val images = ImageLoader.Builder(context)
                     .memoryCache { MemoryCache.Builder().maxSizeBytes(minOf(Runtime.getRuntime().maxMemory() * 6 / 100, 64L * 1024 * 1024)).build() }
                     .diskCache(disk)
-                    .components { add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
+                    .components { add(AvatarThumbnails(disk)); add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
                     .build()
                 videos = SimpleCache(File(context.cacheDir, "videos"), LeastRecentlyUsedCacheEvictor(MediaContent.videoBudget(mb)), StandaloneDatabaseProvider(context))
                 // Initializes and trims the cache on IO before any player is created.

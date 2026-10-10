@@ -35,3 +35,8 @@ Limits: no physical-device testing or end-to-end Amber approval/public posting t
 ## 0.4.0 — October 10, 2026
 
 Signed optimized release build passed after automatic relay selection and account/settings/profile changes. No additional automated tests or device smoke test, following the requested fast iteration workflow. NIP-66 is documented future work; no monitor-based liveness claims are made.
+
+
+## 0.5.0 — October 10, 2026
+
+Signed optimized release build passed for visible-note profile fetching, Nostr references, local avatar thumbnails, and profile settings placement. No automated suite or device smoke test was run for this iteration. Original remote media availability remains outside Feather's control. Quoted previews cover kind-1 text notes; unsupported identifiers link externally.

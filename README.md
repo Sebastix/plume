@@ -11,7 +11,7 @@ Read Nostr with a chronological feed and room to breathe.
 ## MVP
 
 - Browse a public feed or connect one account through an Android NIP-55 signer such as Amber.
-- Read your existing following feed, profiles, and conversations.
+- Read your existing following feed, profiles, and conversations, with tappable profile mentions and embedded text-note previews.
 - Discover NIP-65 relay lists and read authors from their advertised write relays.
 - Pull to refresh; the top bar hides/shows after 32 dp of directional scrolling.
 - Open images in a full-screen gallery with swipe, zoom, background switching, save, and share.
@@ -37,7 +37,7 @@ The cache targets 2,000 notes, 1,000 profiles, 10 contact-list events, and 1,100
 
 Settings offers 128 MB, 256 MB, 512 MB, 1 GB, or 2 GB for cached media. The budget is split 25% images / 75% video; decoded-image memory is separately capped at 6% of the app heap or 64 MB, whichever is smaller. Cache indexes and temporary in-flight files add small overhead. Android can reclaim cache storage.
 
-Images load automatically with a shared Coil loader, size-aware decoding, and prefetch of the next three notes. Unchanged avatar URLs refresh through weekly cache keys. One shared Media3 player autoplays the video nearest the center when at least 60% is visible, starts muted, and stops off-screen or in the background. Buffered video bytes persist in the disk cache; unwatched clips are not downloaded in full. Adaptive streams and animated image playback are outside this release.
+Images load automatically with a shared Coil loader, size-aware decoding, and prefetch of the next three notes. Unchanged avatar URLs refresh through weekly cache keys. Locally generated 256-pixel WebP avatar thumbnails share the image cache budget with originals, avoiding repeated large-image decoding. Failed images retry twice automatically. Profile metadata follows visible notes; quote previews are limited to three per note and one nesting level. Settings lives on your profile, leaving only the account avatar in the toolbar. One shared Media3 player autoplays the video nearest the center when at least 60% is visible, starts muted, and stops off-screen or in the background. Buffered video bytes persist in the disk cache; unwatched clips are not downloaded in full. Adaptive streams and animated image playback are outside this release.
 
 ## Build
 

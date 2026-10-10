@@ -10,7 +10,7 @@ Feather should work as soon as it opens. Choose sensible shared defaults and use
 
 Connecting a signer supplies identity; its public relay list and follows supply the reading context. Relay discovery, fallback, and connection recovery happen quietly. People should never need to know a relay address to use Feather. The media cache budget is a deliberate exception: device storage is finite, so keep that one useful control, with a sensible 512 MB default.
 
-Account and settings use standard white bottom sheets, generous spacing, a pale blue accent, and familiar accessible icons. Show the account's avatar in the toolbar. The account sheet presents identity and only the relevant actions; the profile presents the person's image, name, and biography. Public keys are available through a copy action without occupying the page. Avoid raw protocol values and redundant controls.
+Account and settings use standard white bottom sheets, generous spacing, a pale blue accent, and familiar accessible icons. Show only the account's avatar in the toolbar. Open the signed-in profile from that avatar; settings and disconnect belong there. Guests find settings alongside signer login in the account sheet. The account sheet presents identity and only the relevant actions; the profile presents the person's image, name, and biography. Public keys are available through a copy action without occupying the page. Avoid raw protocol values and redundant controls.
 
 ## Reading comes first
 
@@ -32,6 +32,12 @@ Use the Soft Plume feather, white backgrounds, pale blue surfaces, sky-blue acce
 
 Use Android typography and standard Material components. Set comfortable line spacing for notes, keep author details secondary, and separate entries with restrained dividers. Avoid remote fonts and heavy animations. A feed should feel like reading a page rather than operating a dashboard.
 
+## References belong in the conversation
+
+Render Nostr profile mentions as tappable names and quoted text notes as quiet pale-blue previews. Keep ordinary text selectable. Use Quartz to decode NIP-19 identifiers, follow relay hints within the shared connection budget, and verify fetched events before display. Display cached content first. Preview at most three quotes per note and one nesting level; deeper references stay links. Unsupported event kinds open externally. Missing notes retain an unobtrusive reference that can be opened.
+
+Resolve metadata for visible notes and a few upcoming items, including quote authors and profile mentions. Bound requests to 160 profile identities and 24 quoted notes at once; include a metadata indexer within the existing twelve-route budget. Keep metadata requests alive through routing changes. Cache parsed reference lists so scrolling and relay updates do not repeatedly decode the same identifiers.
+
 ## Native and economical
 
 Build with Kotlin, Jetpack Compose, Material 3, and Quartz. Use Coil for images and Android Media3 for video. Reuse platform controls and protocol implementations. Do not build a custom UI renderer or drawing framework.
@@ -48,7 +54,7 @@ Autoplay a mostly visible video, muted by default. Keep one player and decoder a
 
 Cache aggressively on the device. Let the reader choose a total media-storage budget in settings: 128 MB, 256 MB, 512 MB, 1 GB, or 2 GB; default to 512 MB. Reserve one quarter for images and three quarters for video, with least-recently-used eviction. Bound decoded-image memory separately. Reuse cached media across launches; Android may reclaim these cache files when storage is needed.
 
-Avoid adding a media proxy or backend to this release. Direct loading keeps the implementation small, although first loads still download the source image. Avatars at unchanged URLs use weekly cache keys so they can eventually refresh. Video caches fill as playback buffers; the disk budget does not promise a complete offline copy of every clip.
+Avoid adding a media proxy or backend to this release. Direct loading keeps the implementation small, although first loads still download the source image. Avatars at unchanged URLs use weekly cache keys so they can eventually refresh. After loading an avatar, create a 256-pixel square WebP thumbnail on the device. Reuse that derivative for small avatars, sharing the image LRU and budget with separately cached originals. Decode and encode off the UI thread; retry transient image failures twice while active. No image-processing server is needed. Video caches fill as playback buffers; the disk budget does not promise a complete offline copy of every clip.
 
 ## Identity belongs to the signer
 
