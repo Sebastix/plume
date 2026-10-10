@@ -34,7 +34,7 @@ data class FeedState(
     val threadNotes: List<Event> = emptyList(),
     val profileEvents: List<Event> = emptyList(),
     val profileTabsFor: String? = null,
-    val profileTabs: Set<ProfileTab> = emptySet(),
+    val profileTabs: List<ProfileTab> = emptyList(),
     val hashtagNotes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
     val embedded: Map<String, Event> = emptyMap(),
@@ -115,7 +115,7 @@ class FeatherRepository(context: Context) {
         }
         override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
             unavailableUntil.remove(Protocol.relay(relay.url) ?: relay.url)
-            if (forFilters?.any { it.kinds?.any { kind -> kind in listOf(1, 7, 9802) } == true } == true) _state.update { it.copy(loading = false) }
+            if (forFilters?.any { it.kinds?.any { kind -> kind in profileKinds } == true } == true) _state.update { it.copy(loading = false) }
         }
         override fun onClosed(message: String, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
             unavailable(relay.url)
@@ -250,12 +250,12 @@ class FeatherRepository(context: Context) {
         val ids = embeddedIds.filter { it !in state.value.embedded }
         if (ids.isEmpty()) client.unsubscribe("embedded")
         else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
-            it.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = listOf(1, 9802), limit = ids.size))
+            it.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))
         }, listener)
     }
 
     private suspend fun accept(event: Event, history: Boolean = false): Boolean {
-        if (event.kind !in setOf(0, 1, 3, 6, 7, 9735, 9802, 10002) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind !in (profileKinds + listOf(0, 3, 6, 9735, 10002)) || event.content.length > 32_768 || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
             if (verified.containsKey(event.id) && !history) return true
             if (!verified.containsKey(event.id)) {
@@ -295,7 +295,7 @@ class FeatherRepository(context: Context) {
         val all = timeline(Filter(kinds = listOf(1, 6), authors = key?.let { (listOf(it) + following).take(1000) }, limit = 600, until = feedCeiling), state.value.notes, 600)
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {
-                db.query<Event>(listOf(Filter(kinds = listOf(1, 9802), ids = listOf(id)),
+                db.query<Event>(listOf(Filter(kinds = readableKinds, ids = listOf(id)),
                     Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 100)))
             }
             val root = cached.find { it.id == id } ?: state.value.threadNotes.find { it.id == id }
@@ -308,19 +308,20 @@ class FeatherRepository(context: Context) {
         val profileCeiling = profileUntil
         val profileCount = profileLimit
         val profileEvents = profile?.let { author ->
-            timeline(Filter(kinds = listOf(tab.kind), authors = listOf(author), limit = profileCount, until = profileCeiling), state.value.profileEvents, profileCount)
+            latestProfileEvents(timeline(Filter(kinds = tab.kinds, authors = listOf(author), limit = profileCount, until = profileCeiling), state.value.profileEvents, profileCount))
         }.orEmpty()
         val availableTabs = profile?.let { author ->
             val discovered = mutex.withLock {
-                db.query<Event>(listOf(
-                    Filter(kinds = listOf(1), authors = listOf(author), limit = 600),
-                    Filter(kinds = listOf(7), authors = listOf(author), limit = 1),
-                    Filter(kinds = listOf(9802), authors = listOf(author), limit = 1),
-                ))
+                db.query<Event>(profileKinds.map { kind ->
+                    Filter(kinds = listOf(kind), authors = listOf(author), limit = 600)
+                })
             }
-            val events = discovered + profileEvents + olderEvents.filter { it.pubKey == author }
-            val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }.toSet()
-            found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty()
+            val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.pubKey == author })
+            val frequencies = ProfileTab.entries.associateWith { candidate -> events.count(candidate::matches) }
+            val found = frequencies.filterValues { it > 0 }.keys
+            (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
+                .sortedWith(compareBy<ProfileTab> { when (it) { ProfileTab.POSTS -> 0; ProfileTab.REPLIES -> 1; else -> 2 } }
+                    .thenByDescending { frequencies[it] ?: 0 }.thenBy { it.ordinal })
         }.orEmpty()
         val hashtag = viewedHashtag
         val hashtagCeiling = hashtagUntil
@@ -346,12 +347,14 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(ids = repostIds, kinds = listOf(1), limit = 24))
         }
         val readingContent = visible + reposts
-        val refs = (bioRefs + readingContent.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
-        val quoteIds = (bioQuotes + readingContent.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
+        val bookmarkRefs = if (profile != null && tab == ProfileTab.BOOKMARKS)
+            profileEvents.flatMap(::bookmarkReferences).filter { it.id in visibleIds }.take(24) else emptyList()
+        val refs = (bookmarkRefs + bioRefs + readingContent.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
+        val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
         val embedded = if (quoteIds.isEmpty()) emptyMap() else mutex.withLock {
-            db.query<Event>(Filter(ids = quoteIds, kinds = listOf(1, 9802), limit = 24))
+            db.query<Event>(Filter(ids = quoteIds, kinds = readableKinds, limit = 24))
         }.associateBy { it.id }
-        val countTargets = (visible.filter { it.kind in listOf(1, 9802) } + embedded.values).distinctBy { it.id }.take(24)
+        val countTargets = (visible.filter { it.kind in readableKinds } + embedded.values).distinctBy { it.id }.take(24)
         engagementIds = countTargets.map { it.id }
         val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(1, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000))
@@ -402,7 +405,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
+        for ((kind, max) in listOf(20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 10, 10002 to 1100)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -433,19 +436,22 @@ class FeatherRepository(context: Context) {
     }
     private fun subscribeProfile(key: String) {
         discoverRelays()
-        client.subscribe("profile", authorFilters(listOf(key), listOf(profileTab.kind), 80), listener)
-        // Small independent existence probes keep rare kinds from being crowded out by notes.
         val routes = authorFilters(listOf(key), listOf(1), 80).keys
+        // Separate kind filters keep ordinary notes from starving dedicated media posts.
+        client.subscribe("profile", routes.associateWith {
+            profileTab.kinds.map { kind -> Filter(kinds = listOf(kind), authors = listOf(key), limit = 80) }
+        }, listener)
+        // Small independent existence probes keep rare kinds from being crowded out by notes.
         client.subscribe("profile-activity", routes.associateWith {
-            listOf(1, 7, 9802).filter { it != profileTab.kind }.map { kind ->
-                Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else 1)
+            profileKinds.filter { it !in profileTab.kinds }.map { kind ->
+                Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else if (kind in listOf(10003, 30003)) 8 else 1)
             }
         }, listener)
     }
     fun viewThread(id: String?, clicked: Event? = null) {
         if (viewedThread == id) return
         val cached = state.value
-        val root = clicked?.takeIf { it.id == id && it.kind in listOf(1, 9802) }
+        val root = clicked?.takeIf { it.id == id && it.kind in readableKinds }
             ?: cached.threadNotes.find { it.id == id }
             ?: cached.embedded[id]
             ?: cached.profileEvents.find { it.id == id }
@@ -466,7 +472,7 @@ class FeatherRepository(context: Context) {
         discoverRelays()
         val author = state.value.threadNotes.find { it.id == id }?.pubKey
         val routes = (state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
-        val filters = listOf(Filter(ids = listOf(id), kinds = listOf(1, 9802)), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))
+        val filters = listOf(Filter(ids = listOf(id), kinds = readableKinds), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))
         client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)
     }
     fun viewHashtag(tag: String?) {
@@ -501,7 +507,7 @@ class FeatherRepository(context: Context) {
                 if (!sameScreen()) return@launch
                 val current = state.value
                 val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
-                val kinds = if (author != null) listOf(tab.kind) else if (tag != null) listOf(1) else listOf(1, 6)
+                val kinds = if (author != null) tab.kinds else if (tag != null) listOf(1) else listOf(1, 6)
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
                     .filter { it.kind in kinds && (authors == null || it.pubKey in authors) }
                 val oldest = events.minOfOrNull { it.createdAt } ?: return@launch

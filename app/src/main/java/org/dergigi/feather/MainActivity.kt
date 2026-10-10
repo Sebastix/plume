@@ -105,7 +105,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var profileTab by entry::tab
     val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
-        ProfileTab.entries.filter { it in s.profileTabs }.also { entry.tabs = it }
+        s.profileTabs.toList().also { entry.tabs = it }
     } else entry.tabs
     LaunchedEffect(entry.key, visibleProfileTabs) {
         if (visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
@@ -209,13 +209,13 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     value = withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
-                    "profile" -> s.profileEvents.filter { it.pubKey == profileKey && profileTab.matches(it) }
+                    "profile" -> latestProfileEvents(s.profileEvents.filter { it.pubKey == profileKey } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> s.notes.filter { ((it.kind == 1 && !Protocol.isReply(it)) || (it.kind == 6 && repostTarget(it) != null)) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }
                     }
                     // Returning to a paginated profile must not discard its already displayed pages.
-                    if ((screen == "profile" || screen == "hashtag") && filtered.size < retained.size)
-                        (filtered + retained).distinctBy { it.id }.sortedByDescending { it.createdAt }.take(600)
+                    if (screen == "hashtag" && filtered.size < retained.size)
+                        latestProfileEvents(filtered + retained).filter { screen != "profile" || profileTab.matches(it) }.take(600)
                     else filtered
                     }
                 } }
@@ -247,7 +247,31 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 }
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
-                PrefetchMedia(notes, s.profiles, activeListState, widthPx, s.embedded)
+                val bookmarkRows by produceState<List<Pair<Event, NostrContent.Reference>>>(entry.bookmarks, notes, profileTab) {
+                    value = withContext(Dispatchers.Default) {
+                        if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS)
+                            notes.flatMap { collection -> bookmarkReferences(collection).map { collection to it } }
+                        else emptyList()
+                    }
+                    if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
+                }
+                val photoRows by produceState<List<List<Pair<Event, MediaContent.Attachment>>>>(entry.photos, notes, profileTab) {
+                    value = withContext(Dispatchers.Default) {
+                        if (screen == "profile" && profileTab == ProfileTab.PHOTOS)
+                            notes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }.chunked(3)
+                        else emptyList()
+                    }
+                    if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos = value
+                }
+                val currentPhotos by rememberUpdatedState(photoRows)
+                val mediaKeys = remember(photoRows, bookmarkRows) {
+                    photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
+                        bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(it.second.id) }
+                }
+                val mediaNotes = if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS)
+                    bookmarkRows.mapNotNull { s.embedded[it.second.id] }.distinctBy { it.id } else notes
+                PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, s.embedded, mediaKeys)
+                val currentBookmarks by rememberUpdatedState(bookmarkRows)
                 val currentNotes by rememberUpdatedState(notes)
                 LaunchedEffect(activeListState, screen) {
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
@@ -255,7 +279,17 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             val last = currentNotes.indexOfLast { it.id in keys }
                             val first = currentNotes.indexOfFirst { it.id in keys }
                             val nearby = if (last >= 0) currentNotes.drop(last + 1).take(6) + currentNotes.take(first).takeLast(2) else emptyList()
-                            vm.repo.readingNotes(keys + nearby.map { it.id })
+                            val bookmarks = currentBookmarks
+                            if (bookmarks.isNotEmpty()) {
+                                val visibleBookmarks = bookmarks.filter { "${it.first.id}:${it.second.id}" in keys }
+                                val lastBookmark = bookmarks.indexOfLast { "${it.first.id}:${it.second.id}" in keys }
+                                vm.repo.readingNotes((visibleBookmarks + bookmarks.drop(lastBookmark + 1).take(6)).map { it.second.id })
+                            } else if (currentPhotos.isNotEmpty()) {
+                                val photos = currentPhotos
+                                val lastPhoto = photos.indexOfLast { "photo:${it.first().first.id}:${it.first().second.url}" in keys }
+                                vm.repo.readingNotes(photos.filter { "photo:${it.first().first.id}:${it.first().second.url}" in keys }
+                                    .plus(photos.drop(lastPhoto + 1).take(2)).flatten().map { it.first.id })
+                            } else vm.repo.readingNotes(keys + nearby.map { it.id })
                         }
                 }
                 var requestedBoundary by remember(screen, profileKey, profileTab, hashtag) { mutableStateOf<String?>(null) }
@@ -328,6 +362,12 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
+                                        p?.lightning?.trim()?.takeIf { '@' in it }?.let { address ->
+                                            IconButton(onClick = {
+                                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Lightning address", address))
+                                            }) { Icon(painterResource(R.drawable.zap), "Copy Lightning address", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
+                                        }
                                         IconButton(onClick = {
                                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
@@ -339,7 +379,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
-                            TabRow(selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
+                            ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
                                 visibleProfileTabs.forEach { tab ->
                                     Tab(selected = profileTab == tab, onClick = { selectProfileTab(tab) }, icon = {
                                         when (tab) {
@@ -347,6 +387,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))
                                             ProfileTab.REACTIONS -> Icon(Icons.Default.FavoriteBorder, tab.label)
                                             ProfileTab.HIGHLIGHTS -> Icon(painterResource(R.drawable.highlighter), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.PHOTOS -> Icon(painterResource(R.drawable.photos), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.VIDEOS -> Icon(Icons.Default.PlayArrow, tab.label)
+                                            ProfileTab.BOOKMARKS -> Icon(painterResource(R.drawable.bookmark), tab.label, Modifier.size(24.dp))
                                         }
                                     })
                                 }
@@ -364,7 +407,29 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 else Icon(Icons.Default.Info, "No notes yet", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        items(notes, key = { it.id }) { note ->
+                        if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {
+                            items(photoRows, key = { "photo:${it.first().first.id}:${it.first().second.url}" }) { row ->
+                                val openGallery = LocalOpenGallery.current
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    row.forEach { (note, photo) ->
+                                        RemoteImage(photo.url, Modifier.weight(1f).aspectRatio(1f).clickable(onClickLabel = "Open photo") {
+                                            val images = photoRows.flatten().filter { it.first.id == note.id }.map { it.second.url }
+                                            openGallery(images, images.indexOf(photo.url).coerceAtLeast(0))
+                                        }, photo.alt ?: "Photo")
+                                    }
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+                        } else if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) {
+                            items(bookmarkRows, key = { "${it.first.id}:${it.second.id}" }) { (collection, reference) ->
+                                Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { title ->
+                                        Text(title, style = MaterialTheme.typography.labelMedium)
+                                    }
+                                    EmbeddedNote(reference, s.embedded[reference.id], s.profiles, "bookmark:${collection.id}:${reference.id}", ::openReference)
+                                }
+                            }
+                        } else items(notes, key = { it.id }) { note ->
                             if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                 openNote(original)
                             } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
@@ -489,7 +554,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 }
             }
             else -> {
-        val attachments = remember(note.id) { MediaContent.attachments(note) }
+        val attachments = remember(note.id) { MediaContent.attachments(note, if (note.kind == 20) 32 else 4) }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val content = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
@@ -650,7 +715,7 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
             .map { it.copy(start = it.start - start, end = it.end - start) }
         return profile.about.substring(start, end) to tokens
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (!expanded) {
             SelectionContainer {
                 Text(
@@ -679,7 +744,7 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
         if (expanded || overflows || quotes.isNotEmpty()) {
             IconButton(
                 onClick = { expanded = !expanded },
-                modifier = Modifier.semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+                modifier = Modifier.align(Alignment.CenterHorizontally).semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
             ) {
                 Icon(
                     if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,

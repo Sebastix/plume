@@ -18,7 +18,7 @@ object NostrContent {
             is NProfile -> Reference(entity.hex, profile = true, relays = entity.relay.map { it.url })
             is NNote -> Reference(entity.hex)
             is NEvent -> Reference(entity.hex, relays = entity.relay.map { it.url }, author = entity.author, kind = entity.kind,
-                external = value.takeIf { entity.kind != null && entity.kind !in listOf(1, 9802) })
+                external = value.takeIf { entity.kind != null && entity.kind !in readableKinds })
             is NAddress -> Reference(entity.author, author = entity.author, kind = entity.kind, external = value)
             else -> return null
         }
@@ -52,7 +52,7 @@ object NostrContent {
 
     private fun parseReferences(event: Event): List<Reference> {
         // Repost content is an encoded event, not user-facing text to tokenize.
-        if (event.kind == 6) return activityReferences(event)
+        if (event.kind in listOf(6, 10003, 30003)) return activityReferences(event)
         return (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))

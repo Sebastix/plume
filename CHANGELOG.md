@@ -4,7 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-10
+
+### Added
+- Dynamic Photos, Videos, and public Bookmarks profile tabs. Photos use a thumbnail grid and the existing gallery; videos reuse the cached player, including HLS streams. Discover dedicated media kinds alongside attachments in regular notes. Resolve bookmarked notes and provide external links for addressable items.
+- Copy a profile’s Lightning address using a bolt immediately left of the copy-npub button.
+
 ### Changed
+- Keep Posts and Replies first, then order profile tabs by observed matching-event frequency, with a horizontally scrollable icon-only tab bar.
+- Center the profile biography expand/collapse chevron.
 - Improve custom emoji reaction rendering with SVG support, existing animated GIF playback, shortcode fallback on loading/failure, and media preloading.
 - Render video mute and fullscreen overlay icons in white without button backgrounds.
 
@@ -239,7 +247,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/dergigi/feather/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/dergigi/feather/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dergigi/feather/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/dergigi/feather/compare/v0.9.0...v0.9.1

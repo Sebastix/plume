@@ -197,3 +197,7 @@ Debug build passed. Replaced independent destination fields and unconditional go
 ## Custom emoji reactions — October 10, 2026
 
 Confirmed existing kind-7 reaction cards resolve NIP-25/NIP-30 emoji tags. Extended the shared Coil loader with its SVG decoder module, retaining existing GIF animation lifecycle controls. Exact shortcode matching and URL validation run on Default; malformed or unavailable images keep readable reaction text. Upcoming reaction emoji share existing bounded prefetch and media caches, with 128-pixel prefetch decoding rather than full-feed dimensions. Debug build passed. No automated tests or on-device visual checks were run.
+
+## 0.11.0 — October 10, 2026
+
+Debug and signed optimized release builds passed for Photos, Videos, and public Bookmarks tabs, observed-frequency ordering, the centered bio chevron, and Lightning-address copying. Verified APK version 0.11.0 (code 25) and the existing signing certificate. Photo rows and bookmark rows are prepared off-main and rendered lazily; visible keys drive bounded reference/media prefetch. Dedicated media kinds are accepted, cached, queried, paginated, and rendered through the existing reader; imeta supplies media URLs and MIME types, with Media3 HLS support. Latest list versions are selected before filtering public bookmarks. Tab ordering is stored as a list so ordering-only changes propagate. No automated tests or device checks were run; live device validation remains with the user through Zapstore.

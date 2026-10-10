@@ -55,7 +55,7 @@ val LocalMedia = staticCompositionLocalOf { MediaEnvironment(null, false, null) 
 
 /** One decoder/player for the entire reading screen; all geometry is reported on the main thread. */
 class VisibleVideoPlayer(private val context: Context, private val resources: MediaStore.Resources) {
-    private data class Candidate(val url: String, val score: Float)
+    private data class Candidate(val url: String, val score: Float, val mime: String?)
     private val candidates = mutableMapOf<String, Candidate>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var selectionJob: Job? = null
@@ -72,9 +72,9 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
     private var resumeFullscreen = false
     var muted by mutableStateOf(true)
         private set
-    fun report(key: String, url: String, bounds: Rect, height: Float) {
+    fun report(key: String, url: String, bounds: Rect, height: Float, mime: String? = null) {
         val score = MediaContent.visibleScore(bounds.top, bounds.bottom, height, viewport.top, viewport.bottom)
-        if (score == null) candidates.remove(key) else candidates[key] = Candidate(url, score)
+        if (score == null) candidates.remove(key) else candidates[key] = Candidate(url, score, mime)
         choose()
     }
     fun remove(key: String) { candidates.remove(key); choose() }
@@ -151,7 +151,8 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
             setVolume(0f)
             engine.setPlaybackSpeed(1f)
             engine.repeatMode = Player.REPEAT_MODE_ONE
-            engine.setMediaItem(MediaItem.fromUri(candidates.getValue(next).url))
+            val candidate = candidates.getValue(next)
+            engine.setMediaItem(MediaItem.Builder().setUri(candidate.url).setMimeType(candidate.mime).build())
             engine.prepare()
             engine.playWhenReady = true
         }
@@ -251,7 +252,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                     InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url)) }
                 } else Box(Modifier.fillMaxWidth().aspectRatio(videoRatios[attachment.url] ?: attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
-                        if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat())
+                        if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime)
                     }) {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
                         if (selected && playback.player != null) {

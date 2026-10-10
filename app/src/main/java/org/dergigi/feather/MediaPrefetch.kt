@@ -21,18 +21,19 @@ private data class PrefetchPlan(val upcoming: List<PrefetchImage>, val visible: 
 /** Parsing and URL planning run off the UI thread. Only two speculative requests run at once. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Composable
-fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: LazyListState, widthPx: Int, embedded: Map<String, Event> = emptyMap()) {
+fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: LazyListState, widthPx: Int, embedded: Map<String, Event> = emptyMap(), itemNotes: Map<String, List<String>> = emptyMap()) {
     val media = LocalMedia.current
     val context = LocalContext.current.applicationContext
     val currentNotes by rememberUpdatedState(notes)
     val currentProfiles by rememberUpdatedState(profiles)
     val currentEmbedded by rememberUpdatedState(embedded)
+    val currentItemNotes by rememberUpdatedState(itemNotes)
     LaunchedEffect(state, media.resources, media.active, widthPx, media.playback, media.playback?.fullscreen) {
         val resources = media.resources ?: return@LaunchedEffect
         if (!media.active || media.playback == null || media.playback.fullscreen) return@LaunchedEffect
         val prefetch = MediaPrefetcher(this, resources, context, widthPx)
         val videos = VideoPrefetcher(this, resources)
-        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, currentEmbedded, media.playback?.activeKey?.let { media.playback.player?.currentMediaItem?.localConfiguration?.uri?.toString() }) }
+        snapshotFlow { PrefetchInput(currentNotes, currentProfiles, state.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }.flatMap { currentItemNotes[it] ?: listOf(it) }, currentEmbedded, media.playback?.activeKey?.let { media.playback.player?.currentMediaItem?.localConfiguration?.uri?.toString() }) }
             .mapLatest { input -> withContext(Dispatchers.Default) { plan(input) } }
             .distinctUntilChanged()
             .collect { prefetch.update(it); videos.update(it.videos, it.playing) }

@@ -113,3 +113,11 @@ Keep portrait media full-width at its actual aspect ratio. Use valid imeta dimen
 ### Back navigation
 
 Every profile, thread, and hashtag visit belongs to a navigation stack. Android Back and the toolbar arrow pop one visit; only the root feed exits the app. Keep each visit’s list position, profile tab, toolbar visibility, and saved expanded-content state. Retain displayed events for the eight most recent visits in memory so returning does not briefly collapse a long list while the repository switches subscriptions. Filtering and merging retained pages stays off-main. Save only route identifiers, relay hints, and small UI state across activity recreation, never serialized event payloads. Modal sheets, galleries, and fullscreen videos dismiss before navigating. Login/logout reset the stack for the new session.
+
+### Profile media and bookmarks
+
+Offer Photos (kind 20 and images in kind 1), Videos (21, 22, 34235, 34236 and videos in kind 1), and public Bookmarks (10003, 30003) only after discovering matching content. Keep Posts and Replies first; order other tabs by matching events observed in the bounded local history, breaking ties by stable tab order. This is an observed count, not a network-wide total. Use a horizontally scrollable icon tab bar.
+
+Photos use three-column lazy thumbnail rows and the existing gallery. Videos reuse the single autoplay player, fullscreen controls, media cache, and HLS decoder. Read media URLs and MIME types from imeta even when absent from the caption; choose one video variant rather than rendering every resolution. Fetch each selected kind independently through the profile’s write-relay routes.
+
+Public bookmarks show lazy reference cards, resolve only the visible/nearby items with bounded subscriptions, and open addressable items through the existing external-reader fallback. Never render or decrypt private list content. Keep the latest replaceable/addressable list version so removed entries do not return from old cached pages. Profile biography chevrons are centered. When a profile supplies a Lightning address, a bolt to the left of copy-npub copies that address without initiating a payment.

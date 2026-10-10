@@ -5,7 +5,7 @@ import java.net.URI
 
 object MediaContent {
     enum class Kind { IMAGE, VIDEO }
-    data class Attachment(val url: String, val kind: Kind, val ratio: Float = 16f / 9f, val preview: String? = null, val alt: String? = null)
+    data class Attachment(val url: String, val kind: Kind, val ratio: Float = 16f / 9f, val preview: String? = null, val alt: String? = null, val mime: String? = null)
     val cacheOptionsMb = listOf(128, 256, 512, 1024, 2048)
     fun imageBudget(mb: Int): Long = mb * 1024L * 1024 / 4
     fun videoBudget(mb: Int): Long = mb * 1024L * 1024 - imageBudget(mb)
@@ -24,21 +24,26 @@ object MediaContent {
             }.toMap()
             fields["url"]?.let { it to fields }
         }.toMap()
-        return urls.findAll(event.content).map { it.value.trimEnd('.', ',', ')', ']', '!', '?') }.distinct().mapNotNull { url ->
+        val candidates = metadata.keys.asSequence() + urls.findAll(event.content).map { it.value.trimEnd('.', ',', ')', ']', '!', '?') }
+        return candidates.distinct().mapNotNull { url ->
             if (secureUrl(url) == null) return@mapNotNull null
             val fields = metadata[url].orEmpty()
             val extension = runCatching { URI(url).path.substringAfterLast('.').lowercase() }.getOrDefault("")
             val kind = when {
                 fields["m"]?.startsWith("image/") == true -> Kind.IMAGE
                 fields["m"]?.startsWith("video/") == true -> Kind.VIDEO
+                fields["m"]?.startsWith("audio/") == true -> return@mapNotNull null
+                fields["m"]?.lowercase() in setOf("application/x-mpegurl", "application/vnd.apple.mpegurl") -> Kind.VIDEO
                 extension in setOf("jpg", "jpeg", "png", "webp", "gif", "avif") -> Kind.IMAGE
-                extension in setOf("mp4", "m4v", "mov", "webm") -> Kind.VIDEO
+                extension in setOf("mp4", "m4v", "mov", "webm", "m3u8") -> Kind.VIDEO
+                event.kind == 20 && url in metadata -> Kind.IMAGE
+                event.kind in videoKinds && url in metadata -> Kind.VIDEO
                 else -> return@mapNotNull null
             }
             val dimensions = fields["dim"]?.split('x')?.mapNotNull(String::toFloatOrNull)
             val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
-            Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500))
-        }.take(limit.coerceIn(1, 32)).toList()
+            Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500), fields["m"])
+        }.take(if (event.kind in videoKinds) 1 else limit.coerceIn(1, 32)).toList()
     }
     fun text(event: Event, attachments: List<Attachment>): String {
         val mediaUrls = attachments.map { it.url }.toSet()
