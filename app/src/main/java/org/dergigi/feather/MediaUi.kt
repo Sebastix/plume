@@ -41,8 +41,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.collectLatest
 
 private val MediaMist = Color(0xFFF0F9FF)
 private val MediaBlue = Color(0xFF2479A9)
@@ -175,37 +173,6 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MediaBlue)
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** Prefetch only a small distance ahead, cancelling obsolete work when the reader scrolls. */
-@Composable
-fun PrefetchMedia(notes: List<Event>, profiles: Map<String, Profile>, state: LazyListState, widthPx: Int) {
-    val media = LocalMedia.current
-    val context = LocalContext.current
-    val currentNotes by rememberUpdatedState(notes)
-    val currentProfiles by rememberUpdatedState(profiles)
-    LaunchedEffect(state, media.resources, media.active, widthPx) {
-        val resources = media.resources ?: return@LaunchedEffect
-        if (!media.active) return@LaunchedEffect
-        snapshotFlow { state.layoutInfo.visibleItemsInfo.lastOrNull()?.key as? String }.distinctUntilChanged().collectLatest { lastKey ->
-            val last = currentNotes.indexOfFirst { it.id == lastKey }
-            if (last < 0) return@collectLatest
-            // Sequential prefetch leaves request slots free for on-screen images and playback.
-            currentNotes.drop(last + 1).take(3).forEach { note ->
-                val urls = listOfNotNull(currentProfiles[note.pubKey]?.picture?.let { it to true }) + MediaContent.attachments(note).mapNotNull {
-                    if (it.kind == MediaContent.Kind.IMAGE) it.url to false else it.preview?.let { url -> url to false }
-                }
-                urls.forEach { (url, avatar) ->
-                    if (MediaContent.secureUrl(url) != null) {
-                        val week = System.currentTimeMillis() / (7 * 24 * 60 * 60 * 1000L)
-                        resources.images.execute(ImageRequest.Builder(context).data(url)
-                            .diskCacheKey(if (avatar) "$url:avatar:$week" else url)
-                            .size(if (avatar) 128 else widthPx, if (avatar) 128 else (widthPx / .6f).toInt()).build())
                     }
                 }
             }

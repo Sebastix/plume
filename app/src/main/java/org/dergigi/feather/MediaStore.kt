@@ -24,7 +24,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MediaStore(private val context: Context) {
-    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails)
+    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails, val prefetchImages: ImageLoader)
     private val prefs = context.getSharedPreferences("feather-media", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -39,6 +39,10 @@ class MediaStore(private val context: Context) {
         .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS)
         .followSslRedirects(false).build()
 
+    // Separate scheduling prevents speculative downloads from occupying visible-image slots.
+    private val prefetchHttp = http.newBuilder()
+        .dispatcher(Dispatcher().apply { maxRequests = 2; maxRequestsPerHost = 1 }).build()
+
     init { scope.launch { rebuild(_budgetMb.value) } }
 
     suspend fun setBudget(mb: Int) {
@@ -51,7 +55,9 @@ class MediaStore(private val context: Context) {
             val previous = _resources.value
             _resources.value = null
             http.dispatcher.cancelAll()
+            prefetchHttp.dispatcher.cancelAll()
             previous?.images?.shutdown()
+            previous?.prefetchImages?.shutdown()
             previous?.thumbnails?.close()
             previous?.imageDisk?.shutdown()
             previous?.videos?.release()
@@ -61,10 +67,15 @@ class MediaStore(private val context: Context) {
             try {
                 disk = DiskCache.Builder().directory(File(context.cacheDir, "images").toOkioPath()).maxSizeBytes(MediaContent.imageBudget(mb)).build()
                 thumbnails = AvatarThumbnails(disk)
+                val memory = MemoryCache.Builder().maxSizeBytes(minOf(Runtime.getRuntime().maxMemory() * 6 / 100, 64L * 1024 * 1024)).build()
                 val images = ImageLoader.Builder(context)
-                    .memoryCache { MemoryCache.Builder().maxSizeBytes(minOf(Runtime.getRuntime().maxMemory() * 6 / 100, 64L * 1024 * 1024)).build() }
+                    .memoryCache(memory)
                     .diskCache(disk)
                     .components { add(thumbnails); add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
+                    .build()
+                val prefetchImages = ImageLoader.Builder(context)
+                    .memoryCache(memory).diskCache(disk)
+                    .components { add(thumbnails); add(OkHttpNetworkFetcherFactory(callFactory = { prefetchHttp })) }
                     .build()
                 videos = SimpleCache(File(context.cacheDir, "videos"), LeastRecentlyUsedCacheEvictor(MediaContent.videoBudget(mb)), StandaloneDatabaseProvider(context))
                 // Initializes and trims the cache on IO before any player is created.
@@ -74,12 +85,12 @@ class MediaStore(private val context: Context) {
                     .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                 _budgetMb.value = mb
                 prefs.edit().putInt("cacheMb", mb).apply()
-                _resources.value = Resources(images, disk, videos, source, thumbnails)
+                _resources.value = Resources(images, disk, videos, source, thumbnails, prefetchImages)
             } catch (e: Exception) {
                 thumbnails?.close(); disk?.shutdown(); videos?.release()
                 _error.value = "Could not open the media cache. Try another storage size."
             }
         }
     }
-    fun background() { http.dispatcher.cancelAll() }
+    fun background() { http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll() }
 }

@@ -141,10 +141,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             TopAppBar(title = {
                 Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
             }, navigationIcon = {
-                if (screen == "profile") IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") }
-                else if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen != "feed") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
-                if (screen == "profile") IconButton(onClick = { goHome() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen == "profile") IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = Modifier.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
@@ -192,7 +191,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
                         .distinctUntilChanged().collect { keys ->
                             val last = currentNotes.indexOfLast { it.id in keys }
-                            vm.repo.readingNotes(keys + if (last >= 0) currentNotes.drop(last + 1).take(3).map { it.id } else emptyList())
+                            val first = currentNotes.indexOfFirst { it.id in keys }
+                            val nearby = if (last >= 0) currentNotes.drop(last + 1).take(6) + currentNotes.take(first).takeLast(2) else emptyList()
+                            vm.repo.readingNotes(keys + nearby.map { it.id })
                         }
                 }
                 var refreshing by remember(screen) { mutableStateOf(false) }

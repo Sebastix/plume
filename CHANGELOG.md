@@ -4,6 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-10
+
+### Changed
+- Prefetch avatars, images, and video posters six notes ahead and two behind, with two concurrent speculative requests, separate HTTP scheduling, shared caches, and background URL planning.
+- Preserve useful in-flight downloads across scrolling, react when profile metadata arrives, and ignore non-note list items when finding the prefetch window.
+- Move the profile settings gear to the top-right and restore back navigation to the top-left.
+
 ## [0.5.4] - 2026-10-10
 
 ### Changed
@@ -101,7 +108,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/dergigi/feather/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/dergigi/feather/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/dergigi/feather/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/dergigi/feather/compare/v0.5.1...v0.5.2
