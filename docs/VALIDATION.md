@@ -155,3 +155,7 @@ Debug build passed for transparent splash icon resources, note-loading spinners,
 ## 0.9.0 — October 10, 2026
 
 Signed optimized release build passed, including the bottom-right fullscreen control and retention of partially visible videos. Verified version 0.9.0 (code 21) and the existing signing certificate. Manually checked a public YouTube oEmbed response for the expected title/channel fields. No automated tests were run; fullscreen transitions, GIF playback, and scrolling remain for live device verification through Zapstore.
+
+## 0.9.1 — October 10, 2026
+
+Debug and signed release builds passed for comma-separated block-height display (`987,654`, without a prefix). Explicit US integer formatting preserves the requested comma separators across device locales; formatting is remembered by height. Verified APK version 0.9.1 (code 22) and the existing signing certificate. No automated tests were run.
