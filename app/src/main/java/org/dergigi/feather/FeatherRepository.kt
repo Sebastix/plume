@@ -324,10 +324,12 @@ class FeatherRepository(context: Context) {
         val counts = countTargets.associate { target ->
             val replies = activity.count { replyTarget(it) == target.id }
             val reactions = activity.filter { it.kind == 7 && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
-            val zaps = activity.filter { it.kind == 9735 && it.tagValue("e") == target.id &&
-                zapVerification.valid(it, target, profiles[it.tagValue("p")] ?: state.value.profiles[it.tagValue("p")], active) }
-                .distinctBy { it.tagValue("bolt11") }.size
-            target.id to Engagement(replies, reactions, zaps)
+            val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
+                .mapNotNull { receipt ->
+                    val amount = zapVerification.amountInSats(receipt, target, profiles[receipt.tagValue("p")] ?: state.value.profiles[receipt.tagValue("p")], active)
+                    amount.takeIf { it.signum() > 0 }?.let { receipt.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) to it }
+                }.distinctBy { it.first }.fold(java.math.BigDecimal.ZERO) { total, (_, amount) -> total + amount }
+            target.id to Engagement(replies, reactions, zapSats)
         }
         val readingChanged = references != refs || profileAuthors != authors
         references = refs

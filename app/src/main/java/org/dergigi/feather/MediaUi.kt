@@ -32,6 +32,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -62,6 +63,11 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
         private set
     var player by mutableStateOf<ExoPlayer?>(null)
         private set
+    var fullscreen by mutableStateOf(false)
+        private set
+    private var inlineView: PlayerView? = null
+    private var fullscreenView: PlayerView? = null
+    private var resumeFullscreen = false
     var muted by mutableStateOf(true)
         private set
     fun report(key: String, url: String, bounds: Rect, height: Float) {
@@ -70,8 +76,44 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
         choose()
     }
     fun remove(key: String) { candidates.remove(key); choose() }
-    fun enabled(value: Boolean) { enabled = value; choose() }
+    fun enabled(value: Boolean) {
+        if (enabled == value) return
+        enabled = value
+        if (fullscreen) {
+            if (!value) { resumeFullscreen = player?.playWhenReady == true; player?.pause() }
+            else if (resumeFullscreen) player?.play()
+        } else choose()
+    }
+    fun enterFullscreen() {
+        if (player == null || activeKey == null) return
+        selectionJob?.cancel()
+        fullscreen = true
+    }
+    fun exitFullscreen() {
+        if (!fullscreen) return
+        PlayerView.switchTargetView(player!!, fullscreenView, inlineView)
+        fullscreenView = null
+        fullscreen = false
+        choose()
+    }
+    fun bindInline(view: PlayerView) {
+        inlineView = view
+        if (!fullscreen && view.player !== player) view.player = player
+    }
+    fun unbindInline(view: PlayerView) {
+        view.player = null
+        if (inlineView === view) inlineView = null
+    }
+    fun bindFullscreen(view: PlayerView) {
+        PlayerView.switchTargetView(player!!, inlineView, view)
+        fullscreenView = view
+    }
+    fun unbindFullscreen(view: PlayerView) {
+        view.player = null
+        if (fullscreenView === view) fullscreenView = null
+    }
     private fun choose() {
+        if (fullscreen) return // Pin the same decoder and timeline while the feed is covered.
         val next = if (enabled) candidates.minByOrNull { it.value.score }?.key else null
         if (next == activeKey) { selectionJob?.cancel(); return }
         selectionJob?.cancel()
@@ -84,18 +126,33 @@ class VisibleVideoPlayer(private val context: Context, private val resources: Me
             if (next == null) { player?.stop(); return@launch }
             val engine = player ?: ExoPlayer.Builder(context)
                 .setMediaSourceFactory(DefaultMediaSourceFactory(resources.videoSource))
+                .setAudioAttributes(AudioAttributes.DEFAULT, false)
+                .setHandleAudioBecomingNoisy(true)
+                .setSeekBackIncrementMs(10_000)
+                .setSeekForwardIncrementMs(10_000)
                 .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 45_000, 500, 1_500).setTargetBufferBytes(16 * 1024 * 1024).build())
                 .build().also { player = it }
-            muted = true
-            engine.volume = 0f
+            setVolume(0f)
+            engine.setPlaybackSpeed(1f)
             engine.repeatMode = Player.REPEAT_MODE_ONE
             engine.setMediaItem(MediaItem.fromUri(candidates.getValue(next).url))
             engine.prepare()
             engine.playWhenReady = true
         }
     }
-    fun toggleMute() { muted = !muted; player?.volume = if (muted) 0f else 1f }
-    fun close() { scope.cancel(); player?.release(); player = null; candidates.clear() }
+    fun setVolume(value: Float) {
+        val nextMuted = value <= 0f
+        if (muted != nextMuted) player?.setAudioAttributes(AudioAttributes.DEFAULT, !nextMuted)
+        player?.volume = value.coerceIn(0f, 1f)
+        muted = nextMuted
+    }
+    fun toggleMute() { setVolume(if (muted) 1f else 0f) }
+    fun close() {
+        scope.cancel()
+        inlineView?.player = null; fullscreenView?.player = null
+        inlineView = null; fullscreenView = null
+        player?.release(); player = null; candidates.clear()
+    }
 }
 
 @Composable
@@ -117,7 +174,10 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     }
     DisposableEffect(playback) { onDispose { playback?.close() } }
     SideEffect { playback?.enabled(active) }
-    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback), content = content)
+    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback)) {
+        content()
+        if (playback?.fullscreen == true) FullscreenVideo(playback)
+    }
 }
 
 @Composable
@@ -170,10 +230,17 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                     }) {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
                         if (selected && playback.player != null) {
-                            AndroidView(factory = { PlayerView(it).apply { useController = true; controllerAutoShow = false } },
+                            var feedback by remember(identity) { mutableStateOf<VideoFeedback?>(null) }
+                            var feedbackTick by remember(identity) { mutableIntStateOf(0) }
+                            LaunchedEffect(feedbackTick) { delay(900); feedback = null }
+                            AndroidView(factory = { GestureVideoView(it, playback, false) { value -> feedback = value; feedbackTick++ } },
                                 modifier = Modifier.fillMaxSize(),
-                                onRelease = { it.player = null },
-                                update = { it.player = playback.player })
+                                onRelease = playback::unbindInline,
+                                update = playback::bindInline)
+                            VideoGestureFeedback(feedback, Modifier.align(Alignment.Center))
+                            IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.TopStart).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
+                                Icon(painterResource(R.drawable.fullscreen), "Fullscreen video", tint = MaterialTheme.colorScheme.primary)
+                            }
                             IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
                                 Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MaterialTheme.colorScheme.primary)
                             }

@@ -97,3 +97,8 @@ Debug build passed. Biographies initially lay out at most three lines with ellip
 ## 0.7.2 — October 10, 2026
 
 Signed optimized release build passed for compact profile biographies. Verified APK version 0.7.2 (code 16) and the existing signing certificate. No additional automated tests or device visual pass were run.
+
+
+## Unreleased video controls and zap amounts — October 10, 2026
+
+Debug build passed. Reviewed single-player handoff, fullscreen lifecycle/rotation handling, gesture direction locking and seek bounds, native-control hit handling, and export cancellation/serialization. Controls can hide without disposing export jobs. Video exports stream through the existing cache on IO, validate media metadata, clean partial files, and use scoped MediaStore/FileProvider grants. Zap invoice amounts are parsed only by the existing background validator, summed exactly with BigDecimal, and deduplicated before display. No Android device was connected; no device visual/gesture pass or additional automated suite was run.

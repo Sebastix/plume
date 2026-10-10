@@ -424,8 +424,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             }
             if (note.kind != 7) {
                 EngagementCount(Icons.Default.FavoriteBorder, counts.reactions, "reactions")
-                Icon(painterResource(R.drawable.zap), "${counts.zaps} zaps", Modifier.padding(start = 12.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (counts.zaps > 0) Text(counts.zaps.toString(), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
+                Icon(painterResource(R.drawable.zap), "$zapAmount sats received", Modifier.padding(start = 12.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (counts.zapSats.signum() > 0) Text(zapAmount, Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }

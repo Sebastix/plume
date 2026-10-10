@@ -10,11 +10,12 @@ import kotlinx.coroutines.channels.Channel
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-/** Counts of locally discovered, verified events, not an authoritative global total. */
-data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zaps: Int = 0)
+/** Counts and zap amounts from locally discovered, verified events, not an authoritative global total. */
+data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zapSats: BigDecimal = BigDecimal.ZERO)
 
 internal fun replyTarget(event: Event): String? {
     if (event.kind != 1) return null
@@ -29,8 +30,8 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
     private data class Provider(val key: String?, val expires: Long)
     private val providers = ConcurrentHashMap<String, Provider>()
     private val running = ConcurrentHashMap<String, Job>()
-    private val verified = object : LinkedHashMap<String, Boolean>(256, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) = size > 1024
+    private val verified = object : LinkedHashMap<String, BigDecimal>(256, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BigDecimal>?) = size > 1024
     }
     private data class Validation(val receipt: ZapReceiptEvent, val target: Event, val recipient: String, val lnurl: String, val provider: String, val cacheKey: String)
     private val validationQueue = Channel<Validation>(capacity = 64)
@@ -40,13 +41,15 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
         for (work in validationQueue) {
             if (enabled) {
                 val result = runCatching {
-                    val request = work.receipt.zapRequest ?: return@runCatching false
-                    request.verify() && request.kind == 9734 &&
+                    val request = work.receipt.zapRequest ?: return@runCatching BigDecimal.ZERO
+                    val valid = request.verify() && request.kind == 9734 &&
                         request.tags.count { it.firstOrNull() == "p" } == 1 && request.tags.count { it.firstOrNull() == "e" } == 1 &&
                         request.tagValue("e") == work.target.id && request.tagValue("p") == work.recipient &&
                         work.receipt.tagValue("e") == work.target.id &&
                         ZapReceiptValidator.validate(work.receipt, work.provider, work.lnurl) == ZapReceiptValidator.Result.Valid
-                }.getOrDefault(false)
+                    // Quartz derives this exact satoshi amount from the validated BOLT11 invoice.
+                    if (valid) work.receipt.amount?.takeIf { it.signum() > 0 } ?: BigDecimal.ZERO else BigDecimal.ZERO
+                }.getOrDefault(BigDecimal.ZERO)
                 synchronized(this@ZapVerification) { verified[work.cacheKey] = result }
             }
             synchronized(this@ZapVerification) { pending.remove(work.cacheKey) }
@@ -57,14 +60,14 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
     fun stop() { enabled = false; running.values.forEach { it.cancel() }; running.clear(); http.dispatcher.cancelAll() }
 
     @Synchronized
-    fun valid(event: Event, target: Event, profile: Profile?, active: Boolean): Boolean {
+    fun amountInSats(event: Event, target: Event, profile: Profile?, active: Boolean): BigDecimal {
         enabled = active
-        val receipt = event as? ZapReceiptEvent ?: return false
-        val recipient = receipt.tagValue("p") ?: return false
+        val receipt = event as? ZapReceiptEvent ?: return BigDecimal.ZERO
+        val recipient = receipt.tagValue("p") ?: return BigDecimal.ZERO
         val splitRecipients = target.tags.filter { it.size > 1 && it[0] == "zap" }.map { it[1] }
-        if (recipient != target.pubKey && recipient !in splitRecipients) return false
-        val lnurl = profile?.lightning ?: return false
-        val url = runCatching { LnurlForm.toUrl(lnurl)?.let(MediaContent::secureUrl) }.getOrNull() ?: return false
+        if (recipient != target.pubKey && recipient !in splitRecipients) return BigDecimal.ZERO
+        val lnurl = profile?.lightning ?: return BigDecimal.ZERO
+        val url = runCatching { LnurlForm.toUrl(lnurl)?.let(MediaContent::secureUrl) }.getOrNull() ?: return BigDecimal.ZERO
         val now = android.os.SystemClock.elapsedRealtime()
         val provider = providers[url]?.takeIf { it.expires > now }
         if (provider == null) {
@@ -90,14 +93,14 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
                 running[url] = job
                 job.start()
             }
-            return false
+            return BigDecimal.ZERO
         }
-        val providerKey = provider.key ?: return false
+        val providerKey = provider.key ?: return BigDecimal.ZERO
         val cacheKey = "${event.id}:$url:$providerKey"
         verified[cacheKey]?.let { return it }
         if (active && pending.add(cacheKey)) {
             if (validationQueue.trySend(Validation(receipt, target, recipient, lnurl, providerKey, cacheKey)).isFailure) pending.remove(cacheKey)
         }
-        return false
+        return BigDecimal.ZERO
     }
 }
