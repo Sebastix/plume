@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Collapse profile biographies to three lines, with an accessible chevron to expand the full text and embedded event previews.
+
 ## [0.7.1] - 2026-10-10
 
 ### Fixed

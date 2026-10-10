@@ -276,7 +276,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
                                         }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                     }
-                                    if (!p?.about.isNullOrBlank()) ProfileBiography(p, s, ::openReference)
+                                    if (!p?.about.isNullOrBlank()) ProfileBiography(key, p, s, ::openReference)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                             }
@@ -549,7 +549,9 @@ private fun EngagementCount(icon: androidx.compose.ui.graphics.vector.ImageVecto
 
 /** Keep quoted events in their place in the biography; tokenization is done by the repository. */
 @Composable
-private fun ProfileBiography(profile: Profile, state: FeedState, onReference: (NostrContent.Reference) -> Unit) {
+private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedState, onReference: (NostrContent.Reference) -> Unit) {
+    var expanded by rememberSaveable(profileKey, profile.about) { mutableStateOf(false) }
+    var overflows by remember(profileKey, profile.about) { mutableStateOf(false) }
     val quotes = remember(profile.aboutTokens) {
         profile.aboutTokens.filter { it.reference?.let { ref -> !ref.profile && ref.hashtag == null && ref.external == null } == true }
             .distinctBy { it.reference?.id }.take(3)
@@ -560,17 +562,42 @@ private fun ProfileBiography(profile: Profile, state: FeedState, onReference: (N
         return profile.about.substring(start, end) to tokens
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        quotes.forEachIndexed { index, token ->
-            val (body, tokens) = textRange(if (index == 0) 0 else quotes[index - 1].end, token.start)
+        if (!expanded) {
+            SelectionContainer {
+                Text(
+                    richText(profile.about, profile.aboutTokens, state.profiles, onReference),
+                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { overflows = it.hasVisualOverflow },
+                )
+            }
+        } else {
+            quotes.forEachIndexed { index, token ->
+                val (body, tokens) = textRange(if (index == 0) 0 else quotes[index - 1].end, token.start)
+                if (body.isNotBlank()) SelectionContainer {
+                    Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+                }
+                val reference = token.reference!!
+                EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "bio:${reference.id}", onReference)
+            }
+            val (body, tokens) = textRange(quotes.lastOrNull()?.end ?: 0, profile.about.length)
             if (body.isNotBlank()) SelectionContainer {
                 Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
             }
-            val reference = token.reference!!
-            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "bio:${reference.id}", onReference)
         }
-        val (body, tokens) = textRange(quotes.lastOrNull()?.end ?: 0, profile.about.length)
-        if (body.isNotBlank()) SelectionContainer {
-            Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+        // Event cards stay out of the compact preview, even when their link fits on one line.
+        if (expanded || overflows || quotes.isNotEmpty()) {
+            IconButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+            ) {
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    if (expanded) "Collapse biography" else "Expand biography",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
