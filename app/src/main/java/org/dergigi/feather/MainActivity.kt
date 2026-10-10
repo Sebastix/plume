@@ -115,7 +115,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 activeListState.firstVisibleItemScrollOffset < bannerBelowToolbarPx
         }
     }
-    val toolbarButtonSurface = if (toolbarOverBanner) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
+    val transparentToolbar = screen == "feed" || toolbarOverBanner
+    val toolbarButtonSurface = if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
     fun selectProfileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         profileTab = tab
@@ -162,21 +163,21 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             TopAppBar(title = {
                 if (screen == "hashtag") Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 if (screen == "feed") {
-                    Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(32.dp), tint = Color.Unspecified)
+                    Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(48.dp).then(toolbarButtonSurface).padding(8.dp), tint = Color.Unspecified)
                 }
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goHome() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (screen == "profile") IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
-                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = Modifier.semantics { contentDescription = "Account" }) {
+                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = toolbarButtonSurface.semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
                         if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 28, account?.picture)
                         else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                     }
                 }
             }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = if (toolbarOverBanner) Color.Transparent else MaterialTheme.colorScheme.surface,
+                containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
             }
         },
@@ -265,7 +266,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     isRefreshing = refreshing && s.loading,
                     onRefresh = refresh,
                     modifier = Modifier.padding(
-                        if (hasProfileBanner) PaddingValues(
+                        if (screen == "feed" || hasProfileBanner) PaddingValues(
                             top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                             bottom = padding.calculateBottomPadding(),
                             start = padding.calculateStartPadding(LocalLayoutDirection.current),
@@ -279,7 +280,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         )
                     },
                 ) {
-                    LazyColumn(Modifier.fillMaxSize().onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(bottom = 24.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed") 64.dp else 0.dp, bottom = 24.dp)) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]

@@ -127,3 +127,8 @@ Signed optimized release build passed. Verified version 0.8.1 (code 18) and the 
 ## Infinite scrolling — October 10, 2026
 
 Build verification only, per the live Zapstore iteration workflow. Near-end observation uses stable history boundaries, excludes thread views, and permits one history request at a time. Empty filtered tabs probe at most three pages without scrolling; unchanged boundaries are not repeatedly requested. History uses cached pages first, a 12-second relay deadline, independent footer loading state, bounded retained events, and serialized snapshots. Navigation/backgrounding cancels history subscriptions. Pull-to-refresh resets the history window.
+
+
+## Transparent feed toolbar — October 10, 2026
+
+The main toolbar uses the profile overlay treatment. Feed content extends behind it while a fixed 64 dp top content inset keeps the first note clear at rest. Showing or hiding the overlay does not change the feed viewport padding. Theme-aware circular surfaces maintain icon contrast. Build verification only; device testing is handled by the user through Zapstore.
