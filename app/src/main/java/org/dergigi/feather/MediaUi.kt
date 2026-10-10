@@ -267,11 +267,11 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 onRelease = playback::unbindInline,
                                 update = playback::bindInline)
                             VideoGestureFeedback(feedback, Modifier.align(Alignment.Center))
-                            if (!controlsVisible) IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.BottomEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
-                                Icon(painterResource(R.drawable.fullscreen), "Fullscreen video", tint = MaterialTheme.colorScheme.primary)
+                            if (!controlsVisible) IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.BottomEnd)) {
+                                Icon(painterResource(R.drawable.fullscreen), "Fullscreen video", tint = Color.White)
                             }
-                            IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), RoundedCornerShape(24.dp))) {
-                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd)) {
+                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = Color.White)
                             }
                         }
                 }

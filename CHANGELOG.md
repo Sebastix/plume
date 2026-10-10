@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Render video mute and fullscreen overlay icons in white without button backgrounds.
+
 ### Fixed
 - Android Back and the toolbar back arrow retrace profile, thread, and hashtag visits instead of jumping to the feed. Retain each visit’s scroll position, selected profile tab, toolbar state, expanded content, and previously displayed notes; restore navigation after activity recreation.
 
