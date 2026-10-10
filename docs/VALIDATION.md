@@ -82,3 +82,8 @@ Signed optimized release build passed for natural image sizing, native hashtag f
 ## Unreleased profile refinements — October 10, 2026
 
 Debug build passed. Profile tab switches retain the list state and request the tab-bar item as the next scroll anchor, hiding the overlay toolbar. Biography references are tokenized in the repository background scope, included in bounded event/profile discovery, and rendered as in-place previews or rich links. At most three biography event previews are fetched; unsupported event types remain external links. No device visual pass or new automated tests were run.
+
+
+## 0.7.1 — October 10, 2026
+
+Signed optimized release build passed for profile biography reference rendering and tab-bar scroll anchoring. Verified APK version 0.7.1 (code 15) and the existing signing certificate. No additional automated tests or device visual pass were run.
