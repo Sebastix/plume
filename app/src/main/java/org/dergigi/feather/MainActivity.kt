@@ -561,7 +561,10 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 }
             }
             else -> {
-        val attachments = remember(note.id) { MediaContent.attachments(note, if (note.kind == 20) 32 else 4) }
+        val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
+        val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), note.id, detectedTypes) {
+            value = withContext(Dispatchers.Default) { MediaContent.attachments(note, if (note.kind == 20) 32 else 4) }
+        }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val content = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
@@ -651,7 +654,10 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                 }
                 if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
                 else {
-                val attachments = remember(note.id, compact) { MediaContent.attachments(note, limit = if (compact) 1 else 32) }
+                val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
+                val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), note.id, compact, detectedTypes) {
+                    value = withContext(Dispatchers.Default) { MediaContent.attachments(note, limit = if (compact) 1 else 32) }
+                }
                 val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
                 val text = richNoteText(body, note, profiles, onReference)
                 if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)

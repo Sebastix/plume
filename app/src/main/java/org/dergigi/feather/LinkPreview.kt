@@ -50,8 +50,8 @@ internal fun LinkPreviews(content: String, limit: Int = 2) {
     } }
 }
 
-private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?) {
-    fun json() = JSONObject().put("title", title).put("description", description).put("image", image).put("site", site).toString()
+private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?, val mediaType: String? = null) {
+    fun json() = JSONObject().put("title", title).put("description", description).put("image", image).put("site", site).put("mediaType", mediaType).toString()
 }
 
 /** Preview requests never run scripts, store cookies, or share the visible-image dispatcher. */
@@ -91,7 +91,7 @@ private object OpenGraph {
                     if (expires <= now || snapshot.data.toFile().length() > 16_384) null else {
                         val json = JSONObject(snapshot.data.toFile().readText())
                         fun field(name: String) = json.optString(name).takeIf { it.isNotBlank() && it != "null" }
-                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site")), expires)
+                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site"), field("mediaType")), expires)
                     }
                 }
             }.getOrNull()
@@ -118,7 +118,7 @@ private object OpenGraph {
         var url = initial
         repeat(4) { hop ->
             if (url.scheme != "https" || url.port != 443 || url.username.isNotEmpty() || url.password.isNotEmpty()) return null
-            val request = Request.Builder().url(url).header("Accept", "text/html,application/xhtml+xml")
+            val request = Request.Builder().url(url).header("Accept", "text/html,application/xhtml+xml,image/*,video/*,*/*;q=0.8")
                 .header("User-Agent", "Feather/${BuildConfig.VERSION_NAME} (link preview)").build()
             http.newCall(request).awaitPreview().use { response ->
                 if (response.code in setOf(301, 302, 303, 307, 308)) {
@@ -127,6 +127,8 @@ private object OpenGraph {
                 } else {
                     if (!response.isSuccessful) return null
                     val type = response.body.contentType()
+                    if (type?.type in setOf("image", "video"))
+                        return LinkMetadata(null, null, null, null, "${type!!.type}/${type.subtype}")
                     if (type != null && type.subtype !in setOf("html", "xhtml+xml")) return null
                     val buffer = Buffer()
                     val source = response.body.source()
@@ -181,7 +183,10 @@ private fun OpenGraphCard(link: PreviewLink) {
     var visible by remember(link.url) { mutableStateOf(false) }
     val metadata by produceState<LinkMetadata?>(null, link.url, media.resources, media.active, visible) {
         val resources = media.resources
-        if (resources != null && media.active && visible) value = OpenGraph.get(link.url, resources.imageDisk)
+        if (resources != null && media.active && visible) {
+            value = OpenGraph.get(link.url, resources.imageDisk)
+            value?.mediaType?.let { DetectedMedia.put(link.url, it) }
+        }
     }
     // The small host-only card remains useful offline or when a server blocks preview requests.
     Spacer(Modifier.height(12.dp))

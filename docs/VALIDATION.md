@@ -223,3 +223,7 @@ Website theme uses prefers-color-scheme CSS with the Android palette, explicit l
 ## Media-cache usage — October 11, 2026
 
 Debug build passed. Settings displays used bytes against the chosen limit plus a compact usage bar, using the same binary unit convention as existing storage options. The total adds Coil disk-cache size (including thumbnails/preview metadata) and Media3 cache space, excluding memory and temporary exports. Counter reads run on IO under the cache-rebuild mutex; no directory walk is performed. Polling runs every two seconds only while settings is composed and lifecycle STARTED, and cancels on dismissal/background. Unknown usage is displayed as a dash rather than zero. No automated tests or device checks were run.
+
+## Extensionless media links — October 11, 2026
+
+Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image/jpeg without a filename extension. The existing bounded Open Graph request now recognizes image/video Content-Type headers before HTML parsing, closes the metadata response without reading the media body, and caches the MIME result with preview metadata. A bounded 256-entry observable MIME map updates note and embedded-card attachment parsing on Default; normal Coil/Media3 loading handles the media itself. No extra preflight request, file-extension assumption, or blanket classification of getBlob as an image. Debug build passed. No automated tests or device checks were run.

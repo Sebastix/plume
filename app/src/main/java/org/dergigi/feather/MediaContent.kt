@@ -2,6 +2,8 @@ package org.dergigi.feather
 
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import java.net.URI
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 object MediaContent {
     enum class Kind { IMAGE, VIDEO }
@@ -28,12 +30,13 @@ object MediaContent {
         return candidates.distinct().mapNotNull { url ->
             if (secureUrl(url) == null) return@mapNotNull null
             val fields = metadata[url].orEmpty()
+            val mime = fields["m"]?.substringBefore(';')?.trim()?.lowercase() ?: DetectedMedia.mime(url)
             val extension = runCatching { URI(url).path.substringAfterLast('.').lowercase() }.getOrDefault("")
             val kind = when {
-                fields["m"]?.startsWith("image/") == true -> Kind.IMAGE
-                fields["m"]?.startsWith("video/") == true -> Kind.VIDEO
-                fields["m"]?.startsWith("audio/") == true -> return@mapNotNull null
-                fields["m"]?.lowercase() in setOf("application/x-mpegurl", "application/vnd.apple.mpegurl") -> Kind.VIDEO
+                mime?.startsWith("image/") == true -> Kind.IMAGE
+                mime?.startsWith("video/") == true -> Kind.VIDEO
+                mime?.startsWith("audio/") == true -> return@mapNotNull null
+                mime in setOf("application/x-mpegurl", "application/vnd.apple.mpegurl") -> Kind.VIDEO
                 extension in setOf("jpg", "jpeg", "png", "webp", "gif", "avif") -> Kind.IMAGE
                 extension in setOf("mp4", "m4v", "mov", "webm", "m3u8") -> Kind.VIDEO
                 event.kind == 20 && url in metadata -> Kind.IMAGE
@@ -42,7 +45,7 @@ object MediaContent {
             }
             val dimensions = fields["dim"]?.split('x')?.mapNotNull(String::toFloatOrNull)
             val ratio = dimensions?.takeIf { it.size == 2 && it.all { dim -> dim.isFinite() && dim > 0 } }?.let { it[0] / it[1] }?.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
-            Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500), fields["m"])
+            Attachment(url, kind, ratio, secureUrl(fields["image"] ?: fields["thumb"]), fields["alt"]?.take(500), mime)
         }.take(if (event.kind in videoKinds) 1 else limit.coerceIn(1, 32)).toList()
     }
     fun text(event: Event, attachments: List<Attachment>): String {
@@ -73,5 +76,16 @@ internal object ImageRatios {
         val ratio = width.toFloat() / height
         ratios[url] = ratio
         return ratio
+    }
+}
+
+/** Header discoveries are small, bounded, and shared by every rendering path. */
+internal object DetectedMedia {
+    private val mutable = MutableStateFlow<Map<String, String>>(emptyMap())
+    val types = mutable.asStateFlow()
+    fun mime(url: String): String? = mutable.value[url]
+    @Synchronized fun put(url: String, mime: String) {
+        if (mutable.value[url] == mime) return
+        mutable.value = (mutable.value - url + (url to mime)).entries.toList().takeLast(256).associate { it.toPair() }
     }
 }
