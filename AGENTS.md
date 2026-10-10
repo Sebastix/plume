@@ -4,6 +4,7 @@
 - Signer-only login (NIP-55, e.g. Amber); no account creation or key import. No signing permissions.
 - Follow docs/DESIGN.md: icon-only interface chrome, accessible descriptions, content-first typography.
 - Convention over configuration: sensible defaults, automatic profile relay sets and discovery, no relay editor or setup wizard. Settings should remain exceptional.
+- Keep work off the UI thread unless Android UI APIs require it. Run disk/network I/O, database access, image processing, and substantial parsing on background dispatchers. Bound queues and concurrency; optional cache work must never delay display.
 - Keep features, dependencies, relay subscriptions, and caches small and bounded.
 - Use standard Android components; white backgrounds and Soft Plume blue branding.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.

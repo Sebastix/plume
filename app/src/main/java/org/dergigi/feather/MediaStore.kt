@@ -24,7 +24,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MediaStore(private val context: Context) {
-    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory)
+    class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails)
     private val prefs = context.getSharedPreferences("feather-media", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -52,16 +52,19 @@ class MediaStore(private val context: Context) {
             _resources.value = null
             http.dispatcher.cancelAll()
             previous?.images?.shutdown()
+            previous?.thumbnails?.close()
             previous?.imageDisk?.shutdown()
             previous?.videos?.release()
             var disk: DiskCache? = null
             var videos: SimpleCache? = null
+            var thumbnails: AvatarThumbnails? = null
             try {
                 disk = DiskCache.Builder().directory(File(context.cacheDir, "images").toOkioPath()).maxSizeBytes(MediaContent.imageBudget(mb)).build()
+                thumbnails = AvatarThumbnails(disk)
                 val images = ImageLoader.Builder(context)
                     .memoryCache { MemoryCache.Builder().maxSizeBytes(minOf(Runtime.getRuntime().maxMemory() * 6 / 100, 64L * 1024 * 1024)).build() }
                     .diskCache(disk)
-                    .components { add(AvatarThumbnails(disk)); add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
+                    .components { add(thumbnails); add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
                     .build()
                 videos = SimpleCache(File(context.cacheDir, "videos"), LeastRecentlyUsedCacheEvictor(MediaContent.videoBudget(mb)), StandaloneDatabaseProvider(context))
                 // Initializes and trims the cache on IO before any player is created.
@@ -71,9 +74,9 @@ class MediaStore(private val context: Context) {
                     .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                 _budgetMb.value = mb
                 prefs.edit().putInt("cacheMb", mb).apply()
-                _resources.value = Resources(images, disk, videos, source)
+                _resources.value = Resources(images, disk, videos, source, thumbnails)
             } catch (e: Exception) {
-                disk?.shutdown(); videos?.release()
+                thumbnails?.close(); disk?.shutdown(); videos?.release()
                 _error.value = "Could not open the media cache. Try another storage size."
             }
         }

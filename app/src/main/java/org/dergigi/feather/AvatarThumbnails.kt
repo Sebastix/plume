@@ -12,12 +12,41 @@ import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.request.maxBitmapSize
 import coil3.size.Size
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 
 /** Small local derivatives share the image LRU and storage budget with their originals. */
 class AvatarThumbnails(private val disk: DiskCache) : Interceptor {
+    private data class Write(val key: String, val bitmap: Bitmap)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val queue = Channel<Write>(capacity = 4)
+    private val pending = mutableSetOf<String>()
+    private var closed = false
+    private val worker = scope.launch {
+        for (write in queue) {
+            try { save(write.key, write.bitmap) }
+            finally { synchronized(pending) { pending.remove(write.key) } }
+        }
+    }
+
+    private fun enqueue(key: String, image: BitmapImage) {
+        // Keep a shared bitmap alive, never copy/recycle Coil's image on the display path.
+        if (!image.shareable) return
+        synchronized(pending) {
+            if (closed || !pending.add(key)) return
+            if (queue.trySend(Write(key, image.bitmap)).isFailure) pending.remove(key)
+        }
+        // A full queue skips this optional derivative; another load can try again.
+    }
+
+    suspend fun close() {
+        synchronized(pending) { closed = true }
+        queue.cancel()
+        scope.cancel()
+        worker.join() // Finish/abort an active editor before the shared disk cache closes.
+        synchronized(pending) { pending.clear() }
+    }
+
     override suspend fun intercept(chain: Interceptor.Chain): coil3.request.ImageResult {
         val request = chain.request
         val originalKey = request.diskCacheKey?.takeIf { ":avatar:" in it } ?: return chain.proceed()
@@ -29,30 +58,32 @@ class AvatarThumbnails(private val disk: DiskCache) : Interceptor {
                 val cached = chain.withRequest(sized.newBuilder().data(snapshot.data.toFile()).diskCachePolicy(CachePolicy.DISABLED).build())
                     .withSize(Size(256, 256)).proceed()
                 if (cached is SuccessResult) return cached
-            } finally { snapshot.close() }
+            } finally { withContext(NonCancellable + Dispatchers.IO) { snapshot.close() } }
             withContext(Dispatchers.IO) { runCatching { disk.remove(key) } }
         }
         val result = chain.withRequest(sized).withSize(Size(256, 256)).proceed()
-        if (result is SuccessResult) withContext(Dispatchers.IO) {
-            val bitmap = (result.image as? BitmapImage)?.bitmap ?: return@withContext
-            val editor = runCatching { disk.openEditor(key) }.getOrNull() ?: return@withContext
-            try {
-                val edge = minOf(bitmap.width, bitmap.height)
-                val left = (bitmap.width - edge) / 2
-                val top = (bitmap.height - edge) / 2
-                val thumbnail = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
-                try {
-                    Canvas(thumbnail).drawBitmap(bitmap, Rect(left, top, left + edge, top + edge), Rect(0, 0, 256, 256), Paint(Paint.FILTER_BITMAP_FLAG))
-                    editor.metadata.toFile().writeText("")
-                    editor.data.toFile().outputStream().use { check(thumbnail.compress(Bitmap.CompressFormat.WEBP, 85, it)) }
-                    editor.commit()
-                } finally { thumbnail.recycle() }
-            } catch (e: Exception) {
-                runCatching { editor.abort() }
-                if (e is CancellationException) throw e
-                // A cache write must never prevent showing the already decoded original.
-            }
-        }
+        if (result is SuccessResult) (result.image as? BitmapImage)?.let { enqueue(key, it) }
         return result
+    }
+
+    private suspend fun save(key: String, bitmap: Bitmap) {
+        val editor = runCatching { disk.openEditor(key) }.getOrNull() ?: return
+        try {
+            val edge = minOf(bitmap.width, bitmap.height)
+            val left = (bitmap.width - edge) / 2
+            val top = (bitmap.height - edge) / 2
+            val thumbnail = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+            try {
+                Canvas(thumbnail).drawBitmap(bitmap, Rect(left, top, left + edge, top + edge), Rect(0, 0, 256, 256), Paint(Paint.FILTER_BITMAP_FLAG))
+                editor.metadata.toFile().writeText("")
+                editor.data.toFile().outputStream().use { check(thumbnail.compress(Bitmap.CompressFormat.WEBP, 85, it)) }
+                currentCoroutineContext().ensureActive()
+                editor.commit()
+            } finally { thumbnail.recycle() }
+        } catch (e: Exception) {
+            runCatching { editor.abort() }
+            if (e is CancellationException) throw e
+            // A cache write must never prevent showing the already decoded original.
+        }
     }
 }
