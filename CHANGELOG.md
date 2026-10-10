@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Shorten the Zapstore description to two sentences.
+
 ## [0.6.0] - 2026-10-10
 
 ### Added

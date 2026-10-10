@@ -4,21 +4,7 @@ release_notes: ./CHANGELOG.md
 name: Feather
 summary: a lightweight android client
 description: |
-  Feather is a minimal native Android client for Nostr. Read a chronological
-  following feed, profiles, and conversations. Connect an Android signer such as
-  Amber to read your existing follows. Icon-only controls and NIP-65 outbox routing
-  keep reading simple. Images load automatically and visible videos autoplay muted.
-  Profile mentions become tappable names and quoted notes appear inline.
-  Profile tabs separate posts, replies, reactions, and highlights. Highlights show
-  context and source attribution. Reply, reaction, and validated zap counts load
-  in the background. Light and dark themes follow Android automatically.
-  Local avatar thumbnails, recent notes, and media stay cached within your chosen
-  storage budget. Settings lives on your profile; relay selection is automatic.
-
-  No posting, replying, follow editing, search, DMs, wallets, ads, or analytics.
-  Standard Android controls, system-following colors, and the Soft Plume feather identity.
-
-  https://feather.dergigi.com/
+  A minimal Nostr reader for Android. Sign in with Amber or another Android signer.
 license: MIT
 website: https://feather.dergigi.com/
 icon: ./zapstore-icon.png
