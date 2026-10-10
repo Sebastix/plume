@@ -251,13 +251,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 }
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
-                val bookmarkRows by produceState<List<Pair<Event, NostrContent.Reference>>>(entry.bookmarks, notes, profileTab) {
+                val bookmarkRows by produceState<List<Pair<Event, NostrContent.Reference>>>(if (profileTab == ProfileTab.PEOPLE) entry.people else entry.bookmarks, notes, profileTab) {
                     value = withContext(Dispatchers.Default) {
-                        if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS)
-                            notes.flatMap { collection -> bookmarkReferences(collection).map { collection to it } }
+                        if (screen == "profile" && profileTab in listOf(ProfileTab.BOOKMARKS, ProfileTab.PEOPLE))
+                            notes.asSequence().flatMap { collection -> (if (profileTab == ProfileTab.PEOPLE) peopleReferences(collection) else bookmarkReferences(collection)).asSequence().map { collection to it } }.take(5000).toList()
                         else emptyList()
                     }
                     if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
+                    if (screen == "profile" && profileTab == ProfileTab.PEOPLE) entry.people = value
                 }
                 val photoGrid by produceState(entry.photos, notes, profileTab) {
                     value = withContext(Dispatchers.Default) {
@@ -396,6 +397,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                             ProfileTab.PHOTOS -> Icon(painterResource(R.drawable.photos), tab.label, Modifier.size(24.dp))
                                             ProfileTab.VIDEOS -> Icon(Icons.Default.PlayArrow, tab.label)
                                             ProfileTab.BOOKMARKS -> Icon(painterResource(R.drawable.bookmark), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.ARTICLES -> Icon(painterResource(R.drawable.article), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.PEOPLE -> Icon(painterResource(R.drawable.people), tab.label, Modifier.size(24.dp))
+                                            ProfileTab.PROJECTS -> Icon(painterResource(R.drawable.project), tab.label, Modifier.size(24.dp))
                                             ProfileTab.APPS -> Icon(painterResource(R.drawable.apps), tab.label, Modifier.size(24.dp))
                                         }
                                     })
@@ -426,6 +430,22 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
+                        } else if (screen == "profile" && profileTab == ProfileTab.PEOPLE) {
+                            itemsIndexed(bookmarkRows, key = { _, row -> "${row.first.id}:${row.second.id}" }) { index, (collection, reference) ->
+                                if (index == 0 || bookmarkRows[index - 1].first.id != collection.id) {
+                                    collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.titleSmall) }
+                                }
+                                val person = s.profiles[reference.id]
+                                val name = person?.name ?: FeatherRepository.shortKey(reference.id)
+                                Row(Modifier.fillMaxWidth().clickable { openReference(reference) }.padding(horizontal = 24.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Avatar(name, 44, person?.picture)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        person?.about?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    }
+                                }
+                            }
                         } else if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) {
                             items(bookmarkRows, key = { "${it.first.id}:${it.second.id}" }) { (collection, reference) ->
                                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -436,7 +456,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 }
                             }
                         } else items(notes, key = { it.id }) { note ->
-                            if (note.kind == 32267) SoftwareAppCard(note)
+                            if (note.kind == 30617) ProjectCard(note)
+                            else if (note.kind == 32267) SoftwareAppCard(note)
                             else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                 openNote(original)
                             } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
@@ -552,6 +573,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         Spacer(Modifier.height(12.dp))
         when (note.kind) {
+            30023 -> ArticleContent(note, compact, onReference)
             9802 -> HighlightContent(note, state.profiles, compact, onReference)
             7 -> {
                 ReactionContent(note)
@@ -578,7 +600,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        if (note.kind != 7) Row(verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30023)) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             Row(Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -652,7 +674,8 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                     ) { Avatar(name, 28, profile?.picture) }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
+                if (note.kind == 30023) ArticleContent(note, compact, onReference)
+                else if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
                 else {
                 val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
                 val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), note.id, compact, detectedTypes) {

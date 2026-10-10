@@ -227,3 +227,11 @@ Debug build passed. Settings displays used bytes against the chosen limit plus a
 ## Extensionless media links — October 11, 2026
 
 Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image/jpeg without a filename extension. The existing bounded Open Graph request now recognizes image/video Content-Type headers before HTML parsing, closes the metadata response without reading the media body, and caches the MIME result with preview metadata. A bounded 256-entry observable MIME map updates note and embedded-card attachment parsing on Default; normal Coil/Media3 loading handles the media itself. No extra preflight request, file-extension assumption, or blanket classification of getBlob as an image. Debug build passed. No automated tests or device checks were run.
+
+## 2026-10-11 — Articles, People, Projects (unreleased)
+
+- Added kind 30023 articles, kinds 3/30000 public people lists, and kind 30617 repository announcements to bounded profile discovery, paging, cache pruning, and latest-version deduplication. Confirmed tag formats against NIP-23, NIP-51, and NIP-34.
+- Articles use cached-event detail navigation, existing Markdown formatting on Dispatchers.Default, cover images, and up to 32 inline Markdown images. Article acceptance is bounded to 262,144 content characters. NIP-22 article comments and arbitrary naddr resolution remain outside this change.
+- People rows are lazy, flattened off-main, capped at 5,000 displayed members, and resolve up to 32 visible/nearby profile references per update. Private content is never parsed. Retained people rows are separate from bookmarks for back navigation.
+- Project metadata is parsed off-main; cards open a valid HTTP(S) web tag or the repository's Nostr address via njump. No new dependency or publishing permission.
+- `./gradlew :app:assembleDebug`: passed after final changes. `git diff --check`: passed. No automated tests or device checks; no release published.

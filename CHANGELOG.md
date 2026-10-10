@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Render extensionless image/video URLs, including AT Protocol blob links, using Content-Type discovered by the existing background link-preview fetch. Cache discoveries and replace raw links/web cards with normal inline media and gallery/player controls.
 
 ### Added
+- Dynamic Articles, People, and Projects profile tabs: in-app Markdown articles with cover/inline images, public follows and named people lists with profile navigation, and repository cards with source links. Deduplicate replaced articles/lists/projects; resolve visible people in bounded background batches.
 - Show media-cache usage and a usage bar alongside the storage limit in settings; read cache counters on IO only while settings is open and foregrounded.
 - Dynamic Apps profile tab for publisher-signed Zapstore app metadata (kind 32267), with cached icons, name/summary cards, catalog relay discovery, and publisher-specific links opening in Zapstore or the browser.
 - Website dark mode follows the system setting, using Feather’s app palette on the homepage and privacy page.

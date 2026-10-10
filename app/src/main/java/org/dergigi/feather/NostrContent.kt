@@ -51,9 +51,9 @@ object NostrContent {
     fun references(event: Event): List<Reference> = referenceCache.getOrPut(event.id) { parseReferences(event) }
 
     private fun parseReferences(event: Event): List<Reference> {
-        if (event.kind == 32267) return emptyList()
+        if (event.kind in listOf(32267, 30617)) return emptyList()
         // Repost content is an encoded event, not user-facing text to tokenize.
-        if (event.kind in listOf(6, 10003, 30003)) return activityReferences(event)
+        if (event.kind in listOf(3, 6, 30000, 10003, 30003)) return activityReferences(event)
         return (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))
