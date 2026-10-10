@@ -1,6 +1,8 @@
 # Feather
 
-A small, native Android reader for Nostr. White space, a chronological feed, and room to breathe.
+a lightweight android client
+
+Read Nostr with a chronological feed and room to breathe.
 
 [Design philosophy](docs/DESIGN.md) describes the product boundaries and visual principles.
 

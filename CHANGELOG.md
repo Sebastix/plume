@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Aligned the README, GitHub description, Zapstore summary, and website description metadata with the tagline “a lightweight android client”.
+
 ## [0.4.0] - 2026-10-10
 
 ### Added
