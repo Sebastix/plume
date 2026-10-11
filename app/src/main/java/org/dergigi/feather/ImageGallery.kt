@@ -62,10 +62,10 @@ import kotlin.math.abs
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
 internal val LocalGalleryVisible = staticCompositionLocalOf { false }
-internal class GalleryOpener(private val open: (List<String>, Int, Event?) -> Unit) {
-    operator fun invoke(images: List<String>, start: Int, note: Event? = null) = open(images, start, note)
+internal class GalleryOpener(private val open: (List<String>, Int, Event?, Boolean) -> Unit) {
+    operator fun invoke(images: List<String>, start: Int, note: Event? = null, expandAlbum: Boolean = true) = open(images, start, note, expandAlbum)
 }
-internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _ -> } }
+internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _, _ -> } }
 
 @Composable
 internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
@@ -79,14 +79,14 @@ internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -
         if (hiddenSource) { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() }
     }
     val currentAlbum by rememberUpdatedState(album)
-    CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides GalleryOpener { images, start, note ->
+    CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides GalleryOpener { images, start, note, expandAlbum ->
         if (images.isNotEmpty() && (note == null || !filter.hides(note))) {
             val selected = start.coerceIn(images.indices)
             val photos = currentAlbum()
             val collection = photos.urls
             // Preserve exact indices (including duplicate URLs) for full-grid calls.
             // Single-note/inline callers in Photos must still open the whole album.
-            val albumIndex = if (images == collection) selected else collection.indexOf(images[selected])
+            val albumIndex = if (!expandAlbum) -1 else if (images == collection) selected else collection.indexOf(images[selected])
             if (albumIndex >= 0) {
                 urls = ArrayList(collection); index = albumIndex
                 sourceNotes = photos.sources

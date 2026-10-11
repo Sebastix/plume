@@ -9,6 +9,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Show NIP-05 instead of the profile username when present, with background verification: green check for a matching identity, double check for a root identity, warning for invalid claims, and copyable verification details.
 
 ### Changed
+- Open profile avatars and banners together in a swipeable gallery, starting on the tapped image.
 - Present gallery reaction, zap, and open-note actions as separate floating buttons, preserving auto-hide and the long-press emoji picker.
 
 ### Fixed

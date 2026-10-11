@@ -470,10 +470,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             val key = profileKey!!
                             val p = s.profiles[key]
                             val openGallery = LocalOpenGallery.current
+                            val profileImages = remember(p?.picture, p?.banner) { listOfNotNull(p?.picture, p?.banner) }
                             Box(Modifier.fillMaxWidth()) {
                                 p?.banner?.let { banner ->
                                     Box(Modifier.fillMaxWidth().height(176.dp)
-                                        .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }) {
+                                        .clickable(onClickLabel = "Open profile banner") { openGallery(profileImages, profileImages.lastIndex, expandAlbum = false) }) {
                                         RemoteImage(banner, Modifier.fillMaxSize(), "Profile banner")
                                         val surface = MaterialTheme.colorScheme.surface
                                         Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(56.dp)
@@ -486,7 +487,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     top = if (p?.banner != null) 0.dp else 24.dp, bottom = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
+                                        Avatar(p?.name ?: key, 56, p?.picture, onOpenImage = { openGallery(profileImages, 0, expandAlbum = false) })
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
@@ -662,11 +663,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
 }
 
 @Composable
-internal fun Avatar(name: String, size: Int = 36, picture: String? = null, openImage: Boolean = false) {
-    val openGallery = LocalOpenGallery.current
+internal fun Avatar(name: String, size: Int = 36, picture: String? = null, onOpenImage: (() -> Unit)? = null) {
     Box(Modifier.size(size.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
         Text(name.take(1).uppercase(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-        RemoteImage(picture, Modifier.fillMaxSize().clip(CircleShape).then(if (openImage && picture != null) Modifier.clickable(onClickLabel = "Open profile picture") { openGallery(listOf(picture), 0) } else Modifier), avatar = true)
+        RemoteImage(picture, Modifier.fillMaxSize().clip(CircleShape).then(if (onOpenImage != null && picture != null) Modifier.clickable(onClickLabel = "Open profile picture", onClick = onOpenImage) else Modifier), avatar = true)
     }
 }
 
