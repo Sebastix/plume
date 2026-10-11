@@ -405,7 +405,8 @@ class FeatherRepository(context: Context) {
         val previews = feedDiscoveryPages
         val feedTabs = (listOf(ProfileTab.POSTS, ProfileTab.REPLIES) + ProfileTab.entries.filter {
             it !in listOf(ProfileTab.POSTS, ProfileTab.REPLIES) && previews[it].orEmpty().isNotEmpty()
-        }.sortedWith(compareByDescending<ProfileTab> { previews[it].orEmpty().size }.thenBy { it.ordinal }))
+        }.sortedWith(compareBy<ProfileTab> { it.orderPriority }
+            .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal }))
         val feedPreviews = previews.mapValues { it.value.take(40) }
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {
@@ -434,7 +435,7 @@ class FeatherRepository(context: Context) {
             val frequencies = ProfileTab.entries.associateWith { candidate -> events.count(candidate::matches) }
             val found = frequencies.filterValues { it > 0 }.keys
             (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
-                .sortedWith(compareBy<ProfileTab> { when (it) { ProfileTab.POSTS -> 0; ProfileTab.REPLIES -> 1; else -> 2 } }
+                .sortedWith(compareBy<ProfileTab> { it.orderPriority }
                     .thenByDescending { frequencies[it] ?: 0 }.thenBy { it.ordinal })
         }.orEmpty()
         val hashtag = viewedHashtag

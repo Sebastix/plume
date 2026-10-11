@@ -16,6 +16,15 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
     ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs");
+    internal val orderPriority: Int
+        get() = when (this) {
+            POSTS -> 0
+            REPLIES -> 1
+            PHOTOS -> 2
+            VIDEOS -> 3
+            else -> 4
+        }
+
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)

@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Prioritize Posts, Replies, Photos, and Videos in that order on home and profiles; keep other categories ordered by observed frequency.
 - Shrink and fade the home avatar to a dot when hiding, reversing the animation when it returns.
 
 ## [0.28.2] - 2026-10-11

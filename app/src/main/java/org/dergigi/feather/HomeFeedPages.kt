@@ -64,7 +64,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     LaunchedEffect(state.feedTabs) {
         snapshotFlow { pager.isScrollInProgress }.first { !it }
         run {
-            val next = (state.feedTabs + tabs).distinct()
+            val next = (state.feedTabs + tabs).distinct().sortedBy { it.orderPriority }
             if (next != tabs) {
                 val selected = home.tab
                 reordering = true
