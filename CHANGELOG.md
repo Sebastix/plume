@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-10-11
+
 ### Changed
 - Keep the main feed selector at the bottom, restore a smaller bordered account avatar at the top right, and make the feather a floating scroll-to-top action above the selector.
 
