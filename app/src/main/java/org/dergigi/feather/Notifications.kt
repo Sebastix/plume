@@ -129,7 +129,10 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         if (active) snapshotFlow { entry.list.firstVisibleItemIndex to entry.list.firstVisibleItemScrollOffset }
             .distinctUntilChanged().collect { (index, offset) -> if (index == 0 && offset == 0) home.toolbar = true }
     }
-    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active && lifecycle.isAtLeast(Lifecycle.State.STARTED), null)) {
+    CompositionLocalProvider(
+        LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+        LocalMedia provides MediaEnvironment(resources, active && lifecycle.isAtLeast(Lifecycle.State.STARTED), null),
+    ) {
         PullToRefreshBox(isRefreshing = active && state.notificationsLoading,
             onRefresh = vm.repo::refreshNotifications, modifier = Modifier.fillMaxSize()) {
             LazyColumn(state = entry.list, modifier = Modifier.fillMaxSize().nestedScroll(toolbarScroll),

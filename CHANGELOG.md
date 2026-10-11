@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Order gallery floating actions as zap, like, then open note; dim and disable zaps without a connected wallet, and both zap and like when logged out.
 
 ### Fixed
+- Use the theme’s foreground color for notification names and uncolored reaction glyphs so they remain readable in dark mode.
 - Guard the profile tab indicator against changing tab counts during layout, preventing an out-of-bounds crash.
 
 ## [0.32.0] - 2026-10-11
