@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-11
+
 ### Added
 - Dynamic Emoji packs category for authored kind-30030 sets on profiles and the main feed, with browsable emoji images.
 - Nostr Wallet Connect in settings, encrypted credential storage, and explicit 21-sat post zaps through the connected wallet and Android signer. Verify invoice/payment details and retain pending invoices to avoid duplicate payments after timeouts.
@@ -377,7 +379,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.22.2...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/dergigi/feather/compare/v0.22.2...v0.23.0
 [0.22.2]: https://github.com/dergigi/feather/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/dergigi/feather/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/dergigi/feather/compare/v0.21.1...v0.22.0

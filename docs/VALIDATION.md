@@ -508,3 +508,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - A bolt tap sends 21 sats after external signing of kind 9734. Check exact invoice amount, Bech32 checksum, expiry, description hash, and payment-preimage hash. One payment/signer action at a time. Persist pending invoices before sending; subsequent attempts check the same invoice. No automatic payment retry or synthetic network zap count.
 - Kind-30030 authored emoji packs appear as a dynamic category with lazy horizontal image browsing and gallery access. No pack editing or public-list writes.
 - `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or live-wallet payments; end-to-end wallet/signer behavior requires device validation.
+
+## 2026-10-11 — 0.23.0 release
+
+- Version 0.23.0, versionCode 44; NWC wallet, explicit 21-sat zaps, and authored emoji-pack browsing.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live wallet payments; wallet/signer behavior requires device validation.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.23.0 (44), 14,786,878 bytes.
+- APK SHA-256: `f7f77507271ae4a4ba6bf50308a3c8ca8272d4bb81e8c654f3ae00158d452f5f`.
+- Matching R8 mapping archived locally at `output/releases/feather-0.23.0-mapping.txt`. Website unchanged.
