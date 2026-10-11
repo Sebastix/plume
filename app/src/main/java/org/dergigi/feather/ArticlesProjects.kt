@@ -59,10 +59,10 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
     val model = article
     if (model == null) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
     else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        model.cover?.let { ArticleImage(it, model.title) }
+        model.cover?.let { ArticleImage(it, model.title, event) }
         model.title?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.headlineSmall) }
         model.blocks.forEach { block ->
-            block.image?.let { ArticleImage(it, block.alt) }
+            block.image?.let { ArticleImage(it, block.alt, event) }
             block.text?.takeIf { it.isNotBlank() }?.let {
                 if (compact) Text(it, maxLines = 5, overflow = TextOverflow.Ellipsis, style = style)
                 else SelectionContainer { Text(it, style = style) }
@@ -72,10 +72,10 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
 }
 
 @Composable
-private fun ArticleImage(url: String, alt: String?) {
+private fun ArticleImage(url: String, alt: String?, event: Event) {
     var ratio by remember(url) { mutableFloatStateOf(16f / 9f) }
     val gallery = LocalOpenGallery.current
-    Surface(onClick = { gallery(listOf(url), 0) }, color = MaterialTheme.colorScheme.surface) {
+    Surface(onClick = { gallery(listOf(url), 0, event) }, color = MaterialTheme.colorScheme.surface) {
         RemoteImage(url, Modifier.fillMaxWidth().aspectRatio(ratio), alt, crop = false,
             onImageSize = { width, height -> if (width > 0 && height > 0) ratio = width.toFloat() / height })
     }

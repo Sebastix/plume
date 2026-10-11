@@ -185,7 +185,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     LaunchedEffect(entry.key) { activate(entry) }
     LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
     BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    GalleryHost(album = { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos.urls else emptyList() }) {
+    GalleryHost(album = { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
+        onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) }) {
     MediaHost(mediaStore, reading = !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
@@ -282,7 +283,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     value = withContext(Dispatchers.Default) {
                         if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {
                             val photos = notes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }
-                            ProfilePhotos(photos.chunked(3), photos.map { it.second.url })
+                            ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
                         } else ProfilePhotos()
                     }
                     if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos = value

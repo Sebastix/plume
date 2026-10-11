@@ -113,6 +113,7 @@ internal fun activityReferences(event: Event): List<NostrContent.Reference> = wh
 internal data class ProfilePhotos(
     val rows: List<List<Pair<Event, MediaContent.Attachment>>> = emptyList(),
     val urls: List<String> = emptyList(),
+    val sources: List<Event> = emptyList(),
 )
 
 /** Public follow/list members only; encrypted content stays opaque. */

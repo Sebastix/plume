@@ -249,7 +249,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                 val selected = attachment.kind == MediaContent.Kind.VIDEO && playback?.activeKey == identity
                 DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }
                 if (attachment.kind == MediaContent.Kind.IMAGE) {
-                    InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url)) }
+                    InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url), note) }
                 } else Box(Modifier.fillMaxWidth().aspectRatio(videoRatios[attachment.url] ?: attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
                         if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime)

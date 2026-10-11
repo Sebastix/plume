@@ -290,3 +290,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.13.0 (29), 14,021,656 bytes.
 - APK SHA-256: `eb7f34818d768990e5340edb13a133406f5904b156a384b47e5a847336d7e511`.
+
+## 2026-10-11 — Open source note from gallery (unreleased)
+
+- Gallery openings now carry optional source events. Photos-tab albums build parallel per-image source lists alongside URLs off-main, preserving the exact source for duplicate image URLs at different grid indices. Regular/embedded note images and article cover/inline images pass their source event.
+- A conversation icon in the gallery toolbar opens the current pager page's source note and dismisses the gallery. Native detail navigation is seeded from the retained event; source IDs survive gallery state restoration without serializing events. Avatar/banner galleries without a source note omit the action.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.

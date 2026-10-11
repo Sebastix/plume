@@ -46,37 +46,58 @@ import coil3.request.maxBitmapSize
 import coil3.size.Size
 import kotlinx.coroutines.*
 import kotlin.math.abs
+import com.vitorpamplona.quartz.nip01Core.core.Event
 
 internal val LocalGalleryVisible = staticCompositionLocalOf { false }
-internal val LocalOpenGallery = staticCompositionLocalOf<(List<String>, Int) -> Unit> { { _, _ -> } }
+internal class GalleryOpener(private val open: (List<String>, Int, Event?) -> Unit) {
+    operator fun invoke(images: List<String>, start: Int, note: Event? = null) = open(images, start, note)
+}
+internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _ -> } }
 
 @Composable
-internal fun GalleryHost(album: () -> List<String> = { emptyList() }, content: @Composable () -> Unit) {
+internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
+    var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    var sourceNotes by remember { mutableStateOf<List<Event?>>(emptyList()) }
     val currentAlbum by rememberUpdatedState(album)
-    CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides { images, start ->
+    CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides GalleryOpener { images, start, note ->
         if (images.isNotEmpty()) {
             val selected = start.coerceIn(images.indices)
-            val collection = currentAlbum()
+            val photos = currentAlbum()
+            val collection = photos.urls
             // Preserve exact indices (including duplicate URLs) for full-grid calls.
             // Single-note/inline callers in Photos must still open the whole album.
             val albumIndex = if (images == collection) selected else collection.indexOf(images[selected])
             if (albumIndex >= 0) {
                 urls = ArrayList(collection); index = albumIndex
+                sourceNotes = photos.sources
+                noteIds = ArrayList(photos.sources.map { it.id })
             } else {
                 urls = ArrayList(images); index = selected
+                sourceNotes = List(images.size) { note }
+                noteIds = ArrayList(List(images.size) { note?.id.orEmpty() })
             }
         }
     }) {
         content()
-        if (urls.isNotEmpty()) ImageGallery(urls, index, onPage = { index = it }, onDismiss = { urls = arrayListOf() })
+        if (urls.isNotEmpty()) ImageGallery(urls, index, noteIds,
+            onPage = { index = it },
+            onDismiss = { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() },
+            onOpenNote = { page ->
+                val id = noteIds.getOrNull(page)?.takeIf { it.isNotBlank() }
+                val note = sourceNotes.getOrNull(page)?.takeIf { it.id == id }
+                if (id != null) {
+                    urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList()
+                    onOpenNote(id, note)
+                }
+            })
     }
 }
 
 // Swipe, double-tap/pinch zoom, background cycling and actions follow Boris.
 @Composable
-private fun ImageGallery(urls: List<String>, initialIndex: Int, onPage: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
     val pager = rememberPagerState(initialPage = initialIndex.coerceIn(urls.indices), pageCount = { urls.size })
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -131,6 +152,9 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, onPage: (Int) ->
             }
             Row(Modifier.fillMaxWidth().statusBarsPadding().align(Alignment.TopCenter).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close gallery", tint = foreground) }
+                if (!noteIds.getOrNull(pager.currentPage).isNullOrBlank()) IconButton(onClick = { onOpenNote(pager.currentPage) }) {
+                    Icon(painterResource(R.drawable.conversation), "Open image's note", tint = foreground)
+                }
                 Spacer(Modifier.weight(1f))
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = foreground, strokeWidth = 2.dp)
                 IconButton(onClick = { background = (background + 1) % colors.size }) { Icon(painterResource(R.drawable.contrast), "Change gallery background", tint = foreground) }
