@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Dynamic Emoji packs category for authored kind-30030 sets on profiles and the main feed, with browsable emoji images.
+- Nostr Wallet Connect in settings, encrypted credential storage, and explicit 21-sat post zaps through the connected wallet and Android signer. Verify invoice/payment details and retain pending invoices to avoid duplicate payments after timeouts.
+
 ## [0.22.2] - 2026-10-11
 
 ### Changed

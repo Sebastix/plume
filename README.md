@@ -26,7 +26,7 @@ Read Nostr with chronological feeds, profiles, and conversations.
 - Cache media aggressively with a selectable 128 MB–2 GB disk budget (512 MB default).
 - Cache recent notes locally and pause relay connections and media work in the background.
 
-No account creation, npub login, key import, posting, replying, follow editing, profile search, DMs, wallet, sending zaps, media uploads, push notifications, or analytics. Signer login requests only the public identity. Tapping a post’s heart sends 🧡; holding it opens six recent/frequent emoji choices plus a full-picker icon. Selecting a reaction requests kind-7 signing through the connected signer; no encryption permissions are requested. The app renders images and progressive video from HTTPS links and NIP-92 metadata, up to four attachments per note. Other links open externally. Initials remain as avatar fallbacks. Following subscriptions cover up to 1,000 authors including your account.
+No account creation, npub login, key import, posting, replying, follow editing, profile search, DMs, media uploads, push notifications, or analytics. Signer login requests only the public identity. Tapping a post’s heart sends 🧡; holding it opens six recent/frequent emoji choices plus a full-picker icon. Selecting a reaction requests kind-7 signing through the connected signer; public zaps request kind-9734 signing, while NWC uses a separate encrypted wallet connection. The app renders images and progressive video from HTTPS links and NIP-92 metadata, up to four attachments per note. Other links open externally. Initials remain as avatar fallbacks. Following subscriptions cover up to 1,000 authors including your account.
 
 Feather favors convention over configuration. Theme-aware account and settings sheets keep the interface quiet; only the media cache budget is configurable. Twelve seed candidates bootstrap a shared pool of up to four base and eight additional routes. Your signed relay list takes priority. Failed routes cool down for two minutes; discovery pauses in the background. NIP-66 monitor reports are not yet used.
 
@@ -65,6 +65,10 @@ OEM_KEY_PASSWORD=...
 ```sh
 ./gradlew :app:assembleRelease
 ```
+
+## Wallet
+
+Connect Nostr Wallet Connect from the wallet icon in settings. Post bolts send 21 sats through your wallet; an Android signer signs the public zap request. Credentials are encrypted with Android Keystore and excluded from backups. Disconnect removes the wallet connection; identity logout leaves it connected. Payment status is retained locally to prevent retries from duplicating uncertain payments.
 
 ## Releases
 

@@ -6,8 +6,8 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
-internal val readableKinds = listOf(1, 20, 9802, 30023) + videoKinds
-internal val profileKinds = listOf(1, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617) + videoKinds
+internal val readableKinds = listOf(1, 20, 9802, 30023, 30030) + videoKinds
+internal val profileKinds = listOf(1, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030) + videoKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     POSTS(listOf(1), "Posts"), REPLIES(listOf(1), "Replies"),
@@ -15,11 +15,12 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
-    ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects");
+    ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs");
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
         REPOSTS -> repostTarget(event) != null
+        EMOJI_PACKS -> !event.tagValue("d").isNullOrBlank() && collectionEmojis(event).isNotEmpty()
         PHOTOS -> MediaContent.attachments(event, 32).any { it.kind == MediaContent.Kind.IMAGE }
         VIDEOS -> MediaContent.attachments(event, 32).any { it.kind == MediaContent.Kind.VIDEO }
         BOOKMARKS -> bookmarkReferences(event).isNotEmpty()
@@ -55,7 +56,7 @@ internal fun latestProfileEvents(events: List<Event>): List<Event> = events
     .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
     .distinctBy { event -> when {
         event.kind in listOf(3, 10003) -> "${event.kind}:${event.pubKey}"
-        event.kind in listOf(30000, 30003, 30023, 30617, 34235, 34236, 32267) -> "${event.kind}:${event.pubKey}:${event.tagValue("d").orEmpty()}"
+        event.kind in listOf(30000, 30003, 30023, 30030, 30617, 34235, 34236, 32267) -> "${event.kind}:${event.pubKey}:${event.tagValue("d").orEmpty()}"
         else -> event.id
     } }
 

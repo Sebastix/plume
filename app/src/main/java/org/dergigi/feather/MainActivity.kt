@@ -108,6 +108,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val message by vm.message.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
+    val zapping by vm.zapping.collectAsStateWithLifecycle()
+    val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
     val contentFilter = remember(s.mutedAuthors, s.embedded) { ContentFilter(s.mutedAuthors, s.embedded) }
     val context = LocalContext.current
@@ -120,6 +122,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val threadId = entry.target.takeIf { screen == "thread" }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showWallet by remember { mutableStateOf(false) }
     LaunchedEffect(accountRequested) {
         if (accountRequested) { showAccount = true; onAccountHandled() }
     }
@@ -202,7 +205,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         val signer = connectedSigner
         val launch: (Intent) -> Unit = { intent ->
             scrollScope.launch {
-                if (vm.signer.value === signer && (vm.reacting.value != null || vm.decryptingMutes.value)) {
+                if (vm.signer.value === signer && (vm.reacting.value != null || vm.zapping.value != null || vm.decryptingMutes.value)) {
                     try { reactionLauncher.launch(intent) }
                     catch (_: Exception) { vm.cancelSignerRequest("Could not open your signer. Please try again.") }
                 }
@@ -228,7 +231,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else reacting, s.reactionChoices, s.customEmojis) { note, choice ->
+    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, reacting != null || decryptingMutes) { note ->
+        if (s.publicKey == null) showAccount = true
+        else if (!walletConnected) showWallet = true
+        else vm.zap(note)
+    }, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else zapping ?: reacting, s.reactionChoices, s.customEmojis) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
@@ -586,10 +593,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     } // Reaction actions.
     } // Per-visit saved UI state.
+    if (showWallet) WalletSheet(vm) { showWallet = false }
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            Settings(s, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
+            Settings(s, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
@@ -699,6 +707,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when (note.kind) {
+            30030 -> EmojiPackContent(note)
             30023 -> ArticleContent(note, compact, onReference)
             9802 -> HighlightContent(note, state.profiles, compact, onReference)
             7 -> {
@@ -726,7 +735,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        if (note.kind !in listOf(7, 30023)) Row(verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30023, 30030)) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -735,9 +744,13 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             }
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
             val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).padding(end = 16.dp),
+            val zapActions = LocalZapActions.current
+            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)
+                .clickable(enabled = !zapActions.disabled && zapActions.pending == null,
+                    onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(painterResource(R.drawable.zap), "$zapAmount sats received", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Icon(painterResource(R.drawable.zap), "Zap 21 sats; $zapAmount sats received", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))
@@ -842,7 +855,8 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                     }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (note.kind == 30023) ArticleContent(note, compact, onReference)
+                if (note.kind == 30030) EmojiPackContent(note)
+                else if (note.kind == 30023) ArticleContent(note, compact, onReference)
                 else if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
                 else {
                 val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
@@ -862,7 +876,7 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
 }
 
 @Composable
-private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier) {
+private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -881,6 +895,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        IconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
         state.publicKey?.let { key ->
             val profile = state.profiles[key]
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

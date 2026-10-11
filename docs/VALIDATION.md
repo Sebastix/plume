@@ -501,3 +501,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.22.2 (43), 14,752,994 bytes.
 - APK SHA-256: `099272a60eb1f297a783e8060f9711346586b56d991bad3194dac6eeaa9a21a8`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.22.2-mapping.txt`. Website unchanged.
+
+## 2026-10-11 — NWC zaps and emoji-pack browsing
+
+- Wallet settings use a masked, non-saveable connection input; validate `get_info` payment permission before persisting. Wrap credentials and the payment journal with Android Keystore AES-GCM; backup remains disabled. NWC uses the connection key, not the user's identity secret.
+- A bolt tap sends 21 sats after external signing of kind 9734. Check exact invoice amount, Bech32 checksum, expiry, description hash, and payment-preimage hash. One payment/signer action at a time. Persist pending invoices before sending; subsequent attempts check the same invoice. No automatic payment retry or synthetic network zap count.
+- Kind-30030 authored emoji packs appear as a dynamic category with lazy horizontal image browsing and gallery access. No pack editing or public-list writes.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or live-wallet payments; end-to-end wallet/signer behavior requires device validation.
