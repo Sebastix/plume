@@ -11,6 +11,13 @@ val secrets = Properties().apply {
 }
 fun secret(name: String): String? = System.getenv(name) ?: secrets.getProperty(name)
 
+val gitCommit = providers.exec {
+    workingDir(rootProject.projectDir)
+    commandLine("git", "rev-parse", "HEAD")
+}.standardOutput.asText.get().trim().also {
+    require(it.matches(Regex("[0-9a-f]{40,64}"))) { "Cannot determine build commit" }
+}
+
 android {
     namespace = "org.dergigi.feather"
     compileSdk = 37
@@ -20,6 +27,7 @@ android {
         targetSdk = 37
         versionCode = 44
         versionName = "0.23.0"
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     if (secret("OEM_STORE_FILE") != null) {

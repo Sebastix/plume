@@ -930,8 +930,21 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
-                Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback", tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.github), "Feather on GitHub, source code and feedback", tint = MaterialTheme.colorScheme.primary)
             }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather/releases/tag/v${BuildConfig.VERSION_NAME}")))
+                }.padding(horizontal = 12.dp, vertical = 16.dp).semantics { contentDescription = "Version ${BuildConfig.VERSION_NAME}, open GitHub release" })
+            Text("·", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(BuildConfig.GIT_COMMIT.take(7), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather/commit/${BuildConfig.GIT_COMMIT}")))
+                }.padding(horizontal = 12.dp, vertical = 16.dp).semantics { contentDescription = "Build commit ${BuildConfig.GIT_COMMIT.take(7)}, open GitHub commit" })
         }
     }
 }

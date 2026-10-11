@@ -4,9 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Subtle settings footer with version and build commit, linking to the GitHub release and commit respectively.
+
 ### Changed
 - Default the media cache to 1 GB, preserving saved cache limits.
 - Separate cache usage and limit readouts from the slider; remove the competing usage progress bar.
+- Use the GitHub logo for the settings link to the source repository.
 - Place the wallet button immediately to the left of logout in settings.
 - Use a trash icon to remove the Nostr Wallet Connect connection.
 - Remove explanatory wallet copy and the 21-sat label from the wallet sheet.
