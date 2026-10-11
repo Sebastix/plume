@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-11
+
 ### Added
 - Minimal Vertex profile search with avatars and tappable results, available without login; debounce requests and cancel them when leaving search.
 
