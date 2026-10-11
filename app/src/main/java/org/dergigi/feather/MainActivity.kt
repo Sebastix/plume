@@ -978,16 +978,16 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
                 val limit = if (mb >= 1024) "${mb / 1024} GB" else "$mb MB"
                 val used = usedBytes?.let(::cacheSizeLabel) ?: "—"
-                Text(used, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(used, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.weight(1f).semantics { contentDescription = "$used media cache used" })
                 if (resources == null) { Spacer(Modifier.width(16.dp)); CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
                 Spacer(Modifier.width(16.dp))
                 Text(limit, style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.semantics { contentDescription = "$limit media cache limit" })
             }
-            Slider(value = selectedBudget.toFloat(), onValueChange = { selectedBudget = it.toInt() }, valueRange = 0f..4f, steps = 3,
-                modifier = Modifier.semantics { contentDescription = "Media cache storage limit"; stateDescription = "${MediaContent.cacheOptionsMb[selectedBudget]} megabytes" },
-                onValueChangeFinished = { scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[selectedBudget]) } })
+            CacheBudgetSlider(selectedBudget, usedBytes,
+                onSelect = { selectedBudget = it },
+                onFinished = { index -> scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[index]) } })
             mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

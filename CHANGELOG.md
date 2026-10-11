@@ -4,10 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-11
+
 ### Added
 - Text reply composer with Vertex @mention lookup, signer-only publishing, saved local drafts, exact-event retries, and a Feather client tag; use NIP-10 for notes and NIP-22 for other supported content.
 
 ### Changed
+- Draw current media cache usage on the storage slider in a contrasting color, with usage and the selected limit sharing a proportional scale.
 - Label the 18+ setting “Show NSFW”.
 
 ### Fixed
