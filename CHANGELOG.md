@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-10-11
+
 ### Changed
 - Slide the main-feed avatar and selector in and out from the top and bottom screen edges respectively.
 - Move the floating feather button 8dp farther inward from the right edge.
