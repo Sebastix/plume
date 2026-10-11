@@ -537,9 +537,11 @@ private fun Avatar(name: String, size: Int = 36, picture: String? = null, openIm
 
 @Composable
 private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> Unit) {
-    Row(Modifier.clickable(onClickLabel = "View reposting profile", onClick = onProfile),
+    Row(Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(painterResource(R.drawable.repost), "Reposted by", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        IconButton(onClick = onProfile, modifier = Modifier.size(48.dp)) {
+            Icon(painterResource(R.drawable.repost), "View reposting profile", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(state.profiles[repost.pubKey]?.name ?: FeatherRepository.shortKey(repost.pubKey),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -554,7 +556,7 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
     if (original != null) {
         NoteRow(original, state, onReference, { onProfile(original.pubKey) }, { onOpen(original) }, repost = repost)
     } else {
-        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation") { onReference(target) }.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RepostAttribution(repost, state) { onProfile(repost.pubKey) }
             EmbeddedNote(target, null, state.profiles, repost.id, onReference)
         }
@@ -574,8 +576,12 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Spacer(Modifier.height(12.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clickable(onClick = onProfile), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(name, picture = profile?.picture); Spacer(Modifier.width(10.dp)); Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onProfile, modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" }) {
+                    Avatar(name, picture = profile?.picture)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
             NoteTimestamp(note)
         }

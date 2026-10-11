@@ -260,3 +260,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.12.1 (28), 14,021,652 bytes.
 - APK SHA-256: `baafe582de9e74c9e1ce92e72c0a4944a6a63f6e4aea14e074fb93340b09b6ca`.
+
+## 2026-10-11 — Note header tap targets (unreleased)
+
+- Regular note cards now use a 48 dp avatar button for author-profile navigation, matching embedded cards. Author names and header whitespace inherit the card's note action; timestamp cycling retains its separate target.
+- Repost attribution profile navigation is limited to its 48 dp icon button. The attribution name/space opens the original note, including unresolved repost cards. Profile lists, mentions, and media retain their own explicit actions.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
