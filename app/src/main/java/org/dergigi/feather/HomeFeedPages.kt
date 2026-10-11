@@ -110,7 +110,13 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                         val category = tabs.getOrNull(index) ?: continue
                         key(category) {
                             IconButton(onClick = {
-                                if (!reordering) scope.launch { pager.animateScrollToPage(index) }
+                                if (!reordering) scope.launch {
+                                    if (index == pager.settledPage && !pager.isScrollInProgress) {
+                                        val list = home.feedPage(category).list
+                                        if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
+                                        home.toolbar = true
+                                    } else pager.animateScrollToPage(index)
+                                }
                             }, modifier = Modifier.offset {
                                 val position = pager.currentPage + pager.currentPageOffsetFraction
                                 IntOffset(((2f + index - position) * slotWidth.toPx()).roundToInt(), 0)

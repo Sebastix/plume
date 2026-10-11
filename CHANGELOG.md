@@ -4,12 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-11
+
 ### Added
 - Tap transient error messages or their copy icon to copy the full message, including zap errors; keep messages accessible above galleries, fullscreen video, and settings.
 - Show author avatars and word-count-based reading time estimates (“5 min read”) in article lists.
 - Show NIP-05 instead of the profile username when present, with background verification: green check for a matching identity, double check for a root identity, warning for invalid claims, and copyable verification details.
 
 ### Changed
+- Tap the active profile tab or main-feed pill icon again to scroll its feed to the top.
 - Open profile avatars and banners together in a swipeable gallery, starting on the tapped image.
 - Present gallery reaction, zap, and open-note actions as separate floating buttons, preserving auto-hide and the long-press emoji picker.
 

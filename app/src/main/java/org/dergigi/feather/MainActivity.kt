@@ -516,7 +516,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
                             ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
                                 visibleProfileTabs.forEach { tab ->
-                                    Tab(selected = profileTab == tab, onClick = { selectProfileTab(tab) }, icon = {
+                                    Tab(selected = profileTab == tab, onClick = {
+                                        if (profileTab == tab) scrollScope.launch {
+                                            if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
+                                            else activeListState.animateScrollToItem(0)
+                                            topBarVisible = true
+                                        } else selectProfileTab(tab)
+                                    }, icon = {
                                         FeedCategoryIcon(tab)
                                     })
                                 }
