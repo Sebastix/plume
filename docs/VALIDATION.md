@@ -456,3 +456,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Inspected live event `4bdd49a5e94fea471771ea66c94873c4ce7b5d65a46fec12f3e6db29a9ce46d2`: kind 1, NIP-10 root tag pointing to `0000064b86e0e4a75c5b362e8448e804637f74af72c626fad587f7bae81d71c9`. Existing reply classification was correct; the renderer lacked parent context.
 - Add a reply arrow and compact parent-author/text preview with a separate parent-note tap target. Immediate ID fallback, cached/background resolution within the existing 24-event embed budget, relay hints preserved, muted parent content hidden. Parent references are kept separate from quote cards.
 - `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device checks. Not released yet.
+
+## 2026-10-11 — 0.21.0 release
+
+- Version 0.21.0, versionCode 39; reposts category, reply context, smaller category-picker emojis. Reposts use existing rendering, paging, mute filtering, and dynamic category discovery; Posts still includes reposts.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.21.0 (39), 14,736,610 bytes.
+- APK SHA-256: `68ef9ef17f32a2bd5a0ec728d0d45bf5bb20dc84b833fc9859b5adda2f2f4f46`.
+- Matching R8 mapping archived locally at `output/releases/feather-0.21.0-mapping.txt`. Website unchanged.
