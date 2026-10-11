@@ -405,8 +405,8 @@ class FeatherRepository(context: Context) {
         val previews = feedDiscoveryPages
         val feedTabs = (listOf(ProfileTab.POSTS, ProfileTab.REPLIES) + ProfileTab.entries.filter {
             it !in listOf(ProfileTab.POSTS, ProfileTab.REPLIES) && previews[it].orEmpty().isNotEmpty()
-        }.sortedWith(compareBy<ProfileTab> { it.orderPriority }
-            .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal }))
+        }).sortedWith(compareBy<ProfileTab> { it.orderPriority }
+            .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal })
         val feedPreviews = previews.mapValues { it.value.take(40) }
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {

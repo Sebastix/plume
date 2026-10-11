@@ -19,10 +19,12 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     internal val orderPriority: Int
         get() = when (this) {
             POSTS -> 0
-            REPLIES -> 1
+            HIGHLIGHTS -> 1
             PHOTOS -> 2
             VIDEOS -> 3
-            else -> 4
+            ARTICLES -> 4
+            REPLIES -> 5
+            else -> 6
         }
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
