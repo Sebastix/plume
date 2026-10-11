@@ -53,7 +53,7 @@ object MediaContent {
         return urls.replace(event.content) { match ->
             val url = match.value.trimEnd('.', ',', ')', ']', '!', '?')
             if (url in mediaUrls) match.value.removePrefix(url) else match.value
-        }.trim().replace(Regex("\n{3,}"), "\n\n")
+        }.withoutObjectMarkers().trim().replace(Regex("\n{3,}"), "\n\n")
     }
 
     /** Keep partially visible videos eligible, including videos taller than the viewport. */

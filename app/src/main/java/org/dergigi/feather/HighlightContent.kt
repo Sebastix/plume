@@ -88,15 +88,18 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
     val rendered by produceState<Pair<AnnotatedString, AnnotatedString?>?>(null, event.id, compact, profiles, style, codeStyle, linkStyle, textColor) {
         value = withContext(Dispatchers.Default) {
             try {
-                fun markdown(text: String): AnnotatedString = try {
-                    text.buildMarkdownAnnotatedString(style = style, linkTextSpanStyle = linkStyle, codeSpanStyle = codeStyle, linkInteractionListener = linkListener).takeUnless { it.isEmpty() && text.isNotBlank() }
-                        ?: AnnotatedString(text)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (error: Exception) {
-                    // A single publisher's Markdown must not cancel the composition's scope.
-                    Log.w("HighlightContent", "Unable to format highlight ${event.id}", error)
-                    AnnotatedString(text)
+                fun markdown(raw: String): AnnotatedString {
+                    val text = raw.withoutObjectMarkers()
+                    return try {
+                        text.buildMarkdownAnnotatedString(style = style, linkTextSpanStyle = linkStyle, codeSpanStyle = codeStyle, linkInteractionListener = linkListener).takeUnless { it.isEmpty() && text.isNotBlank() }
+                            ?: AnnotatedString(text)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        // A single publisher's Markdown must not cancel the composition's scope.
+                        Log.w("HighlightContent", "Unable to format highlight ${event.id}", error)
+                        AnnotatedString(text)
+                    }
                 }
                 val passage = passage(markdown(event.content.trim()), markdown(event.tagValue("context").orEmpty()), compact)
                 fun mentions(text: AnnotatedString): AnnotatedString {
@@ -134,10 +137,10 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
             } catch (error: Exception) {
                 // Formatting and remapping remote annotations are also fallible.
                 Log.w("HighlightContent", "Unable to render highlight ${event.id}", error)
-                val raw = event.content.trim().let { if (compact && it.length > 1400) it.take(1400) + "…" else it }
+                val raw = event.content.withoutObjectMarkers().trim().let { if (compact && it.length > 1400) it.take(1400) + "…" else it }
                 AnnotatedString(raw, SpanStyle(background = highlightGold.copy(alpha = 0.30f),
                     color = textColor, textDecoration = TextDecoration.Underline)) to
-                    event.tagValue("comment")?.takeIf(String::isNotBlank)?.let { AnnotatedString(if (compact) it.take(600) else it) }
+                    event.tagValue("comment")?.takeIf(String::isNotBlank)?.let { AnnotatedString((if (compact) it.take(600) else it).withoutObjectMarkers()) }
             }
         }
     }

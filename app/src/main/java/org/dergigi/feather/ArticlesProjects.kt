@@ -43,7 +43,7 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
                     codeSpanStyle = codeStyle, linkInteractionListener = listener).takeUnless { it.isEmpty() && text.isNotBlank() } ?: AnnotatedString(text)
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (_: Exception) { AnnotatedString(text) }
-            val body = if (compact) event.tagValue("summary")?.takeIf { it.isNotBlank() } ?: event.content.take(1000) else event.content
+            val body = (if (compact) event.tagValue("summary")?.takeIf { it.isNotBlank() } ?: event.content.take(1000) else event.content).withoutObjectMarkers()
             val blocks = mutableListOf<ArticleBlock>()
             var offset = 0
             // Bound automatic image loads; keep paragraphs in their original order.
@@ -53,7 +53,7 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
                 offset = match.range.last + 1
             }
             if (offset < body.length) blocks += ArticleBlock(text = render(body.substring(offset)))
-            Article(event.tagValue("title"), MediaContent.secureUrl(event.tagValue("image")), blocks)
+            Article(event.tagValue("title")?.withoutObjectMarkers(), MediaContent.secureUrl(event.tagValue("image")), blocks)
         }
     }
     val model = article

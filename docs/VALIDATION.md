@@ -266,3 +266,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Regular note cards now use a 48 dp avatar button for author-profile navigation, matching embedded cards. Author names and header whitespace inherit the card's note action; timestamp cycling retains its separate target.
 - Repost attribution profile navigation is limited to its 48 dp icon button. The attribution name/space opens the original note, including unresolved repost cards. Profile lists, mentions, and media retain their own explicit actions.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Orphaned object markers (unreleased)
+
+- The reported note `0000e42cb3ac5c90e5c37e7f010388598ecad9e8844a79f89bea174ec92230f5` contains literal U+FFFC before “only”; its tags provide no backing object.
+- Remove only U+FFFC from display copies of note bodies (including embedded notes), article text/titles, highlight passages/context/comments, and profile biographies. Clean before tokenization/Markdown to preserve link offsets; leave original event content, IDs, signatures, and persistence unchanged.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.

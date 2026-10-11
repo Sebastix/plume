@@ -342,7 +342,7 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(kinds = listOf(0), authors = listOf(author), limit = 1)).firstOrNull()
         } }
         val bioTokens = biography?.let { event ->
-            val about = runCatching { JSONObject(event.content).optString("about") }.getOrDefault("").take(2000)
+            val about = runCatching { JSONObject(event.content).optString("about") }.getOrDefault("").take(2000).withoutObjectMarkers()
             NostrContent.tokens(about, event)
         }.orEmpty()
         val bioRefs = bioTokens.mapNotNull { it.reference }.filter { it.hashtag == null }.distinctBy { it.id }
@@ -380,7 +380,7 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
         }.associate { event ->
             val data = runCatching { JSONObject(event.content) }.getOrNull()
-            val about = data?.optString("about").orEmpty().take(2000)
+            val about = data?.optString("about").orEmpty().take(2000).withoutObjectMarkers()
             event.pubKey to Profile(
                 data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
                 about,

@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Hide orphaned U+FFFC object-replacement markers in notes, embedded notes, article text, highlights, and profile biographies without modifying signed events.
 - Restrict author-profile navigation on regular note cards to the avatar button. Author names and header whitespace open the note; repost attribution names also open the note, with profile navigation limited to the repost icon.
 
 ## [0.12.1] - 2026-10-11
