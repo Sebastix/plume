@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -622,16 +621,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     }
                 } else {
                     Icon(painterResource(R.drawable.feather), null, Modifier.size(64.dp), tint = Color.Unspecified)
-                    FilledTonalIconButton(onClick = {
+                    FilledTonalButton(onClick = {
                         try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                         catch (_: Exception) { error = "Install an Android signer such as Amber first." }
-                    }, modifier = Modifier.size(56.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Connect Android signer") }
+                    }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Log in with an Android signer" }) {
+                        Text("Log in")
+                    }
                     IconButton(onClick = { showAccount = false; showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.primary) }
                 }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, "Get Amber")
+                    TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) {
+                        Text("Get Amber")
                     }
                 }
             }
