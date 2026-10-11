@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,20 @@ internal fun notificationTarget(event: Event): NostrContent.Reference? = when (e
     9735, 9321 -> zapNoteReference(event)
     else -> NostrContent.Reference(event.id, author = event.pubKey, kind = event.kind)
 }
+private enum class NotificationType(val label: String) {
+    ALL("All notifications"), REPLIES("Replies"), REACTIONS("Reactions"),
+    ZAPS("Zaps and nutzaps"), REPOSTS("Reposts"), MENTIONS("Mentions");
+
+    fun includes(event: Event): Boolean = when (this) {
+        ALL -> true
+        REPLIES -> event.kind in listOf(1, 1111) && Protocol.isReply(event)
+        REACTIONS -> event.kind == 7
+        ZAPS -> event.kind in listOf(9735, 9321)
+        REPOSTS -> event.kind == 6
+        MENTIONS -> event.kind in listOf(1, 1111) && !Protocol.isReply(event)
+    }
+}
+
 private data class NotificationPreview(val event: Event, val actor: String?, val text: String,
     val action: String, val reaction: ReactionChoice? = null, val amount: String? = null)
 
@@ -47,13 +62,14 @@ private data class NotificationPreview(val event: Event, val actor: String?, val
 internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, home: ReaderEntry, active: Boolean) {
     val state by vm.state.collectAsStateWithLifecycle()
     val owner = state.publicKey ?: return
+    var selectedType by rememberSaveable(owner) { mutableStateOf(NotificationType.ALL) }
     val events = state.notifications.takeIf { state.notificationsFor == owner }.orEmpty()
     val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions) {
         ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive)
     }
-    val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter) {
+    val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter, selectedType) {
         value = withContext(Dispatchers.Default) {
-            events.filterNot(filter::hides).mapNotNull { event ->
+            events.filter { selectedType.includes(it) && !filter.hides(it) }.mapNotNull { event ->
                 val target = notificationTarget(event)
                 if (target != null && filter.hides(target)) return@mapNotNull null
                 val payment = if (event.kind in listOf(9735, 9321)) zapActivity(event) ?: return@mapNotNull null else null
@@ -70,6 +86,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             }
         }
     }
+    LaunchedEffect(selectedType) { entry.list.scrollToItem(0) }
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(active, message) { if (active) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(active, owner) {
@@ -124,9 +141,36 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         LocalMedia provides MediaEnvironment(resources, active && lifecycle.isAtLeast(Lifecycle.State.STARTED), null),
     ) {
         PullToRefreshBox(isRefreshing = active && state.notificationsLoading,
-            onRefresh = vm.repo::refreshNotifications, modifier = Modifier.fillMaxSize()) {
+            onRefresh = vm.repo::refreshNotifications, modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             LazyColumn(state = entry.list, modifier = Modifier.fillMaxSize().nestedScroll(toolbarScroll),
                 contentPadding = PaddingValues(top = 96.dp, bottom = 144.dp)) {
+                stickyHeader("notification-filters") {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly) {
+                            NotificationType.entries.forEach { type ->
+                                IconToggleButton(checked = selectedType == type,
+                                    onCheckedChange = { selectedType = if (selectedType == type) NotificationType.ALL else type },
+                                    modifier = Modifier.size(48.dp).semantics { contentDescription = type.label },
+                                    colors = IconButtonDefaults.iconToggleButtonColors(
+                                        checkedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        checkedContentColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                    when (type) {
+                                        NotificationType.ALL -> Icon(Icons.Default.Notifications, null)
+                                        NotificationType.REACTIONS -> Icon(Icons.Default.FavoriteBorder, null)
+                                        NotificationType.MENTIONS -> Text("@", style = MaterialTheme.typography.titleLarge)
+                                        else -> Icon(painterResource(when(type) {
+                                            NotificationType.REPLIES -> R.drawable.conversation
+                                            NotificationType.ZAPS -> R.drawable.zap
+                                            else -> R.drawable.repost
+                                        }), null, Modifier.size(24.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 if (visiblePreviews.isEmpty()) item("notification-status") {
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                         if (state.notificationsLoading || !emptySettled) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)

@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Filter notifications by replies, reactions, zaps/nutzaps, reposts, or mentions using a compact icon row; tap the active filter again to show everything.
 - Show follow status and NIP-05 verification icons in profile search results, using the same indicators as composer mentions.
 
 ### Changed
