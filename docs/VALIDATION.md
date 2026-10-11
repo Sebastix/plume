@@ -441,3 +441,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Load and parse once on IO under a mutex; debounce queries and filter on Default. Show at most 200 lazy-grid results, with loading/empty/error states. Clearing search restores native category/variant browsing. Existing signer and duplicate guards remain shared.
 - Reproducible index generator and Unicode license included; no runtime network or new dependency.
 - `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device checks. Not released yet.
+
+## 2026-10-11 — 0.20.0 release
+
+- Version 0.20.0, versionCode 38; offline emoji search.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.20.0 (38), 14,736,074 bytes.
+- APK SHA-256: `92b8d68d3253a3fe1d52bd83f3c58176cf01425b4a2eec55481f1d050f6c3d39`.
+- Matching R8 mapping archived locally at `output/releases/feather-0.20.0-mapping.txt`.
