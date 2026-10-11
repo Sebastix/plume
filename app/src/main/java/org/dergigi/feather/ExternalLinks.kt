@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import java.util.Locale
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** Explicit app routing also works when Android has not verified NewPipe's web links. */
 internal fun Context.openWebLink(url: String) {
@@ -33,4 +34,11 @@ internal fun Context.openWebLink(url: String) {
         if (Build.VERSION.SDK_INT >= 30 && launch(nonBrowser = true)) return
     }
     if (!launch()) AppMessages.show("No app can open this link.")
+}
+
+/** Normalize public profile websites off-main when reading metadata. */
+internal fun profileWebsite(value: String?): String? {
+    val text = value?.trim()?.takeIf { it.isNotEmpty() && it.length <= 2048 && it.none(Char::isWhitespace) } ?: return null
+    val url = (if ("://" in text) text else "https://$text").toHttpUrlOrNull() ?: return null
+    return url.takeIf { it.username.isEmpty() && it.password.isEmpty() }?.toString()
 }

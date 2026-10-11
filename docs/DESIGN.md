@@ -173,3 +173,5 @@ Check only visible foreground profile headers, independently of relay loading. N
 Transient messages use a non-blocking, tappable snackbar above the active screen or modal. Tap the message or its copy icon to copy its full text, even when the visible preview is truncated. Keep only the latest message, auto-dismiss after six seconds with accessibility timeout adjustments, and never intercept back or outside touches.
 
 Tapping an already selected profile tab or main-feed pill icon scrolls that list to the top and reveals its controls. Selecting a different tab retains the existing scroll-position behavior.
+
+Profiles with a public website show a homepage icon immediately left of the Lightning-address action. Open it through the standard external-link handler; normalize bare domains to HTTPS and show no icon for invalid or non-web addresses.

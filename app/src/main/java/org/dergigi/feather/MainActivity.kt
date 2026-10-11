@@ -496,6 +496,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
+                                        p?.website?.let { website ->
+                                            IconButton(onClick = { context.openWebLink(website) }) {
+                                                Icon(Icons.Default.Home, "Open profile homepage", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
                                         p?.lightning?.trim()?.takeIf { '@' in it }?.let { address ->
                                             IconButton(onClick = {
                                                 val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Show a homepage icon left of the Lightning address icon on profiles with a website; tap to open it.
+
 ## [0.31.0] - 2026-10-11
 
 ### Added
