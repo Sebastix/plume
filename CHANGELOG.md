@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Slide the main-feed avatar and selector in and out from the top and bottom screen edges respectively.
 - Move the floating feather button 8dp farther inward from the right edge.
 - Fade the floating feather button to 40% opacity during feed scrolling or page swipes, restoring full opacity when movement stops.
 - Hide the top-right account avatar on downward scroll and restore it on upward scroll, sharing the bottom bar’s scroll threshold.

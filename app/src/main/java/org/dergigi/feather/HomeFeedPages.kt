@@ -1,8 +1,8 @@
 package org.dergigi.feather
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -92,7 +92,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
     AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), modifier = Modifier.align(Alignment.BottomCenter),
-        enter = expandVertically(tween(180), expandFrom = Alignment.Bottom), exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
+        enter = slideInVertically(tween(220)) { it }, exit = slideOutVertically(tween(180)) { it }) {
         CenterAlignedTopAppBar(
             title = {
                 BoxWithConstraints(Modifier.widthIn(max = 240.dp).fillMaxWidth().height(48.dp)
@@ -138,7 +138,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         )
     }
     AnimatedVisibility(home.toolbar, modifier = Modifier.align(Alignment.TopEnd),
-        enter = expandVertically(tween(180), expandFrom = Alignment.Top), exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Top)) {
+        enter = slideInVertically(tween(220)) { -it }, exit = slideOutVertically(tween(180)) { -it }) {
     IconButton(onClick = {
         val key = state.publicKey
         if (key == null) accountRequested = true
