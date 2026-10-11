@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Feather — a lightweight android client</title>
-  <meta name="description" content="a lightweight android client for Nostr. Chronological feeds, profile tabs, highlights, and conversations. Free and open source.">
+  <meta name="description" content="A native Android client for Nostr. Explore feeds, read articles, share photos, react with custom emoji, and send Lightning zaps. Free and open source.">
   <meta name="color-scheme" content="light dark"><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10171c" media="(prefers-color-scheme: dark)"><link rel="canonical" href="https://feather.dergigi.com/">
   <link rel="icon" href="/assets/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css">
   <meta property="og:type" content="website"><meta property="og:title" content="Feather — a lightweight android client">
@@ -11,29 +11,42 @@
   <meta property="og:image" content="https://feather.dergigi.com/assets/social.png?v=2"><meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
-  <a class="skip" href="#main">Skip to content</a>
-  <header class="wrap"><a class="brand" href="/" aria-label="Feather home"><img src="/assets/feather.svg" width="32" height="32" alt="">feather</a><a class="source" href="https://github.com/dergigi/feather">Source code <span aria-hidden="true">↗</span></a></header>
-  <main id="main" class="wrap">
-    <section class="hero" aria-labelledby="title">
-      <div class="intro">
-        <p class="eyebrow"><span></span> NOSTR, LIGHTLY.</p>
-        <h1 id="title">a <span>lightweight</span><br>android client</h1>
-        <p class="description">Read Nostr. Follow a chronological feed, browse profiles, and open conversations.</p>
-        <div class="actions"><a class="button" href="https://zapstore.dev/apps/org.dergigi.feather">Get it on Zapstore <span aria-hidden="true">↓</span></a><a class="secondary" href="https://github.com/dergigi/feather/releases/latest">Download APK <span aria-hidden="true">↗</span></a></div>
-        <p class="fine">Android 8.0+ · Free & open source</p>
-      </div>
-      <div class="visual" aria-label="Feather Soft Plume app icon">
-        <div class="icon-tile"><img src="/assets/feather.svg" alt="A soft sky-blue feather" width="280" height="280"></div>
-        <div class="visual-caption"><span>feather</span></div>
-      </div>
-    </section>
-    <section class="details" aria-label="What is inside">
-      <div><span class="number">01</span><h2>Read at your pace.</h2><p>Notes from the people you follow, newest first. Photos load automatically. Videos play silently as you scroll. Recent notes and media stay cached on your device.</p></div>
-      <div><span class="number">02</span><h2>Keep your keys.</h2><p>Connect an Android signer like <a href="https://zapstore.dev/apps/com.greenart7c3.nostrsigner">Amber</a> to read your following feed. Your keys stay in the signer. Feather never publishes.</p></div>
-      <div><span class="number">03</span><h2>Leave a little out.</h2><p>No posting, search, DMs, ads, or analytics. Just reading. Relay connections pause when you leave.</p></div>
-    </section>
-    <section class="closing"><img src="/assets/feather.svg" width="48" height="48" alt=""><a href="https://github.com/dergigi/feather/issues">Help shape Feather <span aria-hidden="true">↗</span></a></section>
-  </main>
-  <footer class="wrap"><span>Made by <a href="https://dergigi.com">Gigi</a>.</span><nav aria-label="Footer"><a href="/privacy.html">Privacy</a><a href="https://github.com/dergigi/feather/blob/master/CHANGELOG.md">Changelog</a><a href="https://github.com/dergigi/feather/blob/master/LICENSE">MIT licensed</a></nav></footer>
-</body>
-</html>
+<a class="skip" href="#main">Skip to content</a>
+<header class="wrap"><a class="brand" href="/" aria-label="Feather home"><img src="/assets/feather.svg" width="36" height="36" alt="">feather</a><nav aria-label="Main navigation"><a href="#features">Features</a><a href="https://github.com/dergigi/feather">GitHub <span aria-hidden="true">↗</span></a></nav></header>
+<main id="main">
+<section class="hero wrap" aria-labelledby="title">
+<div class="intro"><p class="eyebrow">NOSTR · NATIVE ANDROID · OPEN SOURCE</p><h1 id="title">a lightweight<br><span>android client</span></h1><p class="description">Read notes and articles. Explore photos and highlights. Post, reply, react, and zap — in a native Android app with a minimal interface.</p><div class="actions"><a class="button" href="https://zapstore.dev/apps/org.dergigi.feather">Get it on Zapstore <span aria-hidden="true">↓</span></a><a class="secondary" href="https://github.com/dergigi/feather/releases/latest">Download APK <span aria-hidden="true">↗</span></a></div><p class="fine">Android 8.0+ · Free · MIT licensed</p></div>
+<div class="visual" aria-hidden="true"><div class="halo"></div><img src="/assets/feather.svg" width="360" height="360" alt=""><span class="visual-label">feather</span></div>
+</section>
+<section id="features" class="features wrap" aria-labelledby="features-title"><div class="section-intro"><p class="eyebrow">INSIDE FEATHER</p><h2 id="features-title">A closer look.</h2><p>From a quick reply to a long read, here’s what you can do.</p></div>
+<nav class="section-nav" aria-label="Feature categories"><a href="#read">Read & explore</a><a href="#media">Media</a><a href="#create">Create & interact</a><a href="#native">Native Android</a></nav>
+<section class="feature-group" id="read" aria-labelledby="read-title"><div class="group-title"><span class="number">01</span><h3 id="read-title">Read & explore</h3></div><div class="feature-grid">
+<article><h4>Swipe between feeds</h4><p>Move between posts, highlights, photos, videos, articles, and replies with a horizontal swipe. A compact icon pill keeps your place without taking over the screen.</p></article>
+<article><h4>Profiles with more to discover</h4><p>Browse dedicated tabs for someone’s posts, replies, media, reactions, bookmarks, people, projects, apps, emoji packs, and zap activity. Tabs appear when there is content to show.</p></article>
+<article><h4>Articles made for reading</h4><p>Scan compact article cards with author avatars, publication dates, and estimated reading time. Open the full article, then reply, react, or zap without leaving it.</p></article>
+<article><h4>Highlights in context</h4><p>Read highlighted passages with a simple yellow treatment. Highlights have their own feed and profile tab, so the lines people save are easy to find.</p></article>
+<article><h4>Threads & embedded notes</h4><p>Open a note to read its conversation. Embedded events and profile mentions connect you to the original post or person, while cached notes appear immediately when available.</p></article>
+<article><h4>Notifications & profile search</h4><p>See replies, reactions, and zaps directed at your account. Find public profiles through Vertex search, with a deliberately small search interface.</p></article>
+</div></section>
+<section class="feature-group" id="media" aria-labelledby="media-title"><div class="group-title"><span class="number">02</span><h3 id="media-title">Photos, video & links</h3></div><div class="feature-grid">
+<article><h4>A full-screen gallery</h4><p>Swipe through photos with controls that get out of the way. Jump to the original note, react, or zap from the viewer. Profile pictures and banners form a two-image gallery.</p></article>
+<article><h4>Video that keeps moving</h4><p>Videos autoplay muted, one at a time. Double-tap to seek, open full screen, and use gestures for playback controls. Download a video, share it, or copy its URL.</p></article>
+<article><h4>Media ready before you reach it</h4><p>Images and nearby video data preload as you browse. Local caches and avatar thumbnails reduce repeat downloads; settings show storage usage and let you choose the budget.</p></article>
+<article><h4>Animated GIFs & rich links</h4><p>GIFs animate inline. Web links show previews when metadata is available, and YouTube cards include thumbnails. Open videos in a compatible installed app, including NewPipe.</p></article>
+</div></section>
+<section class="feature-group" id="create" aria-labelledby="create-title"><div class="group-title"><span class="number">03</span><h3 id="create-title">Post, reply & appreciate</h3></div><div class="feature-grid">
+<article><h4>Posts & quick replies</h4><p>Write a new post from the feather button or reply from a note. Tag people using profile search, see follow and identity indicators, and keep unfinished drafts on your device.</p></article>
+<article><h4>Images on your Blossom servers</h4><p>Attach images with Android’s photo picker. Feather uploads to the Blossom servers listed on your profile and adds successful image URLs to your draft.</p></article>
+<article><h4>Reactions with personality</h4><p>Tap for an orange heart, or hold to choose another reaction. Search the full emoji picker, use custom emoji packs, and tap your existing reaction to request its removal.</p></article>
+<article><h4>One-tap Lightning zaps</h4><p>Connect a wallet through Nostr Wallet Connect. Tap for 21 sats, or hold to choose from your recent amounts or enter a custom amount. Public zap activity includes zaps and nutzaps.</p></article>
+</div></section>
+<section class="feature-group" id="native" aria-labelledby="native-title"><div class="group-title"><span class="number">04</span><h3 id="native-title">Native, with sensible defaults</h3></div><div class="feature-grid">
+<article><h4>Your signer holds your keys</h4><p>Sign in with an Android signer such as Amber. Feather asks it to authorize your actions; there is no private-key import or account-creation flow in the app.</p></article>
+<article><h4>Automatic relay discovery</h4><p>Feather uses public relay lists to find profiles’ write relays and load their content. Relay discovery happens in the background, with no relay setup screen to work through.</p></article>
+<article><h4>System light & dark mode</h4><p>Native Android components, restrained blue accents, and an interface that follows your system theme. Icon controls leave the space to the content.</p></article>
+<article><h4>Content controls built in</h4><p>Muted and blocked accounts are filtered out. Self-marked sensitive content is hidden by default, with a setting to show it when you choose.</p></article>
+</div></section>
+</section>
+<section class="download wrap" aria-labelledby="download-title"><div><img src="/assets/feather.svg" width="48" height="48" alt=""><h2 id="download-title">Get Feather.</h2><p>Install from Zapstore, or download the latest APK directly.</p></div><div class="actions"><a class="button" href="https://zapstore.dev/apps/org.dergigi.feather">Open Zapstore <span aria-hidden="true">↗</span></a><a class="secondary" href="https://github.com/dergigi/feather/releases/latest">Latest APK <span aria-hidden="true">↓</span></a></div></section>
+</main><footer class="wrap"><span>Made by <a href="https://dergigi.com">Gigi</a>.</span><nav aria-label="Footer"><a href="/privacy.html">Privacy</a><a href="https://github.com/dergigi/feather/issues">Feedback</a><a href="https://github.com/dergigi/feather/blob/master/CHANGELOG.md">Changelog</a><a href="https://github.com/dergigi/feather">Source code</a></nav></footer>
+</body></html>
