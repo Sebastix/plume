@@ -909,22 +909,19 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.storage), "Media cache storage", tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
                 val limit = if (mb >= 1024) "${mb / 1024} GB" else "$mb MB"
                 val used = usedBytes?.let(::cacheSizeLabel) ?: "—"
-                Text("$used / $limit", style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { contentDescription = "$used used of $limit media cache limit" })
+                Text(used, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f).semantics { contentDescription = "$used media cache used" })
                 if (resources == null) { Spacer(Modifier.width(16.dp)); CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
-            }
-            usedBytes?.let { used ->
-                LinearProgressIndicator(
-                    progress = { (used.toDouble() / (MediaContent.cacheOptionsMb[selectedBudget] * 1024L * 1024)).toFloat().coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                )
+                Spacer(Modifier.width(16.dp))
+                Text(limit, style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { contentDescription = "$limit media cache limit" })
             }
             Slider(value = selectedBudget.toFloat(), onValueChange = { selectedBudget = it.toInt() }, valueRange = 0f..4f, steps = 3,
                 modifier = Modifier.semantics { contentDescription = "Media cache storage limit"; stateDescription = "${MediaContent.cacheOptionsMb[selectedBudget]} megabytes" },

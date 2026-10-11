@@ -30,7 +30,7 @@ class MediaStore(private val context: Context) {
     private val mutex = Mutex()
     private val _resources = MutableStateFlow<Resources?>(null)
     val resources = _resources.asStateFlow()
-    private val _budgetMb = MutableStateFlow(prefs.getInt("cacheMb", 512).takeIf { it in MediaContent.cacheOptionsMb } ?: 512)
+    private val _budgetMb = MutableStateFlow(prefs.getInt("cacheMb", 1024).takeIf { it in MediaContent.cacheOptionsMb } ?: 1024)
     val budgetMb = _budgetMb.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()

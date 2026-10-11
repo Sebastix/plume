@@ -5,6 +5,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Default the media cache to 1 GB, preserving saved cache limits.
+- Separate cache usage and limit readouts from the slider; remove the competing usage progress bar.
 - Place the wallet button immediately to the left of logout in settings.
 - Use a trash icon to remove the Nostr Wallet Connect connection.
 - Remove explanatory wallet copy and the 21-sat label from the wallet sheet.
