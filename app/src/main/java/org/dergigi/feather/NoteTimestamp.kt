@@ -46,7 +46,7 @@ private fun relativeTime(createdAt: Long): RelativeTime {
 }
 
 @Composable
-internal fun NoteTimestamp(note: Event) {
+internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignment.End) {
     val context = LocalContext.current
     val view = LocalView.current
     val blocktime = (context.applicationContext as FeatherApplication).repository.blocktime
@@ -92,7 +92,7 @@ internal fun NoteTimestamp(note: Event) {
                 else -> date
             } },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, alignment),
     ) {
         if (mode == 1 && loading && height == null) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp)
         Text(label, style = MaterialTheme.typography.labelSmall,

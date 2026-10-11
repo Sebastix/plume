@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Compact zap activity cards: place the timestamp beneath the amount between profiles, remove its separate top row, and reduce vertical padding.
+
 ## [0.26.1] - 2026-10-11
 
 ### Changed

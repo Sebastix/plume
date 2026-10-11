@@ -89,13 +89,15 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
     val nutzap = event.kind == 9321
     val paymentColor = if (nutzap) Color(0xFFC084FC) else Color(0xFFFFB300)
     if (zap.sender in state.mutedAuthors || zap.recipient in state.mutedAuthors) return
-    Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { NoteTimestamp(event) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ZapParty(zap.sender, state.profiles, Modifier.weight(1f), Alignment.Start, onReference)
-            Row(Modifier.weight(1.25f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
-                Icon(painterResource(R.drawable.zap), if (nutzap) "Nutzap from sender to recipient" else "Zap from sender to recipient", modifier = Modifier.size(24.dp), tint = paymentColor)
-                zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Column(Modifier.weight(1.25f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
+                    Icon(painterResource(R.drawable.zap), if (nutzap) "Nutzap from sender to recipient" else "Zap from sender to recipient", modifier = Modifier.size(24.dp), tint = paymentColor)
+                    zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                NoteTimestamp(event, alignment = Alignment.CenterHorizontally)
             }
             ZapParty(zap.recipient, state.profiles, Modifier.weight(1f), Alignment.End, onReference)
         }
