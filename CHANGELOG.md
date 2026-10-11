@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-10-11
+
 ### Fixed
 - Handle duplicate and superseded cache events as normal database outcomes instead of crashing; keep event ingestion on IO and report genuine write failures without marking them cached.
 - Read every advertised write relay for profile tabs and older pages in batches of four, without truncating write-relay lists or expanding the main-feed connection pool.
