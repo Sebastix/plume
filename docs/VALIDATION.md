@@ -564,3 +564,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Pending sets are per note and action type; only the matching in-flight action is disabled. Explicit taps queue immediately (bounded to 32 combined actions). Existing per-kind publication/payment serialization remains, but reactions and payments can progress independently after signing.
 - A shared coroutine mutex coordinates Android signer calls and private-mute decryption. Cancelling a signer request targets that request’s job, not an unrelated payment; logout/account changes cancel all queued work. Uncertain payment journals and duplicate-tap guards remain intact.
 - Debug build and diff check passed. No automated tests, device signer interactions, or live payments performed.
+
+## 2026-10-11 — 0.24.0 release
+
+- Version 0.24.0 (49), source commit `d0ffb2828ba270fafdd29a7970b7d350a7e9b14f` embedded in BuildConfig. Zap/nutzap activity and independent reaction/zap controls.
+- Debug and signed release builds passed, including release lint and R8. No automated tests, device checks, or live payments.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,787,766 bytes; SHA-256 `65b5b1765e3ec5ac09144344d49e645f464ab636b10941a71a2a4873ac61e982`. Matching mapping archived locally. Website unchanged.
