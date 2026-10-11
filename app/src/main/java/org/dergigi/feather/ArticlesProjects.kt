@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -75,17 +77,50 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
 }
 
 @Composable
-internal fun ArticleListRow(event: Event, author: String, onProfile: () -> Unit, onOpen: () -> Unit) {
+internal fun ArticleListRow(event: Event, author: String, picture: String?, onProfile: () -> Unit, onOpen: () -> Unit) {
     Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read article", onClick = onOpen)
         .padding(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         ArticlePreview(event)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(author, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp).wrapContentHeight()
-                    .clickable(onClickLabel = "Open author's profile", onClick = onProfile))
+            Row(Modifier.weight(1f).heightIn(min = 48.dp)
+                .clickable(onClickLabel = "Open author's profile", onClick = onProfile),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Avatar(author, size = 24, picture = picture)
+                Text(author, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            ArticleReadingTime(event)
             NoteTimestamp(event)
+        }
+    }
+}
+
+/** Estimate from the complete article, never its summary; retain only small results. */
+private object ArticleReadingTimes {
+    private val cache = object : LinkedHashMap<String, Int>(128, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>?) = size > 128
+    }
+    private val urls = Regex("https?://[^\\s)<>]+")
+    private val words = Regex("[\\p{L}\\p{N}]+(?:['’][\\p{L}\\p{N}]+)*")
+    suspend fun minutes(event: Event): Int = withContext(Dispatchers.Default) {
+        synchronized(cache) { cache[event.id] }?.let { return@withContext it }
+        val text = urls.replace(markdownImage.replace(event.content, ""), "")
+        val count = words.findAll(text).count()
+        // A deliberately simple 200 words/minute estimate, rounded up.
+        ((count + 199) / 200).coerceAtLeast(1).also { synchronized(cache) { cache[event.id] = it } }
+    }
+}
+
+@Composable
+private fun ArticleReadingTime(event: Event) {
+    val minutes by produceState<Int?>(null, event.id) { value = ArticleReadingTimes.minutes(event) }
+    minutes?.let { estimate ->
+        Row(Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Estimated reading time: $estimate ${if (estimate == 1) "minute" else "minutes"}"
+        }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(painterResource(R.drawable.reading_time), null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${estimate}m", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

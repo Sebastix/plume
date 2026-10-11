@@ -711,7 +711,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     }
     val profile = state.profiles[note.pubKey]
     if (note.kind == 30023 && compact) {
-        ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), onProfile, onOpen)
+        ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), profile?.picture, onProfile, onOpen)
         return
     }
     val context = LocalContext.current
