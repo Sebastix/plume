@@ -409,3 +409,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Read and acknowledge the previous report on IO. Show the existing selectable, scrollable native details dialog at the app root, with one-tap copy and explicit dismissal; copying retains the report. Check report identity before deleting. The fatal-handler write is intentionally synchronous so termination cannot discard it.
 - Restore the transparent home toolbar and constrain the 82%-opaque theme surface to the rounded five-icon selector. The strip uses continuous pager position for translation, scale, and fading, with stable category keys and bounded entering neighbors. Frame-by-frame offset/opacity reads stay in layout/drawing, avoiding full-reader recomposition. Feather/account button surfaces remain.
 - `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests, intentional crashes, or device checks.
+
+## 2026-10-11 — 0.18.0 release
+
+- Version 0.18.0, versionCode 36; local crash-report dialog and gesture-driven feed-selector pill.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.18.0 (36), 14,091,160 bytes.
+- APK SHA-256: `0c8d7dee0d0c0ff234218e787deed34330c39b97963ce5ebbd665652271593de`.
+- Matching R8 mapping archived locally at `output/releases/feather-0.18.0-mapping.txt` for crash retracing.
