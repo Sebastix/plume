@@ -741,3 +741,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - NIP-25 reviewed: empty and + incoming reactions normalize to the same like choice; signed events remain unchanged for NIP-09 deletion. Dedicated visible-target own-reaction queries avoid broad engagement and recent-history limits. Publishing remains explicit through the signer.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,979,567 bytes; SHA-256 `4a959345b431518327e92bf7bddd5255bf5d0e9c1492a306325abf5497cd2c22`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.33.0 release
+
+- Version 0.33.0 (65), source commit `95d69397a92977c0cdfabdf72ef9bddaf3bb9cdd`. Minimal Vertex profile search, notification foreground contrast, gallery action order/availability, and profile tab indicator bounds protection.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Live unsigned Vertex NIP-50 query returned kind-0 profiles. Search requests and event verification run off the UI thread with bounded results and cancellation.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,995,951 bytes; SHA-256 `a6d6a02461638ae3a74c71f078c3165d573500641c3554c1de639676374ce502`. Mapping archived locally. Website unchanged.
