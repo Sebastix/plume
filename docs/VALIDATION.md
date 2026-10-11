@@ -252,3 +252,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Loaded bookmark taps seed native detail navigation with the cached event. Unavailable and unsupported references retain external fallback. Article placeholders use an author label and a bounded loading indicator instead of raw coordinates. Prefetch maps bookmark row keys to resolved event IDs.
 - Encrypted bookmark content is neither parsed nor decrypted. No signer permissions added.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — 0.12.1 release
+
+- Version 0.12.1, versionCode 28; public address-based article bookmark resolution and native cached-article navigation.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.12.1 (28), 14,021,652 bytes.
+- APK SHA-256: `baafe582de9e74c9e1ce92e72c0a4944a6a63f6e4aea14e074fb93340b09b6ca`.
