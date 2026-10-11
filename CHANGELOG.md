@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-11
+
 ### Fixed
 - Retry missing profile metadata across rotating fallback relays and prioritize available write relays. Fetch viewed/missing profiles individually so shared response limits cannot starve their name and avatar metadata.
 
