@@ -70,12 +70,13 @@ OEM_KEY_PASSWORD=...
 
 Work goes directly to `master` when authorized. Use Conventional Commits and maintain [CHANGELOG.md](CHANGELOG.md). Versions follow Semantic Versioning; increment Android `versionCode` with each published APK.
 
-1. Update `versionName` and `versionCode` in `app/build.gradle.kts`, the website version, and the dated changelog entry.
+1. Update `versionName` and `versionCode` in `app/build.gradle.kts` and add the dated changelog entry.
 2. Build the signed release APK. Run additional checks when requested or needed for a concrete issue.
 3. Commit `chore: release X.Y.Z`, tag `vX.Y.Z`, and push `master` and the tag.
 4. Create a GitHub release with `feather-X.Y.Z.apk` and its SHA-256 checksum.
 5. Run `./scripts/zapstore-publish.sh`. It uses `zapstore.yaml`, changelog notes, and the same publishing workflow as boris-android.
-6. Deploy the website with `npx vercel@latest --prod` and verify feather.dergigi.com.
+
+App releases do not update or deploy the website. Its download links always point to the latest GitHub release and the Zapstore listing; further website work is deferred until explicitly requested.
 
 `zsp`, `nak`, and `gh` must be available. `SIGN_WITH` can be configured in the environment or a gitignored `.env`; no publishing key belongs in Git. PKCS#12 signing files should use `.p12` for certificate linking.
 

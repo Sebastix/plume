@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Remove the website’s app version label and decouple website deployments from app releases. Keep evergreen GitHub latest-release and Zapstore links.
+
 ## [0.20.0] - 2026-10-11
 
 ### Added
