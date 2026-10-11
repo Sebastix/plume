@@ -282,3 +282,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - The feed's Feather icon is now a 48 dp accessible button that scrolls its existing list to index 0. Short distances animate; positions beyond 20 items jump immediately to avoid traversing/loading intermediate media. No refresh or navigation reset is triggered.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — 0.13.0 release
+
+- Version 0.13.0, versionCode 29; Feather tap-to-top, note header tap targets, engagement spacing, and orphaned OBJ marker display cleanup.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.13.0 (29), 14,021,656 bytes.
+- APK SHA-256: `eb7f34818d768990e5340edb13a133406f5904b156a384b47e5a847336d7e511`.
