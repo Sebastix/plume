@@ -151,6 +151,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         activate(navigation.current)
     }
     fun openReference(ref: NostrContent.Reference) {
+        val resolved = s.embedded[ref.id]
+        if (resolved != null && resolved.kind in readableKinds) {
+            val destination = ReaderEntry("thread", resolved.id)
+            destination.reference = NostrContent.Reference(resolved.id, author = resolved.pubKey, kind = resolved.kind, relays = ref.relays)
+            destination.notes[ProfileTab.POSTS] = listOf(resolved)
+            navigation.push(destination); activate(navigation.current, resolved)
+            return
+        }
         if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
         val destination = ReaderEntry(if (ref.hashtag != null) "hashtag" else if (ref.profile) "profile" else "thread", ref.hashtag ?: ref.id)
         destination.reference = ref.takeIf { ref.hashtag == null }
@@ -271,9 +279,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 }
                 val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
-                val mediaKeys = remember(photoRows, bookmarkRows) {
+                val mediaKeys = remember(photoRows, bookmarkRows, s.embedded) {
                     photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
-                        bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(it.second.id) }
+                        bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) }
                 }
                 val mediaNotes = if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS)
                     bookmarkRows.mapNotNull { s.embedded[it.second.id] }.distinctBy { it.id } else notes
@@ -660,8 +668,17 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (note == null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                    Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    if (reference.kind == 30023) {
+                        var waiting by remember(reference.id) { mutableStateOf(true) }
+                        LaunchedEffect(reference.id) { kotlinx.coroutines.delay(12_000); waiting = false }
+                        if (waiting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Icon(painterResource(R.drawable.article), "Article unavailable locally; open externally", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(profiles[reference.author]?.name ?: FeatherRepository.shortKey(reference.author ?: reference.id),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             } else {
                 val profile = profiles[note.pubKey]

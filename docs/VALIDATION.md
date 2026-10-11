@@ -244,3 +244,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.12.0 (27), 14,021,652 bytes.
 - APK SHA-256: `6a0b88af6aa7db5fab7b5b3489d9d75cb83524e634939747aa094fb94bec85d9`.
+
+## 2026-10-11 — Public article bookmark resolution (unreleased)
+
+- Public `a` bookmark tags now produce kind/author/#d filters for supported addressable reader kinds. Coordinates are never sent as event IDs. Cached results are mapped back to the bookmark coordinate so existing preview cards can render article authors, titles, summaries, and images.
+- Shared embedded-event budget remains 24. Visible/nearby address subscriptions use existing bounded relay routing, relay hints, and author relay-list discovery; they remain live for updated article versions. All database lookup and relay work uses the existing background repository scope.
+- Loaded bookmark taps seed native detail navigation with the cached event. Unavailable and unsupported references retain external fallback. Article placeholders use an author label and a bounded loading indicator instead of raw coordinates. Prefetch maps bookmark row keys to resolved event IDs.
+- Encrypted bookmark content is neither parsed nor decrypted. No signer permissions added.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.

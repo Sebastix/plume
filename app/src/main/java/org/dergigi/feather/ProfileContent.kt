@@ -124,3 +124,14 @@ internal fun peopleReferences(event: Event): List<NostrContent.Reference> {
         }
     }.distinctBy { it.id }.take(5000).toList()
 }
+
+/** Resolve public address tags by kind + author + identifier, never as event IDs. */
+internal fun NostrContent.Reference.addressFilter(): com.vitorpamplona.quartz.nip01Core.relay.filters.Filter? {
+    val parts = id.split(':', limit = 3)
+    if (parts.size != 3) return null
+    val addressKind = parts[0].toIntOrNull() ?: return null
+    val addressAuthor = Protocol.publicKey(parts[1]) ?: return null
+    if (addressKind !in readableKinds || addressKind !in 30000..39999) return null
+    return com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(
+        kinds = listOf(addressKind), authors = listOf(addressAuthor), tags = mapOf("d" to listOf(parts[2])), limit = 1)
+}

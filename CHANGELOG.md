@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Resolve public address-based article bookmarks from cache and relays into author/title/image previews, and open loaded articles directly in Feather. Keep visible article subscriptions current and retain external fallback for unavailable or unsupported content; encrypted list content remains untouched.
+
 ## [0.12.0] - 2026-10-11
 
 ### Fixed

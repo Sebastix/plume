@@ -249,10 +249,13 @@ class FeatherRepository(context: Context) {
                 listOf(1, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
             }
         }, listener)
-        val ids = embeddedIds.filter { it !in state.value.embedded }
-        if (ids.isEmpty()) client.unsubscribe("embedded")
+        val ids = embeddedIds.filter { ':' !in it && it !in state.value.embedded }
+        // Keep address filters live while visible so replacement article versions arrive.
+        val addressFilters = references.filter { it.id in embeddedIds }.mapNotNull { it.addressFilter() }.take(24)
+        val filters = (if (ids.isEmpty()) emptyList() else listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))) + addressFilters
+        if (filters.isEmpty()) client.unsubscribe("embedded")
         else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
-            it.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))
+            it.normalizeRelayUrl() to filters
         }, listener)
     }
 
@@ -355,9 +358,16 @@ class FeatherRepository(context: Context) {
             profileEvents.flatMap(::peopleReferences).filter { it.id in visibleIds }.distinctBy { it.id }.take(32) else emptyList()
         val refs = (peopleRefs + bookmarkRefs + bioRefs + readingContent.filter { it.kind !in listOf(3, 30000) }.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
         val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
-        val embedded = if (quoteIds.isEmpty()) emptyMap() else mutex.withLock {
-            db.query<Event>(Filter(ids = quoteIds, kinds = readableKinds, limit = 24))
-        }.associateBy { it.id }
+        val addressRefs = bookmarkRefs.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
+        val embedded = mutex.withLock {
+            val byId = if (quoteIds.isEmpty()) emptyMap() else
+                db.query<Event>(Filter(ids = quoteIds, kinds = readableKinds, limit = 24)).associateBy { it.id }
+            val byAddress = addressRefs.mapNotNull { ref ->
+                db.query<Event>(ref.addressFilter()!!).sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+                    .firstOrNull()?.let { ref.id to it }
+            }.toMap()
+            byId + byAddress
+        }
         val countTargets = (visible.filter { it.kind in readableKinds && it.kind != 30023 } + embedded.values).distinctBy { it.id }.take(24)
         engagementIds = countTargets.map { it.id }
         val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
@@ -393,7 +403,7 @@ class FeatherRepository(context: Context) {
         }
         val readingChanged = references != refs || profileAuthors != authors
         references = refs
-        embeddedIds = quoteIds
+        embeddedIds = quoteIds + addressRefs.map { it.id }
         profileAuthors = authors
         if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
