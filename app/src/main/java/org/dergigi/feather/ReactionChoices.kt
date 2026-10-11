@@ -6,14 +6,17 @@ import kotlin.math.exp
 /** A Unicode reaction or a NIP-30 custom emoji, including its image identity. */
 data class ReactionChoice(val content: String, val image: String? = null) {
     val key: String get() = content + "\u0000" + image.orEmpty()
+    val display: String get() = when (content) { "", "+" -> "♥"; "-" -> "−"; else -> content }
+    val description: String get() = when (content) { "", "+" -> "like"; "-" -> "dislike"; else -> content }
 }
 internal val defaultReactions = listOf(ORANGE_HEART, "😂", "🔥", "🤙", "💜", "🙏").map(::ReactionChoice)
 
 private val customShortcode = Regex(":[a-zA-Z0-9_-]+:")
 internal fun reactionChoice(event: Event): ReactionChoice? {
     if (event.kind != 7) return null
-    val choice = ReactionChoice(event.content, customReactionUrl(event))
-    return choice.takeIf(::validReactionChoice)
+    // Empty and + are the same incoming like; original signed events remain untouched.
+    val choice = ReactionChoice(event.content.ifEmpty { "+" }, customReactionUrl(event))
+    return choice.takeIf { it.content in listOf("", "+", "-") || validReactionChoice(it) }
 }
 
 internal fun validReactionChoice(choice: ReactionChoice): Boolean {
@@ -29,7 +32,7 @@ internal fun validReactionChoice(choice: ReactionChoice): Boolean {
 /** Recent choice first, then frequency with a 30-day recency decay. IO/Default callers only. */
 internal fun reactionSuggestions(events: List<Event>, now: Long = System.currentTimeMillis() / 1000): List<ReactionChoice> {
     val history = events.distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
-        .mapNotNull { event -> reactionChoice(event)?.let { it to event.createdAt } }
+        .mapNotNull { event -> reactionChoice(event)?.takeIf(::validReactionChoice)?.let { it to event.createdAt } }
     val scores = history.groupBy { it.first }.mapValues { (_, entries) ->
         entries.sumOf { 0.1 + exp(-(now - it.second).coerceAtLeast(0).toDouble() / (30 * 86400)) }
     }

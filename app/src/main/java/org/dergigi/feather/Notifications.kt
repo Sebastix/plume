@@ -153,7 +153,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                         Column(Modifier.widthIn(min = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             val reaction = item.reaction
                             if (reaction?.image != null) RemoteImage(reaction.image, Modifier.size(22.dp), "Reaction ${reaction.content}", crop = false)
-                            else if (reaction != null && reaction.content !in listOf("+", "-")) Text(reaction.content.take(16))
+                            else if (reaction?.content in listOf("", "+")) Icon(Icons.Default.Favorite, item.action, Modifier.size(22.dp), tint = Color(0xFFFF8A00))
+                            else if (reaction != null) Text(reaction.display.take(16))
                             else if (item.event.kind == 7) Icon(Icons.Default.FavoriteBorder, item.action, Modifier.size(22.dp), tint = tint)
                             else Icon(painterResource(when(item.event.kind) {
                                 6 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation

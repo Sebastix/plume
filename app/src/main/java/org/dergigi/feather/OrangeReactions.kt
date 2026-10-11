@@ -7,6 +7,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.platform.LocalConfiguration
@@ -54,15 +55,16 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
             .combinedClickable(enabled = note.id !in actions.pending,
                 onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
                 onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
-                onLongClick = { menuChoices = actions.choices; picker = true })
+                onLongClick = { menuChoices = (sent + actions.choices).distinctBy { it.key }.take(6); picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                 if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
                 else if (latestReaction != null) {
                     Box(Modifier.size(24.dp).semantics {
-                        contentDescription = "Your reaction: ${latestReaction.content}; tap to remove; hold to choose another emoji"
+                        contentDescription = "Your reaction: ${latestReaction.description}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {
-                        if (latestReaction.image == null) Text(latestReaction.content, fontSize = 20.sp)
+                        if (latestReaction.content in listOf("", "+")) Icon(Icons.Default.Favorite, null, Modifier.size(20.dp), tint = Color(0xFFFF8A00))
+                        else if (latestReaction.image == null) Text(latestReaction.display, fontSize = 20.sp)
                         else {
                             Text("◌", fontSize = 20.sp, color = tint)
                             RemoteImage(latestReaction.image, Modifier.size(22.dp),
@@ -78,13 +80,13 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
                     val alreadySent = choice in sent
-                    IconButton(enabled = note.id !in actions.pending, onClick = {
+                    IconButton(enabled = note.id !in actions.pending && (alreadySent || validReactionChoice(choice)), onClick = {
                         picker = false
                         if (alreadySent) actions.remove(note, choice) else actions.react(note, choice)
                     }, modifier = Modifier.size(48.dp)) {
                         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                            Text(if (choice.image == null) choice.content else "◌", fontSize = 24.sp,
-                                modifier = Modifier.semantics { contentDescription = if (alreadySent) "Remove ${choice.content} reaction" else "React with ${choice.content}" })
+                            Text(if (choice.image == null) choice.display else "◌", fontSize = 24.sp,
+                                modifier = Modifier.semantics { contentDescription = if (alreadySent) "Remove ${choice.description} reaction" else "React with ${choice.content}" })
                             choice.image?.let { RemoteImage(it, Modifier.size(28.dp), "React with ${choice.content}", crop = false) }
                             if (alreadySent) Icon(Icons.Default.Check, "Already sent", Modifier.size(14.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
                         }

@@ -366,6 +366,18 @@ class FeatherRepository(context: Context) {
                 listOf(1, 1111, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
             }
         }, listener)
+        val owner = state.value.publicKey
+        if (owner == null || engagementIds.isEmpty()) client.unsubscribe("own-reactions")
+        else {
+            // Dedicated author filters cannot be crowded out by other people's reactions.
+            val routes = (relayLists[owner]?.write.orEmpty() + state.value.relays)
+                .distinct().filter { it in routingPool && healthy(it) }.take(4)
+            client.subscribe("own-reactions", routes.associate { relay -> relay.normalizeRelayUrl() to
+                engagementIds.chunked(6).map { targets ->
+                    Filter(authors = listOf(owner), kinds = listOf(7), tags = mapOf("e" to targets), limit = 128)
+                }
+            }, listener)
+        }
         val ids = embeddedIds.filter { ':' !in it && it !in state.value.embedded }
         // Keep address filters live while visible so replacement article versions arrive.
         val addressFilters = references.filter { it.id in embeddedIds }.mapNotNull { it.addressFilter() }.take(24)
@@ -574,7 +586,10 @@ class FeatherRepository(context: Context) {
         }
         val ownReactions = key?.let { author ->
             val recent = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), limit = 256)) }
-            (reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + activity.filter { it.kind == 7 && it.pubKey == author })
+            val visibleReactions = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
+                db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to engagementIds), limit = 512))
+            }
+            (reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + visibleReactions + activity.filter { it.kind == 7 && it.pubKey == author })
                 .filterNot(::reactionDeleted).distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         }.orEmpty()
         val sentReactions = ownReactions.mapNotNull { event ->

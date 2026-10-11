@@ -12,6 +12,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Changed
 - Use a fixed short calendar date on article cards and compact reading durations such as 5m, 1h, or 1h 15m beside the existing clock icon.
 
+### Fixed
+- Recognize standard Nostr likes (+ or empty content) and dislikes from other apps as active reactions that can be removed through the signer.
+- Fetch the account’s reactions for visible notes independently of crowded engagement results and recent-reaction history; keep exact signed event IDs for deletion.
+
 ## [0.31.0] - 2026-10-11
 
 ### Added
