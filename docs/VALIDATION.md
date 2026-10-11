@@ -634,3 +634,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests. Reported profile metadata remains unverified on device.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,805,450 bytes; SHA-256 `49d63311e561abf5ef8c66744c6119d859723d4507e7694adcf1fd746ee208a1`. Mapping archived locally. Website unchanged.
+
+## NWC QR scanning (unreleased)
+
+- Embedded ZXing Android 4.3.0 QR-only camera view; no Play Services dependency. Runtime permission requested only from the scan action. Optional camera hardware declarations retain support for devices without cameras.
+- Camera/decoding work runs on library worker threads; parsing runs on Dispatchers.Default. Preview pauses on lifecycle pause and disposal. Closing/cancelling does not connect a wallet.
+- Valid NWC scans fill the masked in-memory field and require the existing explicit confirm action, now right-aligned. Invalid QR/permission/camera failures show concise errors without the payload. No image capture, scan logging, saved-state credentials, or automatic connection. Scanner window is secure.
+- Debug build and merged-manifest inspection passed. No automated tests or device-camera checks. Device checks: allow/deny permission, scan valid/invalid QR, cancel/back, background/resume, rotate, and confirm via the existing account-bound wallet flow.

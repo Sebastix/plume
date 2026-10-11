@@ -57,6 +57,7 @@ android {
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
 dependencies {
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.vitorpamplona.quartz:quartz:1.17.0")
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.emoji2:emoji2-emojipicker:1.7.0")

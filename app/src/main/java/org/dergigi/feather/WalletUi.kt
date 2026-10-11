@@ -1,6 +1,13 @@
 package org.dergigi.feather
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -39,6 +46,26 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
         }
     }
     var input by remember { mutableStateOf("") } // Never save credentials in saved-instance state.
+    var scanning by remember { mutableStateOf(false) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) scanning = true else scanError = "Camera permission is required to scan a QR code."
+    }
+    if (scanning && !connected && !busy) WalletQrScanner(
+        onDismiss = { scanning = false },
+        onError = { scanning = false; scanError = "Could not open the camera." },
+        onScan = { raw ->
+            scanning = false
+            scope.launch {
+                val valid = withContext(Dispatchers.Default) {
+                    runCatching { WalletConnection.parse(raw).also { it.secret.fill(0) } }.isSuccess
+                }
+                if (valid) { input = raw.trim(); scanError = null }
+                else scanError = "This QR code is not a valid Nostr Wallet Connect connection."
+            }
+        },
+    )
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Wallet", style = MaterialTheme.typography.titleLarge)
@@ -58,9 +85,17 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(8192) }, singleLine = true,
                     enabled = !busy, label = { Text("Nostr Wallet Connect") },
                     visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-                IconButton(enabled = !busy && input.isNotBlank(), onClick = {
-                    vm.connectWallet(input); input = ""
-                }) { Icon(Icons.Default.Check, "Connect wallet") }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+                    IconButton(enabled = !busy, onClick = {
+                        scanError = null
+                        cameraPermission.launch(Manifest.permission.CAMERA)
+                    }) { Icon(painterResource(R.drawable.qr_scan), "Scan wallet QR code") }
+                    IconButton(enabled = !busy && input.isNotBlank(), onClick = {
+                        scanError = null
+                        vm.connectWallet(input); input = ""
+                    }) { Icon(Icons.Default.Check, "Connect wallet") }
+                }
+                scanError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
             if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
