@@ -9,9 +9,6 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.emoji2.emojipicker.EmojiPickerView
-import androidx.emoji2.emojipicker.RecentEmojiProvider
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -87,24 +84,13 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
         val height = (LocalConfiguration.current.screenHeightDp * 0.6f).coerceAtMost(480f).dp
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            AndroidView(modifier = Modifier.fillMaxWidth().height(height), factory = { context ->
-                EmojiPickerView(context).apply {
-                    emojiGridColumns = 7
-                    // Suggestions already come from signed reaction history; opening or
-                    // cancelling the picker must not write a second recents database.
-                    setRecentEmojiProvider(object : RecentEmojiProvider {
-                        override suspend fun getRecentEmojiList() = recent
-                        override fun recordSelection(emoji: String) = Unit
-                    })
-                    setOnEmojiPickedListener { picked ->
-                        val choice = ReactionChoice(picked.emoji)
-                        if (latestActions.pending == null && validReactionChoice(choice)) {
-                            fullPicker = false
-                            if (choice !in latestSent) latestActions.react(note, choice)
-                        }
-                    }
+            SearchableEmojiPicker(recent, Modifier.fillMaxWidth().height(height)) { emoji ->
+                val choice = ReactionChoice(emoji)
+                if (latestActions.pending == null && validReactionChoice(choice)) {
+                    fullPicker = false
+                    if (choice !in latestSent) latestActions.react(note, choice)
                 }
-            })
+            }
         }
     }
 }

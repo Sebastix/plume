@@ -434,3 +434,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.19.0 (37), 14,554,649 bytes.
 - APK SHA-256: `4ea9d72ec8ae241362db2f68db5525e91d6df24d1d8cb875ba29afd25a4cd155`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.19.0-mapping.txt`.
+
+## 2026-10-11 — Offline emoji search
+
+- Search field in the full picker filters 3,944 fully qualified Unicode 17 emoji using bundled CLDR 48 English names/keywords. Multiple query words match keyword prefixes; exact names come first, and base emoji precede tone variants.
+- Load and parse once on IO under a mutex; debounce queries and filter on Default. Show at most 200 lazy-grid results, with loading/empty/error states. Clearing search restores native category/variant browsing. Existing signer and duplicate guards remain shared.
+- Reproducible index generator and Unicode license included; no runtime network or new dependency.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device checks. Not released yet.

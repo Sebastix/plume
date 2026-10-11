@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Offline search in the full emoji picker by English names and keywords, including multiword searches and skin-tone variants. Load and filter the bundled Unicode index off the UI thread.
+
 ## [0.19.0] - 2026-10-11
 
 ### Added
