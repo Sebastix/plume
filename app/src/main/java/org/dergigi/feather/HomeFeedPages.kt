@@ -108,15 +108,15 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         enter = slideInVertically(tween(220)) { it }, exit = slideOutVertically(tween(180)) { it }) {
         CenterAlignedTopAppBar(
             title = {
-                BoxWithConstraints(Modifier.widthIn(max = 240.dp).fillMaxWidth().height(48.dp)
+                val slots = tabs.size.coerceIn(1, 5)
+                BoxWithConstraints(Modifier.widthIn(max = (slots * 48).dp).fillMaxWidth().height(48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))) {
-                    val slotWidth = maxWidth / 5
-                    val center = pager.currentPage
-                    // Include the entering icons outside either edge. Stable keys and the
-                    // continuous page position avoid a jump when currentPage changes halfway.
-                    for (index in (center - 3)..(center + 3)) {
-                        val category = tabs.getOrNull(index) ?: continue
+                    val slotWidth = maxWidth / slots
+                    val maxStart = (tabs.size - slots).coerceAtLeast(0).toFloat()
+                    // Clamp the visible window at either end. The selection moves within
+                    // the pill near its edges instead of revealing nonexistent pages.
+                    for ((index, category) in tabs.withIndex()) {
                         key(category) {
                             IconButton(onClick = {
                                 if (!reordering) scope.launch {
@@ -128,7 +128,8 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                 }
                             }, modifier = Modifier.offset {
                                 val position = pager.currentPage + pager.currentPageOffsetFraction
-                                IntOffset(((2f + index - position) * slotWidth.toPx()).roundToInt(), 0)
+                                val start = (position - (slots - 1) / 2f).coerceIn(0f, maxStart)
+                                IntOffset(((index - start) * slotWidth.toPx()).roundToInt(), 0)
                             }.width(slotWidth).height(48.dp).semantics {
                                 contentDescription = "${category.label} feed"
                                 selected = index == pager.currentPage
@@ -138,7 +139,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                     alpha = when {
                                         distance <= 1f -> 1f - 0.58f * distance
                                         distance <= 2f -> 0.42f - 0.26f * (distance - 1f)
-                                        else -> (0.16f * (3f - distance)).coerceIn(0f, 0.16f)
+                                        else -> 0.16f
                                     }
                                     val scale = 1f - distance.coerceIn(0f, 1f) / 6f
                                     scaleX = scale

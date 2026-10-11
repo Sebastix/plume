@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Keep the feed selector filled at either end: Search stays at the left edge without opening empty icon slots; swipe animation and selection emphasis remain.
 - Report NIP-05 HTTP errors accurately; only redirect responses mention the redirect restriction, and missing endpoints report HTTP 404.
 
 ## [0.33.1] - 2026-10-11
