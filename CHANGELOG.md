@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-11
+
 ### Fixed
 - Let reactions and zaps be tapped in quick succession without disabling other note actions. Track progress per note/action and serialize only the shared signer interaction across action types.
 
