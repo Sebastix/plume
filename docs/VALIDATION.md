@@ -749,3 +749,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Live unsigned Vertex NIP-50 query returned kind-0 profiles. Search requests and event verification run off the UI thread with bounded results and cancellation.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,995,951 bytes; SHA-256 `a6d6a02461638ae3a74c71f078c3165d573500641c3554c1de639676374ce502`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.33.1 release
+
+- Version 0.33.1 (66), source commit `80f003aa77ee01b4c31455c2ff754b38f8f5c8cb`. Full advertised write-relay profile reads, targeted refresh, and database conflict handling.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Quartz 1.17.0 insertion source inspected: batch insertion distinguishes duplicate/superseded row rejections from storage failures. Ingestion explicitly dispatches to IO; failures are not marked cached.
+- Profile queries retain all valid advertised write relays, process four at a time with per-relay timeouts, close sockets on completion/cancellation, and preserve the bounded main-feed pool. Full article recovery still needs device verification.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,995,951 bytes; SHA-256 `80785ea1778a90a9d7fbcbb2c0d3d040759d657d1bd9052773b18967fc6fb887`. Mapping archived locally. Website unchanged.
