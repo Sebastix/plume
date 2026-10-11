@@ -136,3 +136,8 @@ internal fun NostrContent.Reference.addressFilter(): com.vitorpamplona.quartz.ni
     return com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(
         kinds = listOf(addressKind), authors = listOf(addressAuthor), tags = mapOf("d" to listOf(parts[2])), limit = 1)
 }
+
+/** Home uses the same categories as profiles, with reposts included on the Posts page. */
+internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) listOf(1, 6) else kinds
+internal fun ProfileTab.matchesFeed(event: Event): Boolean =
+    if (this == ProfileTab.POSTS && event.kind == 6) repostTarget(event) != null else matches(event)

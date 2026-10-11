@@ -349,3 +349,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.15.0 (31), 14,075,560 bytes.
 - APK SHA-256: `96274ca62dc7ec71568b1556718ceb2213dee73dcb4a6a4fb6d3881585838499`.
+
+## 2026-10-11 — Full-screen home feed pages (unreleased)
+
+- Native lazy HorizontalPager replaces the single home reader, without a tab bar or visible page labels. Posts and Replies are always first; other available existing categories (photos, videos, highlights, articles, reactions, bookmarks, people, projects, apps) sort by bounded observed activity frequency. Reordering waits for gestures to settle and anchors the current category by identity. Discovered pages remain available during the visit.
+- Each page retains its own list/toolbar/content state, with category, page keys and scroll offsets in the navigation saver. Back from notes/profiles returns to the same feed. Home-page pagination uses its category kinds and independent time ceiling; a current full window does not merge discarded head items back in. Photos grids/gallery preserve source notes across up to 600 images.
+- Only the last settled page registers the signer launcher and drives reading IDs, pagination, or playback. Cancelling a swipe keeps that page active. Neighbor pages render cached previews/images; MediaHost now gates network activity by reading state as well as lifecycle/gallery visibility. No second video player for an inactive page. Profile swipe behavior remains separate.
+- Bounded category discovery shares existing outbox routing and following scope; guest browsing uses public activity and app discovery can use the existing Zapstore catalog relay. Category sampling/formatting runs on IO, cached for five seconds and invalidated for account/mute changes or refresh. Switching feed subscriptions is scheduled off-main.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device gesture checks; user validates live through Zapstore.

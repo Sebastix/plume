@@ -178,7 +178,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     val galleryVisible = LocalGalleryVisible.current
-    val active = lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible
+    val active = reading && lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible
     val context = LocalContext.current
     val playback = remember(resources, reading) { resources?.takeIf { reading }?.let { VisibleVideoPlayer(context, it) } }
     DisposableEffect(playback, lifecycle, galleryVisible) {

@@ -10,6 +10,7 @@ Read Nostr with chronological feeds, profiles, and conversations.
 
 ## MVP
 
+- Swipe through full-screen feeds: Posts, Replies, then other available categories ranked by activity, with independent scroll positions and no tab bar.
 - Browse a public feed or connect one account through an Android NIP-55 signer such as Amber.
 - Read your existing following feed, profiles, and conversations, with tappable profile mentions and embedded text-note previews. Profile tabs separate posts, replies, reactions, and highlights.
 - Read highlights with context, yellow emphasis, comments, and source attribution, adapted from ants-android.

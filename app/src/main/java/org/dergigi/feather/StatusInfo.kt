@@ -72,7 +72,7 @@ internal fun readerStatusDetails(state: FeedState, screen: String, target: Strin
     if (state.error == null) appendLine("No specific error was reported.")
     appendLine()
     appendLine("Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-    appendLine("View: $screen${if (screen == "profile") " / ${tab.label}" else ""}")
+    appendLine("View: $screen${if (screen in listOf("profile", "feed")) " / ${tab.label}" else ""}")
     target?.let { appendLine("Target: $it") }
     appendLine("Connected relays: ${state.connected.size}")
     appendLine("Account: ${if (state.publicKey == null) "guest" else "connected"}")

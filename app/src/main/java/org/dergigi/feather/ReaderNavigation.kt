@@ -18,6 +18,8 @@ internal class ReaderEntry(
     toolbar: Boolean = true,
 ) {
     val list = LazyListState(index, offset)
+    val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
+    fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
     var tab by mutableStateOf(tab)
     var toolbar by mutableStateOf(toolbar)
     var reference: NostrContent.Reference? = null
@@ -47,6 +49,11 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putString("screen", entry.screen); putString("target", entry.target); putString("key", entry.key)
                 putInt("index", entry.list.firstVisibleItemIndex); putInt("offset", entry.list.firstVisibleItemScrollOffset)
                 putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar)
+                putStringArrayList("feedTabs", ArrayList(entry.tabs.map { it.name }))
+                entry.feedPages.forEach { (category, page) -> putBundle("feed:${category.name}", Bundle().apply {
+                    putString("key", page.key); putInt("index", page.list.firstVisibleItemIndex)
+                    putInt("offset", page.list.firstVisibleItemScrollOffset); putBoolean("toolbar", page.toolbar)
+                }) }
                 putStringArrayList("relays", ArrayList(entry.reference?.relays.orEmpty()))
                 putString("author", entry.reference?.author)
                 entry.reference?.kind?.let { putInt("kind", it) }
@@ -55,6 +62,13 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 ReaderEntry(bundle.getString("screen")!!, bundle.getString("target"), bundle.getString("key")!!,
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
+                    entry.tabs = bundle.getStringArrayList("feedTabs").orEmpty().mapNotNull { name -> ProfileTab.entries.find { it.name == name } }
+                    if (entry.screen == "feed") ProfileTab.entries.forEach { category ->
+                        bundle.getBundle("feed:${category.name}")?.let { page ->
+                            entry.feedPages[category] = ReaderEntry("feed", key = page.getString("key") ?: UUID.randomUUID().toString(),
+                                index = page.getInt("index"), offset = page.getInt("offset"), tab = category, toolbar = page.getBoolean("toolbar"))
+                        }
+                    }
                     if (entry.screen == "profile" || entry.screen == "thread") entry.reference =
                         NostrContent.Reference(entry.target!!, profile = entry.screen == "profile", relays = bundle.getStringArrayList("relays").orEmpty(),
                             author = bundle.getString("author"), kind = if (bundle.containsKey("kind")) bundle.getInt("kind") else null)

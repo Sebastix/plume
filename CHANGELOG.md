@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Swipe between full-screen home feeds without a tab bar. Keep Posts and Replies first, then order all other discovered categories by activity frequency. Preserve each page’s scroll position and cached content, with only the settled page driving live reading, pagination, and media playback.
+
 ## [0.15.0] - 2026-10-11
 
 ### Added
