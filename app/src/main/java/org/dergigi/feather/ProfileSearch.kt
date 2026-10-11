@@ -145,9 +145,27 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             profile.identity?.let { Text(it, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
+                        ProfileStatusIcons(profile, profile.event.pubKey in state.following)
                     }
                 }
             }
         }
     }
+}
+
+
+/** Shared identity and follow indicators for search and composer suggestions. */
+@Composable
+internal fun ProfileStatusIcons(profile: SearchProfile, following: Boolean) {
+    Box(Modifier.size(28.dp).semantics(mergeDescendants = true) {
+        contentDescription = if (following) "Following" else "Not following"
+    }, contentAlignment = Alignment.Center) {
+        Icon(Icons.Default.Person, null, Modifier.size(20.dp),
+            tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        if (following) Icon(Icons.Default.Check, null, Modifier.size(12.dp).align(Alignment.BottomEnd),
+            tint = MaterialTheme.colorScheme.primary)
+    }
+    if (!profile.identity.isNullOrBlank()) {
+        Nip05Identity(profile.identity, profile.event.pubKey, iconOnly = true)
+    } else Spacer(Modifier.size(40.dp).semantics { contentDescription = "No NIP-05 identity" })
 }

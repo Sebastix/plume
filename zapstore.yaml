@@ -15,3 +15,12 @@ tags:
   - android
 metadata_sources:
   - github
+images:
+  - ./website/assets/screens/feed.webp
+  - ./website/assets/screens/photos.webp
+  - ./website/assets/screens/gallery.webp
+  - ./website/assets/screens/thread.webp
+  - ./website/assets/screens/reactions.webp
+  - ./website/assets/screens/notifications.webp
+  - ./website/assets/screens/search.webp
+  - ./website/assets/screens/settings.webp

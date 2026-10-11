@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Show follow status and NIP-05 verification icons in profile search results, using the same indicators as composer mentions.
+
 ### Changed
+- Add eight real app screenshots to the website and Zapstore, with Android status bars removed, a feed preview, and a swipeable website gallery.
 - Update the Zapstore description to describe Feather’s focus on simplicity and discoverability.
 - Refresh the website with app icons, a responsive light/dark design, 18 detailed feature descriptions, evergreen download links, and current privacy information. Describe sane defaults, kind discovery and swipes, VLC-style controls, the full-screen gallery, NWC one-tap zaps, and custom reactions with emoji pickers.
 

@@ -287,18 +287,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     Avatar(profile.name, 32, profile.picture)
                     Text(profile.name, modifier = Modifier.weight(1f), maxLines = 1,
                         overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    val following = profile.event.pubKey in state.following
-                    Box(Modifier.size(28.dp).semantics(mergeDescendants = true) {
-                        contentDescription = if (following) "Following" else "Not following"
-                    }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, null, Modifier.size(20.dp),
-                            tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (following) Icon(Icons.Default.Check, null, Modifier.size(12.dp).align(Alignment.BottomEnd),
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    if (!profile.identity.isNullOrBlank()) {
-                        Nip05Identity(profile.identity, profile.event.pubKey, iconOnly = true)
-                    } else Spacer(Modifier.size(40.dp).semantics { contentDescription = "No NIP-05 identity" })
+                    ProfileStatusIcons(profile, profile.event.pubKey in state.following)
                 }
             } }
         }
