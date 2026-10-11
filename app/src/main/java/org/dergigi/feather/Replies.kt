@@ -3,6 +3,7 @@ package org.dergigi.feather
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -206,8 +207,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = vm::sendReply, enabled = !busy && current.text.isNotBlank()) {
-                    if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                FilledIconButton(onClick = vm::sendReply, enabled = !busy && current.text.isNotBlank(),
+                    modifier = Modifier.size(48.dp), shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
+                    if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
                     else Icon(Icons.AutoMirrored.Filled.Send, "Send reply")
                 }
             }

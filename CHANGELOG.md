@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Use a round, filled primary-color send button in the reply composer.
+
 ### Added
 - Show the normal reply, reaction, and zap controls in full article detail views, including long-press pickers and engagement counts.
 - Share articles from an icon in the top-right detail toolbar using the Android share sheet.
