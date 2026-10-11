@@ -14,7 +14,7 @@ Read Nostr with chronological feeds, profiles, and conversations.
 - Browse a public feed or connect one account through an Android NIP-55 signer such as Amber.
 - Read your existing following feed, profiles, and conversations, with tappable profile mentions and embedded text-note previews. Profile tabs separate posts, replies, reactions, and highlights.
 - Read highlights with context, yellow emphasis, comments, and source attribution, adapted from ants-android.
-- Tap a post’s heart for 🧡, or hold for six emoji suggestions and a searchable full emoji picker, with suggestions based on your recent and frequent reactions, with signer approval and relay confirmation.
+- Tap a post’s heart for 🧡, or hold for six emoji suggestions and a searchable full emoji picker with automatic public custom-emoji collections, with suggestions based on your recent and frequent reactions, with signer approval and relay confirmation.
 - See discovered reply, reaction, and validated zap totals in sats; validation happens in the background.
 - Follow Android’s light/dark setting automatically, without a theme preference.
 - Discover NIP-65 relay lists and read authors from their advertised write relays.

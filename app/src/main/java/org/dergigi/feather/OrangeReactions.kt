@@ -24,6 +24,7 @@ internal const val ORANGE_HEART = "🧡"
 internal data class ReactionActions(
     val pending: String? = null,
     val choices: List<ReactionChoice> = defaultReactions,
+    val customEmojis: List<ReactionChoice> = emptyList(),
     val react: (Event, ReactionChoice) -> Unit = { _, _ -> },
 )
 internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions() }
@@ -94,8 +95,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
         val height = (LocalConfiguration.current.screenHeightDp * 0.6f).coerceAtMost(480f).dp
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            SearchableEmojiPicker(recent, Modifier.fillMaxWidth().height(height)) { emoji ->
-                val choice = ReactionChoice(emoji)
+            SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
                 if (latestActions.pending == null && validReactionChoice(choice)) {
                     fullPicker = false
                     if (choice !in latestSent) latestActions.react(note, choice)

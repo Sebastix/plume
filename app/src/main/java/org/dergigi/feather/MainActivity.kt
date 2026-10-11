@@ -227,7 +227,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else reacting, s.reactionChoices) { note, choice ->
+    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else reacting, s.reactionChoices, s.customEmojis) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },

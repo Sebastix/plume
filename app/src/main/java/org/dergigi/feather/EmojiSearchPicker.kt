@@ -2,6 +2,8 @@ package org.dergigi.feather
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -30,7 +32,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private data class SearchEmoji(val emoji: String, val name: String, val words: List<String>)
+private data class SearchEmoji(val emoji: String, val name: String, val words: List<String>, val image: String? = null) {
+    val choice get() = ReactionChoice(emoji, image)
+}
 private val wordBreaks = Regex("[^\\p{L}\\p{N}]+")
 private fun words(value: String) = value.lowercase(Locale.ROOT).split(wordBreaks).filter { it.isNotEmpty() }
 
@@ -71,17 +75,23 @@ private object EmojiSearchIndex {
 private data class EmojiSearchResult(val query: String, val items: List<SearchEmoji>?, val failed: Boolean = false)
 
 @Composable
-internal fun SearchableEmojiPicker(recent: List<String>, modifier: Modifier = Modifier, onPick: (String) -> Unit) {
+internal fun SearchableEmojiPicker(recent: List<String>, custom: List<ReactionChoice>, modifier: Modifier = Modifier, onPick: (ReactionChoice) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current.applicationContext
     val latestPick by rememberUpdatedState(onPick)
-    val result by produceState(EmojiSearchResult("", null), query) {
+    val result by produceState(EmojiSearchResult("", null), query, custom) {
         if (query.isBlank()) {
             value = EmojiSearchResult(query, null)
         } else {
             delay(100)
             value = try {
-                EmojiSearchResult(query, EmojiSearchIndex.search(context, query))
+                val matches = withContext(Dispatchers.Default) {
+                    val tokens = words(query)
+                    custom.filter { item -> tokens.isNotEmpty() && tokens.all { token ->
+                        words(item.content).any { it.startsWith(token) }
+                    } }.take(200).map { SearchEmoji(it.content, it.content.trim(':'), emptyList(), it.image) }
+                }
+                EmojiSearchResult(query, (matches + EmojiSearchIndex.search(context, query)).take(200))
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -97,6 +107,15 @@ internal fun SearchableEmojiPicker(recent: List<String>, modifier: Modifier = Mo
             trailingIcon = {
                 if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear search") }
             }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search))
+        if (query.isBlank() && custom.isNotEmpty()) {
+            LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                items(custom, key = { it.key }) { choice ->
+                    IconButton(onClick = { latestPick(choice) }, modifier = Modifier.size(48.dp)) {
+                        RemoteImage(choice.image!!, Modifier.size(26.dp), "React with ${choice.content}", crop = false)
+                    }
+                }
+            }
+        }
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             if (query.isBlank()) {
                 AndroidView(modifier = Modifier.fillMaxSize(), factory = { viewContext ->
@@ -111,7 +130,7 @@ internal fun SearchableEmojiPicker(recent: List<String>, modifier: Modifier = Mo
                             override suspend fun getRecentEmojiList() = recent
                             override fun recordSelection(emoji: String) = Unit
                         })
-                        setOnEmojiPickedListener { latestPick(it.emoji) }
+                        setOnEmojiPickedListener { latestPick(ReactionChoice(it.emoji)) }
                     }
                 })
             } else if (result.query != query || (result.items == null && !result.failed)) {
@@ -125,10 +144,11 @@ internal fun SearchableEmojiPicker(recent: List<String>, modifier: Modifier = Mo
                 key(result.query) {
                     LazyVerticalGrid(columns = GridCells.Adaptive(48.dp), modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
-                        items(result.items.orEmpty(), key = { it.emoji }) { item ->
-                            IconButton(onClick = { latestPick(item.emoji) }, modifier = Modifier.size(48.dp)
+                        items(result.items.orEmpty(), key = { it.choice.key }) { item ->
+                            IconButton(onClick = { latestPick(item.choice) }, modifier = Modifier.size(48.dp)
                                 .semantics { contentDescription = "React with ${item.name}" }) {
-                                Text(item.emoji, fontSize = 26.sp)
+                                if (item.image == null) Text(item.emoji, fontSize = 26.sp)
+                                else RemoteImage(item.image, Modifier.size(26.dp), item.name, crop = false)
                             }
                         }
                     }

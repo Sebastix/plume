@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Automatically load your public NIP-51 emoji collection and referenced packs into the reaction picker, with a custom-emoji row and local shortcode search. Reuse the existing signer and image cache; no setup or private-list access.
+
 ### Changed
 - Show your most recent reaction on each post’s reaction button, including custom emoji, instead of a generic orange heart.
 
