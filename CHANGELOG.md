@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-11
+
 ### Added
 - React and send 21-sat zaps to an image’s source note directly from the gallery, including long-press emoji selection, reaction removal, and shared engagement state.
 
