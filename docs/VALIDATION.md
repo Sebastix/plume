@@ -357,3 +357,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Only the last settled page registers the signer launcher and drives reading IDs, pagination, or playback. Cancelling a swipe keeps that page active. Neighbor pages render cached previews/images; MediaHost now gates network activity by reading state as well as lifecycle/gallery visibility. No second video player for an inactive page. Profile swipe behavior remains separate.
 - Bounded category discovery shares existing outbox routing and following scope; guest browsing uses public activity and app discovery can use the existing Zapstore catalog relay. Category sampling/formatting runs on IO, cached for five seconds and invalidated for account/mute changes or refresh. Switching feed subscriptions is scheduled off-main.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device gesture checks; user validates live through Zapstore.
+
+## 2026-10-11 — 0.16.0 release
+
+- Version 0.16.0, versionCode 32; full-screen home feed pages with dynamic category ordering, per-page scroll state, and active-page media/subscription ownership.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.16.0 (32), 14,075,560 bytes.
+- APK SHA-256: `c35dc1b717ca450f6b1a0ee7ee3f4d3be462d41f1d4c63003e3c123532ab2ba7`.
