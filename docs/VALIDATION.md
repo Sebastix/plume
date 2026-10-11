@@ -783,3 +783,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - New posts reuse account-scoped drafts, Vertex mentions, client attribution, signature verification, and persisted exact-event retries. Signer activity handling is shared at the app root for all main-feed pages.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 15,028,719 bytes; SHA-256 `a6309cdad5d985dce6cb25f39234a69915fc2ad3513ae79700bea59a207f693e`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.36.1 release
+
+- Version 0.36.1 (70), source commit `d1b9c1a61e3035d1cedc8dade4003fdb51b844a6`. Adds theme-aware green/orange/red cache fullness to the 0.36.0 changes.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Color uses the selected cache budget: green through 50%, orange at 75%, red from 95%; the usage label shares the color. Existing background cache measurement is unchanged.
+- Version 0.36.0 finished publishing to GitHub while this requested addition was being implemented; Zapstore publication uses 0.36.1 directly.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 15,028,719 bytes; SHA-256 `7941997b95e76c4087d3f40e16a4052a2a7f14b12b68fe69d51128e119e2a6e6`. Mapping archived locally. Website unchanged.
