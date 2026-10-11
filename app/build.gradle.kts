@@ -25,8 +25,8 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 55
-        versionName = "0.27.1"
+        versionCode = 56
+        versionName = "0.27.2"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
