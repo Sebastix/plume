@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Use zap presets only when the account has no known amount history; otherwise show its recent confirmed amounts without filling extra slots with defaults.
 - Align the reply action icon with the note text’s leading edge, with or without counts, while retaining its full tap target.
 - Use a round, filled primary-color send button in the reply composer.
 

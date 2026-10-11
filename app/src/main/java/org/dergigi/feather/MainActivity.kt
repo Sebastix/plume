@@ -247,7 +247,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
-    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, (recentZapAmounts[s.publicKey].orEmpty() + defaultZapAmounts).distinct().take(8)) { note, amount ->
+    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }) { note, amount ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note, amount)
