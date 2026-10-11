@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-11
+
 ### Fixed
 - Keep a viewport-sized minimum beneath profile tabs while loading or showing short content, preventing the profile header from snapping back into view during tab switches. Rows remain lazy; measured content replaces the reserved space.
 
@@ -366,7 +368,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.22.1...HEAD
+[0.22.1]: https://github.com/dergigi/feather/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/dergigi/feather/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/dergigi/feather/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/dergigi/feather/compare/v0.20.0...v0.21.0
