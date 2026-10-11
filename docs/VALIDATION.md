@@ -703,3 +703,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Single tap toggles floating controls; double tap remains zoom. Controls fade/slide away after an accessibility-adjusted three seconds and remain while menus, emoji pickers, saves/shares, or note actions are pending.
 - Gallery uses the same reaction and zap controls as notes. Source events follow the selected image; one gallery source temporarily drives the existing bounded engagement pipeline. Login/wallet setup temporarily covers the gallery. Custom emoji images reuse the shared media loader.
 - Debug build and diff check passed. No automated tests or device gesture/orientation/payment checks.
+
+## 2026-10-11 — 0.30.0 release
+
+- Version 0.30.0 (61), source commit `a70ab35af296fb2ace25dc85cd206e322b58aad6`. Immersive gallery, gallery reactions/zaps, and global persisted timestamp format.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,964,695 bytes; SHA-256 `a79e9ea87456d6bd1735d53f6beba519e69167771ab5fde1856405eefbc65746`. Mapping archived locally. Website unchanged.
