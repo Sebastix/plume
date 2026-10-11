@@ -276,6 +276,20 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
+                val article = if (screen == "thread") {
+                    (s.threadNotes.firstOrNull { it.id == threadId }
+                        ?: entry.notes[profileTab]?.firstOrNull { it.id == threadId })
+                        ?.takeIf { it.kind == 30023 && !contentFilter.hides(it) }
+                } else null
+                if (article != null) IconButton(onClick = {
+                    val pointer = article.tagValue("d")?.let {
+                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(30023, article.pubKey, it, relay = null)
+                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(article.id)
+                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
+                    }, "Share article"))
+                }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, "Share article") }
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Share articles from an icon in the top-right detail toolbar using the Android share sheet.
+
 ## [0.35.0] - 2026-10-11
 
 ### Added
