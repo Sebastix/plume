@@ -112,6 +112,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val threadId = entry.target.takeIf { screen == "thread" }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var statusReport by rememberSaveable { mutableStateOf<String?>(null) }
+    var statusTitle by rememberSaveable { mutableStateOf("") }
     var profileTab by entry::tab
     val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
         s.profileTabs.toList().also { entry.tabs = it }
@@ -212,6 +214,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     LaunchedEffect(message) { message?.let { snack.showSnackbar(it); vm.message.value = null } }
     LaunchedEffect(entry.key) { activate(entry) }
     LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
+    statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else reacting) { note ->
         if (s.publicKey == null) showAccount = true else vm.react(note)
@@ -470,11 +473,21 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             }
                         }
-                        s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
-                        if (visibleNotes.isEmpty() && !s.loading) item("empty") {
-                            Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                if (screen == "thread") Icon(Icons.Default.Info, "Post unavailable", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                else Icon(Icons.Default.Info, "No notes yet", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (s.error != null || (visibleNotes.isEmpty() && !s.loading)) item("status") {
+                            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                val hiddenContent = visibleNotes.isEmpty() && (notes.isNotEmpty() || profileKey in s.mutedAuthors ||
+                                    entry.reference?.let(contentFilter::hides) == true)
+                                val title = when {
+                                    s.error != null -> "Could not load notes"
+                                    hiddenContent -> "Notes hidden"
+                                    screen == "thread" -> "Post unavailable"
+                                    else -> "No notes yet"
+                                }
+                                StatusInfo(title, error = s.error != null, empty = screen != "thread", hidden = hiddenContent) {
+                                    statusTitle = title
+                                    statusReport = readerStatusDetails(s, screen, entry.target, profileTab,
+                                        hidden = hiddenContent)
+                                }
                             }
                         }
                         if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {

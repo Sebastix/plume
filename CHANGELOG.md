@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Use a crossed-out account for muted/blocked content, a tumbleweed for empty content, an info icon for unavailable posts, and a warning triangle for reported loading errors. Tap any of them to view selectable status details and copy the message, app version, view, target, and relay connection count. Distinguish empty or filtered content from reported errors.
 - Automatically hide notes from accounts in your NIP-51 mute/block list across feeds, threads, profiles, reposts, embeds, bookmarks, and media prefetch. Support public entries, signer-decrypted private entries, offline caching, and the deprecated mute-list format.
 
 ## [0.14.0] - 2026-10-11

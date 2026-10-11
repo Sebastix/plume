@@ -328,3 +328,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Decrypt only the account's own private mute list on IO through its existing Android signer; serialize against reaction signing. Signature validation precedes storage, account/event IDs are rechecked after signer return, cancellation handles account changes, and a failed/denied request is not repeatedly relaunched. Pull-to-refresh permits a manual retry. Existing cached private mutes remain active while a replacement awaits approval.
 - Cache at most one decrypted list per account, at most eight accounts and 5,000 tags per list, in private app data with backup disabled. Public entries and successfully cached private entries apply offline before the initial note snapshot. No list publishing, list editing, bookmark/people decryption, or configuration added.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or signer/device interaction; live decryption and account-list updates remain for device testing. No release published.
+
+## 2026-10-11 — Tappable reader status (unreleased)
+
+- Muted/blocked content shows a crossed-out account icon; empty feeds/tabs show a small native vector tumbleweed; unavailable posts retain an info icon; reported loading errors show a warning triangle in the theme error color. All have accessible 48 dp tap targets.
+- Tapping captures a selectable, scrollable status report with the existing error message (if any), app version, view/tab, target ID, account connection status, and connected relay count. No inferred exception is presented as an actual error. Native copy/close icon buttons; no network or disk work is triggered. The dialog lives outside the lazy list so incoming notes cannot dismiss it while reading/copying; Android Back dismisses it.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
