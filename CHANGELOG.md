@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-11
+
 ### Added
 - Scan NWC QR codes directly in the wallet sheet, with local QR decoding, runtime camera permission, and validation before filling the masked connection field.
 
