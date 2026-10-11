@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity() {
 fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
+    val connectedSigner by vm.signer.collectAsStateWithLifecycle()
+    val reacting by vm.reacting.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
     val scrollScope = rememberCoroutineScope()
@@ -172,6 +174,25 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         destination.notes[ProfileTab.POSTS] = listOf(note)
         navigation.push(destination); activate(navigation.current, note)
     }
+    val reactionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode != android.app.Activity.RESULT_OK || data == null || data.getBooleanExtra("rejected", false))
+            vm.cancelReaction("Reaction cancelled.")
+        else vm.signerResponse(data)
+    }
+    DisposableEffect(connectedSigner, reactionLauncher) {
+        val signer = connectedSigner
+        val launch: (Intent) -> Unit = { intent ->
+            scrollScope.launch {
+                if (vm.signer.value === signer && vm.reacting.value != null) {
+                    try { reactionLauncher.launch(intent) }
+                    catch (_: Exception) { vm.cancelReaction("Could not open your signer. Please try again.") }
+                }
+            }
+        }
+        signer?.registerForegroundLauncher(launch)
+        onDispose { signer?.unregisterForegroundLauncher(launch) }
+    }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         val data = it.data
         if (it.resultCode == RESULT_OK && data != null) {
@@ -185,6 +206,9 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     LaunchedEffect(entry.key) { activate(entry) }
     LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
     BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
+    CompositionLocalProvider(LocalReactionActions provides ReactionActions(reacting) { note ->
+        if (s.publicKey == null) showAccount = true else vm.react(note)
+    }) {
     GalleryHost(album = { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) }) {
     MediaHost(mediaStore, reading = !showSettings && !showAccount) {
@@ -492,6 +516,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             }
         }
     }
+    } // Reaction actions.
     } // Per-visit saved UI state.
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
@@ -632,7 +657,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            EngagementCount(Icons.Default.FavoriteBorder, counts.reactions, "reactions")
+            OrangeHeart(note, counts.reactions, note.id in state.orangeReactions)
             val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
             Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).padding(end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -787,15 +812,6 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, modifier: Modifier)
                 Icon(Icons.Default.Info, "About Feather ${BuildConfig.VERSION_NAME}, source code and feedback", tint = MaterialTheme.colorScheme.primary)
             }
         }
-    }
-}
-
-@Composable
-private fun EngagementCount(icon: androidx.compose.ui.graphics.vector.ImageVector, count: Int, description: String) {
-    Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).padding(end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(icon, "$count $description", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

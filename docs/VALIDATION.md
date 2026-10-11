@@ -303,3 +303,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Replaced that overload with a shared background document formatter that visits every top-level block, formats individual paragraphs and headings, and retains unsupported blocks as plain source text. Paragraph breaks, inline formatting/links, existing image ordering, and full detail content remain visible. Preview cards alone retain their excerpt limit.
 - Applied the same correction to highlight passages, context, and comments. No dependencies added; formatting remains on Dispatchers.Default.
 - `./gradlew :app:assembleDebug`: passed after supplying the annotator required by the library's settings constructor. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Orange-heart reactions (unreleased)
+
+- Explicit heart taps send only kind 7 with content 🧡 and target e/p/k tags (plus a for addressable targets). NIP-25/NIP-55 formats checked against the official specifications. Login still requests only public identity; signing is requested on action through Quartz's external-signer background/foreground bridge. No encryption/decryption or general publishing UI.
+- Signer operations, JSON, signature verification, cache/receipt persistence, and relay publishing run on IO. Only launcher/UI state work runs on main. New signer responses must match the requested pubkey, time, tags, kind, content, and valid signature before publishing.
+- One pending reaction at a time; disable repeated sends. Cancel on account changes/logout. Persist the signed event before publication in an app-data store bounded to 256 records; manual retries reuse the same ID. Show sent state only after relay OK or an existing verified reaction. No automatic offline publishing queue.
+- Publication uses up to four routes, prioritizing account write relays and recipient read relays inside the existing pool, with automatically selected fallback relays. Foreground resumes before publication after signer return. Gallery/list navigation remains intact.
+- Updated project rules, design, README, and staged privacy text to reflect the user-authorized reaction capability. Block/mute lists are still not implemented.
+- `./gradlew :app:assembleDebug`: passed after final changes. `git diff --check`: passed. No automated tests, real reactions, or signer/device interaction were performed from this development session; live signer/relay confirmation remains for device testing. No release published.

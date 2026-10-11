@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Render every Markdown text block in full articles and highlights instead of only the first paragraph. Keep unsupported blocks visible as plain text, and retain compact excerpts only in preview cards.
 
 ### Added
+- Tap a post’s heart to send a 🧡 reaction through the connected Android signer. Show pending/sent states, verify the signed response, publish through discovered relays, and reuse persisted signed events for manual retries. Guests are directed to signer login.
 - Open the current gallery image’s source note with an icon. Preserve per-image source events across Photos-tab browsing, regular/embedded notes, and article images; open cached content immediately.
 
 ## [0.13.0] - 2026-10-11

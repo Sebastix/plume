@@ -2,6 +2,8 @@ package org.dergigi.feather
 
 import android.app.Application
 import android.content.Context
+import com.vitorpamplona.quartz.nip55AndroidSigner.client.NostrSignerExternal
+import com.vitorpamplona.quartz.nip01Core.relay.client.accessories.publishAndConfirm
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip01Core.crypto.verify
 import com.vitorpamplona.quartz.nip01Core.relay.client.NostrClient
@@ -40,6 +42,7 @@ data class FeedState(
     val embedded: Map<String, Event> = emptyMap(),
     val engagement: Map<String, Engagement> = emptyMap(),
     val following: Set<String> = emptySet(),
+    val orangeReactions: Set<String> = emptySet(),
     val publicKey: String? = null,
     val signerPackage: String? = null,
     val relays: List<String> = RelayDefaults.seeds.take(4),
@@ -58,6 +61,10 @@ class FeatherRepository(context: Context) {
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
     private val snapshotMutex = Mutex()
+    private val reactionMutex = Mutex()
+    private val reactionStore = ReactionStore(context)
+    private val foregroundActive = MutableStateFlow(false)
+    @Volatile private var publishingAuthor: String? = null
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
     @Volatile private var engagementIds: List<String> = emptyList()
@@ -144,6 +151,7 @@ class FeatherRepository(context: Context) {
     }
     fun foreground() {
         active = true
+        foregroundActive.value = true
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
         discoveryJob?.cancel()
         discoveryJob = scope.launch {
@@ -164,7 +172,7 @@ class FeatherRepository(context: Context) {
             }
         }
     }
-    fun background() { active = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
+    fun background() { active = false; foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         historyJob?.cancel()
         feedUntil = null; profileUntil = null; hashtagUntil = null
@@ -199,7 +207,10 @@ class FeatherRepository(context: Context) {
         val fallback = if (embeddedIds.any { it !in s.embedded })
             (RelayDefaults.seeds.drop(embeddedSeedOffset) + RelayDefaults.seeds.take(embeddedSeedOffset)).filter(::healthy).take(2)
             else emptyList()
-        val priority = (listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+        val publishRoutes = publishingAuthor?.let { author ->
+            own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
+        }.orEmpty()
+        val priority = (publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + fallback + relayLists[viewedProfile]?.write.orEmpty().take(2) +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
             own?.read.orEmpty() + own?.write.orEmpty() +
@@ -401,6 +412,10 @@ class FeatherRepository(context: Context) {
                 }.distinctBy { it.first }.fold(java.math.BigDecimal.ZERO) { total, (_, amount) -> total + amount }
             target.id to Engagement(replies, reactions, zapSats)
         }
+        val orangeReactions = key?.let { author ->
+            reactionStore.accepted(author) + activity.filter { it.kind == 7 && it.pubKey == author && it.content == ORANGE_HEART }
+                .mapNotNull { reactionTarget(it)?.id }
+        }.orEmpty()
         val readingChanged = references != refs || profileAuthors != authors
         references = refs
         embeddedIds = quoteIds + addressRefs.map { it.id }
@@ -412,7 +427,7 @@ class FeatherRepository(context: Context) {
         relayLists = lists
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.threadNotes.find { it.id == viewedThread }?.pubKey
-        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following) }
+        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, orangeReactions = orangeReactions) }
         if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
         else if (active) subscribeReadingData()
     }
@@ -425,17 +440,72 @@ class FeatherRepository(context: Context) {
         }
         db.deleteExpiredEvents()
     }
+    /** Explicit user action only. Signing and relay I/O stay off the UI thread. */
+    suspend fun reactWithOrangeHeart(target: Event, signer: NostrSignerExternal) = withContext(Dispatchers.IO) {
+        reactionMutex.withLock {
+            ready.await()
+            val author = state.value.publicKey ?: error("Connect an Android signer first.")
+            require(signer.pubKey == author && target.kind in readableKinds)
+            val known = mutex.withLock {
+                db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 100))
+                    .firstOrNull { it.content == ORANGE_HEART && reactionTarget(it)?.id == target.id }
+            }
+            val saved = reactionStore.get(author, target.id)
+            if (known != null || saved?.accepted == true) {
+                _state.update { if (it.publicKey == author) it.copy(orangeReactions = it.orangeReactions + target.id) else it }
+                return@withLock
+            }
+            val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy)
+            val tags = buildList {
+                add(arrayOf("e", target.id, hint.orEmpty(), target.pubKey))
+                add(arrayOf("p", target.pubKey))
+                add(arrayOf("k", target.kind.toString()))
+                if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
+            }.toTypedArray()
+            val createdAt = System.currentTimeMillis() / 1000
+            val signed = saved?.event ?: withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, ORANGE_HEART) }.also {
+                require(it.createdAt == createdAt && it.tags.contentDeepEquals(tags)) { "Signer changed the reaction." }
+            }
+            require(signed.pubKey == author && signed.kind == 7 && signed.content == ORANGE_HEART &&
+                reactionTarget(signed)?.id == target.id && signed.tagValue("p") == target.pubKey && signed.verify()) { "Invalid signed reaction." }
+            check(state.value.publicKey == author) { "Account changed." }
+            reactionStore.put(target.id, signed, accepted = false)
+            // The external signer may still cover our Activity as its result arrives.
+            withTimeout(15_000) { foregroundActive.first { it } }
+            check(state.value.publicKey == author) { "Account changed." }
+            publishingAuthor = target.pubKey
+            try {
+                updateRoutingPool()
+                client.connect()
+                val own = relayLists[author]?.write.orEmpty()
+                val inbox = relayLists[target.pubKey]?.read.orEmpty()
+                val routes = (own.filter { it in routingPool && healthy(it) }.take(2) +
+                    inbox.filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
+                check(routes.isNotEmpty()) { "No relay available." }
+                check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
+                    "No relay confirmed the reaction. Tap the heart to retry."
+                }
+                reactionStore.put(target.id, signed, accepted = true)
+                accept(signed)
+                _state.update { if (it.publicKey == author) it.copy(orangeReactions = it.orangeReactions + target.id) else it }
+            } finally {
+                publishingAuthor = null
+                if (active) updateRoutingPool()
+            }
+        }
+    }
+
     suspend fun account(pubkey: String, signer: String) = withContext(Dispatchers.IO) {
         require(Protocol.publicKey(pubkey) == pubkey && signer.isNotBlank())
         prefs.edit().putString("pubkey", pubkey).putString("signer", signer).remove("draft").remove("draftReply").remove("pending").apply()
         feedUntil = null
-        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), loading = true) }
+        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), orangeReactions = emptySet(), loading = true) }
         ready.await(); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
         feedUntil = null
-        _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet()) }
+        _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet(), orangeReactions = emptySet()) }
         snapshot(); if (active) subscribeFeed()
     }
     fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }
