@@ -130,7 +130,7 @@ The website follows the system color scheme with CSS alone, using the same light
 
 ### Articles, people, and projects
 
-Articles use native text with background Markdown formatting, cover images, and inline media. The article opens from its cached event; no browser is required to read it. People lists expose only public follows and public list members, with lazy rows and metadata discovery for visible members. Projects show the repository name and description and link to its published web address. Tabs remain icon-only and conditional on public activity, with Posts, Highlights, Photos, Videos, Articles, and Replies prioritized in that order and remaining tabs ordered by observed frequency. No follow editing, private people-list decryption, or code collaboration tools are added.
+Article lists use title-first borderless rows: a two-line plain-text excerpt, an optional 88dp cover thumbnail on the right, and quiet author/time metadata below. Parse bounded excerpts off-main; tapping the title, excerpt, or thumbnail opens the article. Full articles use native text with background Markdown formatting, cover images, and inline media. The article opens from its cached event; no browser is required to read it. People lists expose only public follows and public list members, with lazy rows and metadata discovery for visible members. Projects show the repository name and description and link to its published web address. Tabs remain icon-only and conditional on public activity, with Posts, Highlights, Photos, Videos, Articles, and Replies prioritized in that order and remaining tabs ordered by observed frequency. No follow editing, private people-list decryption, or code collaboration tools are added.
 
 ### Orange-heart reactions
 

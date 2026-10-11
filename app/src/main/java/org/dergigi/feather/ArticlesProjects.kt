@@ -1,14 +1,19 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -22,6 +27,10 @@ private val markdownImage = Regex("!\\[([^]\\n]*)]\\((https?://[^\\s)]+)(?:\\s+\
 
 @Composable
 internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit) {
+    if (compact) {
+        ArticlePreview(event)
+        return
+    }
     val context = LocalContext.current
     val navigate by rememberUpdatedState(onReference)
     val style = MaterialTheme.typography.bodyLarge
@@ -61,6 +70,55 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
                 if (compact) Text(it, maxLines = 5, overflow = TextOverflow.Ellipsis, style = style)
                 else SelectionContainer { Text(it, style = style) }
             }
+        }
+    }
+}
+
+@Composable
+internal fun ArticleListRow(event: Event, author: String, onProfile: () -> Unit, onOpen: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read article", onClick = onOpen)
+        .padding(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ArticlePreview(event)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(author, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).wrapContentHeight()
+                    .clickable(onClickLabel = "Open author's profile", onClick = onProfile))
+            NoteTimestamp(event)
+        }
+    }
+}
+
+private data class ArticlePreviewModel(val title: String, val excerpt: String, val cover: String?)
+
+/** A bounded, non-interactive excerpt keeps the entire preview a reliable article target. */
+@Composable
+private fun ArticlePreview(event: Event) {
+    val bodyStyle = MaterialTheme.typography.bodyMedium
+    val model by produceState<ArticlePreviewModel?>(null, event.id, bodyStyle) {
+        value = withContext(Dispatchers.Default) {
+            val raw = (event.tagValue("summary")?.takeIf { it.isNotBlank() } ?: event.content).take(2_000)
+            val excerpt = markdownDocument(markdownImage.replace(raw.withoutObjectMarkers(), ""),
+                bodyStyle, SpanStyle(), SpanStyle(), LinkInteractionListener { }).text
+                .replace(Regex("\\s+"), " ").trim()
+            ArticlePreviewModel(event.tagValue("title")?.withoutObjectMarkers()?.takeIf { it.isNotBlank() }
+                ?: event.content.lineSequence().firstOrNull { it.isNotBlank() }?.trimStart('#', ' ')?.take(160).orEmpty(),
+                excerpt, MediaContent.secureUrl(event.tagValue("image")))
+        }
+    }
+    val preview = model
+    if (preview == null) Box(Modifier.fillMaxWidth().height(88.dp), contentAlignment = Alignment.CenterStart) {
+        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(preview.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (preview.excerpt.isNotBlank()) Text(preview.excerpt, style = bodyStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        preview.cover?.let { cover ->
+            RemoteImage(cover, Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)), "Article cover")
         }
     }
 }

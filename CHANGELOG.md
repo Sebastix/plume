@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Present articles as a compact reading list with a title, two-line excerpt, optional right-side cover thumbnail, and quiet author/time metadata.
+
 ## [0.30.0] - 2026-10-11
 
 ### Added
