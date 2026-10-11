@@ -70,15 +70,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     fun logout() = viewModelScope.launch { cancelReaction(); muteJob?.cancel(); repo.logout() }
 
-    fun react(note: Event) {
-        if (decryptingMutes.value || reactionJob?.isActive == true || note.id in state.value.orangeReactions) return
+    fun react(note: Event, choice: ReactionChoice) {
+        if (decryptingMutes.value || reactionJob?.isActive == true || choice in state.value.sentReactions[note.id].orEmpty()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         reacting.value = note.id
         reactionJob = viewModelScope.launch {
-            try { repo.reactWithOrangeHeart(note, connected) }
-            catch (_: TimeoutCancellationException) { message.value = "Reaction timed out. Tap the heart to retry." }
+            try { repo.react(note, choice, connected) }
+            catch (_: TimeoutCancellationException) { message.value = "Reaction timed out. Choose the same reaction to retry." }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { message.value = "Reaction wasn't sent. Tap the heart to retry." }
+            catch (_: Exception) { message.value = "Reaction wasn't sent. Choose the same reaction to retry." }
             finally { reacting.value = null }
         }
     }

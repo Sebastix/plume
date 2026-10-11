@@ -334,3 +334,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Muted/blocked content shows a crossed-out account icon; empty feeds/tabs show a small native vector tumbleweed; unavailable posts retain an info icon; reported loading errors show a warning triangle in the theme error color. All have accessible 48 dp tap targets.
 - Tapping captures a selectable, scrollable status report with the existing error message (if any), app version, view/tab, target ID, account connection status, and connected relay count. No inferred exception is presented as an actual error. Native copy/close icon buttons; no network or disk work is triggered. The dialog lives outside the lazy list so incoming notes cannot dismiss it while reading/copying; Android Back dismisses it.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Recent/frequent reaction picker (unreleased)
+
+- Heart combined-click keeps tap as 🧡 and exposes a five-item native long-press menu, with 48 dp choices, accessibility labels, sent checks, and disabled duplicates. Freeze displayed suggestions while the menu is open. Different emoji may be sent to the same note; only one signer request may be pending.
+- Query up to 200 own kind-7 events through the existing account outbox routes. Rank cached history off-main: most recent first, then frequency weighted by a 30-day decay, with five default emoji filling gaps. Include NIP-30 custom emoji with exact shortcode/image tags; checked the official NIP-30 format. No additional dependencies.
+- Store signed retry IDs per account/target/emoji identity (custom URL included), keep the existing 256-record bound, and read/migrate old orange-heart records without resigning retries. Suggestions use accepted records and verified relay history, not rejected or merely pending local sends. Account changes reset UI history. All JSON, ranking, signing, and persistence stay off-main.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or actual signer/device interaction.

@@ -42,7 +42,8 @@ data class FeedState(
     val embedded: Map<String, Event> = emptyMap(),
     val engagement: Map<String, Engagement> = emptyMap(),
     val following: Set<String> = emptySet(),
-    val orangeReactions: Set<String> = emptySet(),
+    val sentReactions: Map<String, List<ReactionChoice>> = emptyMap(),
+    val reactionChoices: List<ReactionChoice> = defaultReactions,
     val mutedAuthors: Set<String> = emptySet(),
     val pendingMuteList: Event? = null,
     val publicKey: String? = null,
@@ -236,7 +237,8 @@ class FeatherRepository(context: Context) {
         discoverRelays()
         s.publicKey?.let { key ->
             val routes = authorFilters(listOf(key), listOf(0, 3), 2).mapValues { (_, filters) ->
-                filters + Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
+                filters + Filter(authors = listOf(key), kinds = listOf(7), limit = 200) +
+                    Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1)
             }
             client.subscribe("account", routes, listener)
@@ -432,10 +434,16 @@ class FeatherRepository(context: Context) {
                 }.distinctBy { it.first }.fold(java.math.BigDecimal.ZERO) { total, (_, amount) -> total + amount }
             target.id to Engagement(replies, reactions, zapSats)
         }
-        val orangeReactions = key?.let { author ->
-            reactionStore.accepted(author) + activity.filter { it.kind == 7 && it.pubKey == author && it.content == ORANGE_HEART }
-                .mapNotNull { reactionTarget(it)?.id }
+        val ownReactions = key?.let { author ->
+            val recent = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), limit = 256)) }
+            (reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + activity.filter { it.kind == 7 && it.pubKey == author })
+                .distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         }.orEmpty()
+        val sentReactions = ownReactions.mapNotNull { event ->
+            val target = reactionTarget(event)?.id ?: return@mapNotNull null
+            reactionChoice(event)?.let { target to it }
+        }.groupBy({ it.first }, { it.second }).mapValues { (_, choices) -> choices.distinctBy { it.key } }
+        val reactionChoices = reactionSuggestions(ownReactions)
         val readingChanged = references != refs || profileAuthors != authors
         references = refs
         embeddedIds = quoteIds + addressRefs.map { it.id }
@@ -447,7 +455,7 @@ class FeatherRepository(context: Context) {
         relayLists = lists
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.threadNotes.find { it.id == viewedThread }?.pubKey
-        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, orangeReactions = orangeReactions, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(notes = all, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReactions = sentReactions, reactionChoices = reactionChoices, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
         if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
         else if (active) subscribeReadingData()
     }
@@ -461,18 +469,26 @@ class FeatherRepository(context: Context) {
         db.deleteExpiredEvents()
     }
     /** Explicit user action only. Signing and relay I/O stay off the UI thread. */
-    suspend fun reactWithOrangeHeart(target: Event, signer: NostrSignerExternal) = withContext(Dispatchers.IO) {
+    private fun recordReaction(author: String, target: String, choice: ReactionChoice) {
+        _state.update { if (it.publicKey == author) it.copy(
+            sentReactions = it.sentReactions + (target to (listOf(choice) + it.sentReactions[target].orEmpty()).distinctBy { item -> item.key }),
+            reactionChoices = (listOf(choice) + it.reactionChoices).distinctBy { item -> item.key }.take(5),
+        ) else it }
+    }
+
+    suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal) = withContext(Dispatchers.IO) {
         reactionMutex.withLock {
             ready.await()
             val author = state.value.publicKey ?: error("Connect an Android signer first.")
             require(signer.pubKey == author && target.kind in readableKinds)
+            require(validReactionChoice(choice))
             val known = mutex.withLock {
                 db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 100))
-                    .firstOrNull { it.content == ORANGE_HEART && reactionTarget(it)?.id == target.id }
+                    .firstOrNull { reactionChoice(it) == choice && reactionTarget(it)?.id == target.id }
             }
-            val saved = reactionStore.get(author, target.id)
+            val saved = reactionStore.get(author, target.id, choice)
             if (known != null || saved?.accepted == true) {
-                _state.update { if (it.publicKey == author) it.copy(orangeReactions = it.orangeReactions + target.id) else it }
+                recordReaction(author, target.id, choice)
                 return@withLock
             }
             val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy)
@@ -480,13 +496,14 @@ class FeatherRepository(context: Context) {
                 add(arrayOf("e", target.id, hint.orEmpty(), target.pubKey))
                 add(arrayOf("p", target.pubKey))
                 add(arrayOf("k", target.kind.toString()))
+                choice.image?.let { add(arrayOf("emoji", choice.content.removeSurrounding(":"), it)) }
                 if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
             }.toTypedArray()
             val createdAt = System.currentTimeMillis() / 1000
-            val signed = saved?.event ?: withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, ORANGE_HEART) }.also {
+            val signed = saved?.event ?: withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, choice.content) }.also {
                 require(it.createdAt == createdAt && it.tags.contentDeepEquals(tags)) { "Signer changed the reaction." }
             }
-            require(signed.pubKey == author && signed.kind == 7 && signed.content == ORANGE_HEART &&
+            require(signed.pubKey == author && signed.kind == 7 && signed.content == choice.content && reactionChoice(signed) == choice &&
                 reactionTarget(signed)?.id == target.id && signed.tagValue("p") == target.pubKey && signed.verify()) { "Invalid signed reaction." }
             check(state.value.publicKey == author) { "Account changed." }
             reactionStore.put(target.id, signed, accepted = false)
@@ -503,11 +520,11 @@ class FeatherRepository(context: Context) {
                     inbox.filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
                 check(routes.isNotEmpty()) { "No relay available." }
                 check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
-                    "No relay confirmed the reaction. Tap the heart to retry."
+                    "No relay confirmed the reaction. Choose the same reaction to retry."
                 }
                 reactionStore.put(target.id, signed, accepted = true)
                 accept(signed)
-                _state.update { if (it.publicKey == author) it.copy(orangeReactions = it.orangeReactions + target.id) else it }
+                recordReaction(author, target.id, choice)
             } finally {
                 publishingAuthor = null
                 if (active) updateRoutingPool()
@@ -532,13 +549,13 @@ class FeatherRepository(context: Context) {
         require(Protocol.publicKey(pubkey) == pubkey && signer.isNotBlank())
         prefs.edit().putString("pubkey", pubkey).putString("signer", signer).remove("draft").remove("draftReply").remove("pending").apply()
         feedUntil = null
-        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), orangeReactions = emptySet(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
+        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
         ready.await(); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
         feedUntil = null
-        _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet(), orangeReactions = emptySet(), mutedAuthors = emptySet(), pendingMuteList = null) }
+        _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, mutedAuthors = emptySet(), pendingMuteList = null) }
         snapshot(); if (active) subscribeFeed()
     }
     fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }

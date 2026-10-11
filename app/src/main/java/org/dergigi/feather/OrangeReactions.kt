@@ -1,36 +1,71 @@
 package org.dergigi.feather
 
 import android.content.Context
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.security.MessageDigest
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
 
 internal const val ORANGE_HEART = "🧡"
-internal data class ReactionActions(val pending: String? = null, val react: (Event) -> Unit = {})
+internal data class ReactionActions(
+    val pending: String? = null,
+    val choices: List<ReactionChoice> = defaultReactions,
+    val react: (Event, ReactionChoice) -> Unit = { _, _ -> },
+)
 internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions() }
 
 @Composable
-internal fun OrangeHeart(note: Event, count: Int, sent: Boolean) {
+internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     val actions = LocalReactionActions.current
     val pending = actions.pending == note.id
-    Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)
-        .clickable(enabled = !sent && actions.pending == null, onClickLabel = "React with an orange heart") { actions.react(note) }
-        .padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        else Icon(if (sent) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            if (sent) "Orange heart sent" else "React with an orange heart",
-            Modifier.size(20.dp), tint = if (sent) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurfaceVariant)
-        if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    var picker by remember(note.id) { mutableStateOf(false) }
+    var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
+    val orangeSent = sent.any { it == defaultReactions.first() }
+    Box {
+        Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)
+            .combinedClickable(enabled = actions.pending == null,
+                onClickLabel = "React with an orange heart", onLongClickLabel = "Choose a reaction",
+                onClick = { if (!orangeSent) actions.react(note, defaultReactions.first()) },
+                onLongClick = { menuChoices = actions.choices; picker = true })
+            .padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            else Icon(if (sent.isNotEmpty()) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                if (sent.isNotEmpty()) "Reacted; hold to choose another emoji" else "React; hold to choose an emoji",
+                Modifier.size(20.dp), tint = if (sent.isNotEmpty()) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurfaceVariant)
+            if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
+            Row(Modifier.padding(horizontal = 4.dp)) {
+                menuChoices.forEach { choice ->
+                    val alreadySent = choice in sent
+                    IconButton(enabled = actions.pending == null && !alreadySent, onClick = {
+                        picker = false
+                        actions.react(note, choice)
+                    }, modifier = Modifier.size(48.dp)) {
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            Text(if (choice.image == null) choice.content else "◌", fontSize = 24.sp,
+                                modifier = Modifier.semantics { contentDescription = if (alreadySent) "${choice.content} already sent" else "React with ${choice.content}" })
+                            choice.image?.let { RemoteImage(it, Modifier.size(28.dp), "React with ${choice.content}", crop = false) }
+                            if (alreadySent) Icon(Icons.Default.Check, "Already sent", Modifier.size(14.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -39,20 +74,32 @@ internal fun OrangeHeart(note: Event, count: Int, sent: Boolean) {
 internal class ReactionStore(context: Context) {
     private val prefs = context.getSharedPreferences("orange-reactions", Context.MODE_PRIVATE)
     data class Record(val event: Event, val accepted: Boolean)
-    fun get(author: String, target: String): Record? = prefs.getString("$author:$target", null)?.let { raw ->
-        runCatching { val json = JSONObject(raw); Record(Event.fromJson(json.getString("event")), json.optBoolean("accepted")) }.getOrNull()
+    private var cached: List<Record>? = null
+    @Synchronized
+    fun records(author: String): List<Record> {
+        val records = cached ?: prefs.all.values.mapNotNull { raw ->
+            runCatching { val json = JSONObject(raw as String); Record(Event.fromJson(json.getString("event")), json.optBoolean("accepted")) }.getOrNull()
+        }.also { cached = it }
+        return records.filter { it.event.pubKey == author }
     }
+    fun get(author: String, target: String, choice: ReactionChoice): Record? = records(author)
+        .firstOrNull { reactionTarget(it.event)?.id == target && reactionChoice(it.event) == choice }
+
+    @Synchronized
     fun put(target: String, event: Event, accepted: Boolean) {
-        val key = "${event.pubKey}:$target"
+        val choice = requireNotNull(reactionChoice(event))
+        val digest = MessageDigest.getInstance("SHA-256").digest(choice.key.toByteArray()).joinToString("") { "%02x".format(it) }
+        val key = "${event.pubKey}:$target:$digest"
+        val legacy = "${event.pubKey}:$target"
         val editor = prefs.edit().putString(key, JSONObject().put("event", event.toJson()).put("accepted", accepted)
             .put("saved", System.currentTimeMillis()).toString())
-        val old = prefs.all.filterKeys { it != key }.entries.sortedByDescending {
+        // Migrate previous orange-heart receipts/retries without dropping their signed event IDs.
+        if (choice == defaultReactions.first()) editor.remove(legacy)
+        val old = prefs.all.filterKeys { it != key && !(choice == defaultReactions.first() && it == legacy) }.entries.sortedByDescending {
             runCatching { JSONObject(it.value as String).optLong("saved") }.getOrDefault(0)
         }
         old.drop(255).forEach { editor.remove(it.key) }
         check(editor.commit()) { "Could not save reaction for retry" }
+        cached = null
     }
-    fun accepted(author: String): Set<String> = prefs.all.entries.asSequence().filter { it.key.startsWith("$author:") }
-        .filter { runCatching { JSONObject(it.value as String).optBoolean("accepted") }.getOrDefault(false) }
-        .map { it.key.substringAfter(':') }.toSet()
 }
