@@ -44,13 +44,12 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
             Text("Wallet", style = MaterialTheme.typography.titleLarge)
             if (connected) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(details.name ?: "Wallet connected", style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        details.balanceSats?.let { balance ->
-                            val amount = remember(balance) { java.text.NumberFormat.getIntegerInstance().format(balance) }
-                            Text("$amount sats", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    Text(details.name ?: "Wallet connected", modifier = Modifier.weight(1f).padding(end = 12.dp),
+                        style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    details.balanceSats?.let { balance ->
+                        val amount = remember(balance) { java.text.NumberFormat.getIntegerInstance().format(balance) }
+                        Text("$amount sats", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     if (loadingDetails) CircularProgressIndicator(Modifier.padding(horizontal = 12.dp).size(16.dp), strokeWidth = 2.dp)
                     IconButton(enabled = !busy && paying == null, onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, "Remove wallet connection") }

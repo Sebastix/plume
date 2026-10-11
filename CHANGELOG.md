@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Align the wallet balance to the right of its name on the same row.
+
 ## [0.23.2] - 2026-10-11
 
 ### Changed
