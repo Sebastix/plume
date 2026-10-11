@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -160,13 +161,19 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         }
     }
     }
+    val activeFeedList = home.feedPage(home.tab).list
+    val featherAlpha = animateFloatAsState(
+        targetValue = if (activeFeedList.isScrollInProgress || pager.isScrollInProgress) 0.4f else 1f,
+        animationSpec = tween(180), label = "Feather scroll opacity",
+    )
     FloatingActionButton(onClick = {
         scope.launch {
             val list = home.feedPage(home.tab).list
             if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
             home.toolbar = true
         }
-    }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 80.dp),
+    }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 80.dp)
+        .graphicsLayer { alpha = featherAlpha.value },
         shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
     }
