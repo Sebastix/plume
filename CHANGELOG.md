@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Enlarge the signed-in toolbar avatar from 28 to 36 dp and remove its surrounding circular background.
+
 ## [0.22.1] - 2026-10-11
 
 ### Fixed

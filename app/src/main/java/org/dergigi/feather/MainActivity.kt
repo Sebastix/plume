@@ -258,9 +258,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, actions = {
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
-                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = toolbarButtonSurface.semantics { contentDescription = "Account" }) {
+                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier else toolbarButtonSurface).semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
-                        if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 28, account?.picture)
+                        if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 36, account?.picture)
                         else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                     }
                 }

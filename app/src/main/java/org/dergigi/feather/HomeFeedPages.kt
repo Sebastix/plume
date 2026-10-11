@@ -142,12 +142,12 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     val key = state.publicKey
                     if (key == null) accountRequested = true
                     else navigation.push(ReaderEntry("profile", key))
-                }, modifier = buttonSurface.semantics { contentDescription = "Account" }) {
+                }, modifier = (if (state.publicKey != null) Modifier else buttonSurface).semantics { contentDescription = "Account" }) {
                     val account = state.profiles[state.publicKey]
                     if (state.publicKey != null) {
                         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
                             lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
-                            Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 28, account?.picture)
+                            Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 36, account?.picture)
                         }
                     } else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                 } else Spacer(Modifier.size(48.dp))
