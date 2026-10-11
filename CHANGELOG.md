@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.23.4] - 2026-10-11
+
 ### Changed
 - Render highlighted passages with a yellow background only, without an added underline.
 
