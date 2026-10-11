@@ -474,3 +474,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.21.1 (40), 14,736,610 bytes.
 - APK SHA-256: `6dfe67d5f80fb797b8151988459a46540f51a4cb701517ba9588914e8f2e1572`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.21.1-mapping.txt`. Website unchanged.
+
+## 2026-10-11 — 0.22.0 release
+
+- Version 0.22.0, versionCode 41; public custom emoji collection/pack loading, shortcode search, and latest own reaction display. Collection parsing and storage reads run off-main; 16 packs / 1,024 combined entries maximum. No list decryption or collection editing.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or device/signer interaction checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.22.0 (41), 14,752,994 bytes.
+- APK SHA-256: `775aa532adce0fae7aa6b2c0f365f12c50b035b9c178b38efeec60f625a130cf`.
+- Matching R8 mapping archived locally at `output/releases/feather-0.22.0-mapping.txt`. Website unchanged.
