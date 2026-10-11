@@ -766,3 +766,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Cache usage reuses existing background size polling; the slider draws usage and budget on a shared byte-proportional scale, keeps the existing limit choices, and supports RTL and accessibility adjustments.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 15,028,719 bytes; SHA-256 `f826d7c74232ffa7af0fea3b2e13d94a98303ecad3f4339ea29bad4597070d07`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.35.0 release
+
+- Version 0.35.0 (68), source commit `3535d4f8d9722df040f3a206dcbc76f5c4d4a346`. Long-press zap amount selection and follow/NIP-05 icons in mention suggestions.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device/payment checks.
+- Zap amounts feed the signed request and invoice amount validation; uncertain payments retain their journal and are checked before another payment. Recent confirmed local amounts are account-scoped.
+- Mention identity icons reuse bounded background verification and its cache; no network work on the UI thread.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 15,028,719 bytes; SHA-256 `7e6dd90a1eb7e4dccca55ae9414892094dea83cdd878fa7566608a7e490cbfad`. Mapping archived locally. Website unchanged.
