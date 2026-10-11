@@ -199,22 +199,25 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             current.target?.content?.withoutObjectMarkers()?.take(500).orEmpty()
         }
     }
+    val sendButton: @Composable (Modifier) -> Unit = { modifier ->
+        FilledIconButton(onClick = vm::sendReply, enabled = !busy && current.text.isNotBlank(),
+            modifier = modifier, shape = CircleShape,
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary)) {
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+            else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
+        }
+    }
     val composer: @Composable () -> Unit = {
         CopyableMessageHost()
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, foreground, null)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = if (current.target == null) 152.dp else 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
-                FilledIconButton(onClick = vm::sendReply, enabled = !busy && current.text.isNotBlank(),
-                    modifier = Modifier.size(48.dp), shape = CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
-                    if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
-                    else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
-                }
+                if (current.target != null) sendButton(Modifier.size(48.dp))
             }
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]
@@ -272,7 +275,10 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         Dialog(onDismissRequest = vm::closeReply,
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                Box(Modifier.fillMaxSize().safeDrawingPadding()) { composer() }
+                Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                    composer()
+                    sendButton(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 80.dp).size(56.dp))
+                }
             }
         }
     } else {
