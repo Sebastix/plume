@@ -430,7 +430,7 @@ class FeatherRepository(context: Context) {
         val peopleRefs = if (readingTab == ProfileTab.PEOPLE)
             collections.flatMap(::peopleReferences).filter { it.id in visibleIds }.distinctBy { it.id }.take(32) else emptyList()
         val refs = (peopleRefs + bookmarkRefs + bioRefs + readingContent.filter { it.kind !in listOf(3, 30000) }.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
-        val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap(NostrContent::quotes)).map { it.id }.distinct().take(24)
+        val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap { listOfNotNull(NostrContent.replyReference(it)) + NostrContent.quotes(it) }).map { it.id }.distinct().take(24)
         val addressRefs = bookmarkRefs.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
         val embedded = mutex.withLock {
             val byId = if (quoteIds.isEmpty()) emptyMap() else

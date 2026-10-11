@@ -450,3 +450,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.20.0 (38), 14,736,074 bytes.
 - APK SHA-256: `92b8d68d3253a3fe1d52bd83f3c58176cf01425b4a2eec55481f1d050f6c3d39`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.20.0-mapping.txt`.
+
+## 2026-10-11 — Reply context
+
+- Inspected live event `4bdd49a5e94fea471771ea66c94873c4ce7b5d65a46fec12f3e6db29a9ce46d2`: kind 1, NIP-10 root tag pointing to `0000064b86e0e4a75c5b362e8448e804637f74af72c626fad587f7bae81d71c9`. Existing reply classification was correct; the renderer lacked parent context.
+- Add a reply arrow and compact parent-author/text preview with a separate parent-note tap target. Immediate ID fallback, cached/background resolution within the existing 24-event embed budget, relay hints preserved, muted parent content hidden. Parent references are kept separate from quote cards.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device checks. Not released yet.

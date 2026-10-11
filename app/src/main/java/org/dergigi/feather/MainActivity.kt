@@ -678,6 +678,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             }
             NoteTimestamp(note)
         }
+        ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when (note.kind) {
             30023 -> ArticleContent(note, compact, onReference)
@@ -724,6 +725,30 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+    }
+}
+
+/** Parent navigation is separate from the author's profile and never blocks the reply body. */
+@Composable
+private fun ReplyContext(note: Event, embedded: Map<String, Event>, profiles: Map<String, Profile>,
+    onReference: (NostrContent.Reference) -> Unit) {
+    val reference = remember(note.id) { NostrContent.replyReference(note) } ?: return
+    val parent = embedded[reference.id]
+    val filter = LocalContentFilter.current
+    if (filter.hides(reference) || (parent != null && filter.hides(parent))) return
+    val author = parent?.pubKey ?: reference.author
+    val name = profiles[author]?.name ?: FeatherRepository.shortKey(author ?: reference.id)
+    val preview = remember(parent?.id) {
+        parent?.content?.take(240)?.withoutObjectMarkers()?.replace('\n', ' ')?.trim().orEmpty()
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .clickable(onClickLabel = "Open parent note") { onReference(reference) },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(painterResource(R.drawable.reply), "Reply to $name", Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary)
+        Text(if (preview.isEmpty()) name else "$name · $preview", maxLines = 1,
+            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

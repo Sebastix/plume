@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Show a compact reply icon and tappable parent-note preview for replies, including notes with only a NIP-10 root tag. Resolve parent context through the existing bounded background cache/fetch pipeline.
+
 ### Changed
 - Remove the website’s app version label and decouple website deployments from app releases. Keep evergreen GitHub latest-release and Zapstore links.
 

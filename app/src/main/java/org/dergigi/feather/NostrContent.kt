@@ -54,7 +54,7 @@ object NostrContent {
         if (event.kind in listOf(32267, 30617)) return emptyList()
         // Repost content is an encoded event, not user-facing text to tokenize.
         if (event.kind in listOf(3, 6, 30000, 10003, 30003)) return activityReferences(event)
-        return (activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
+        return (listOfNotNull(replyReference(event)) + activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))
         }).filter { it.hashtag == null }.groupBy { it.id }.values.take(16).map { group ->
@@ -63,5 +63,15 @@ object NostrContent {
 
     }
 
-    fun quotes(event: Event) = references(event).filter { !it.profile && it.external == null && it.id != event.id }.take(3)
+    fun replyReference(event: Event): Reference? {
+        val target = replyTarget(event)?.takeIf { hex.matches(it) && it != event.id } ?: return null
+        val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && it[1] == target }
+        return Reference(target, relays = listOfNotNull(tag?.getOrNull(2)?.let(Protocol::relay)),
+            author = tag?.getOrNull(4)?.takeIf(hex::matches))
+    }
+
+    fun quotes(event: Event): List<Reference> {
+        val parent = replyReference(event)?.id
+        return references(event).filter { !it.profile && it.external == null && it.id != event.id && it.id != parent }.take(3)
+    }
 }
