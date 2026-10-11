@@ -7,6 +7,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Added
 - Text reply composer with Vertex @mention lookup, signer-only publishing, saved local drafts, exact-event retries, and a Feather client tag; use NIP-10 for notes and NIP-22 for other supported content.
 
+### Changed
+- Label the 18+ setting “Show NSFW”.
+
 ### Fixed
 - Keep the feed selector filled at either end: Search stays at the left edge without opening empty icon slots; swipe animation and selection emphasis remain.
 - Report NIP-05 HTTP errors accurately; only redirect responses mention the redirect restriction, and missing endpoints report HTTP 404.

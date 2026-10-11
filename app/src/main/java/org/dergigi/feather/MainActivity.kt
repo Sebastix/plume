@@ -961,7 +961,9 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.sensitive_content), null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(16.dp))
+            Text("Show NSFW", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = state.showSensitive, onCheckedChange = { show ->
                 scope.launch {
                     runCatching { (context.applicationContext as FeatherApplication).repository.showSensitive(show) }
