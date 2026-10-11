@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Hide the top-right account avatar on downward scroll and restore it on upward scroll, sharing the bottom bar’s scroll threshold.
 - Thicken the home avatar border to 2dp and color it gold when the signed-in account has a connected NWC wallet; otherwise keep it neutral.
 
 ## [0.28.1] - 2026-10-11

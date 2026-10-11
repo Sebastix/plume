@@ -136,11 +136,13 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )
     }
+    AnimatedVisibility(home.toolbar, modifier = Modifier.align(Alignment.TopEnd),
+        enter = expandVertically(tween(180), expandFrom = Alignment.Top), exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Top)) {
     IconButton(onClick = {
         val key = state.publicKey
         if (key == null) accountRequested = true
         else navigation.push(ReaderEntry("profile", key))
-    }, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp)
+    }, modifier = Modifier.statusBarsPadding().padding(top = 8.dp, end = 12.dp)
         .size(RoundControlSize).semantics {
             contentDescription = "Account"
             stateDescription = if (state.publicKey != null && walletConnected) "Wallet connected" else "Wallet not connected"
@@ -156,6 +158,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 }
             } else Icon(Icons.Default.Person, "Log in", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
         }
+    }
     }
     FloatingActionButton(onClick = {
         scope.launch {
