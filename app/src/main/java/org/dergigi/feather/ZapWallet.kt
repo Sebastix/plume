@@ -16,6 +16,8 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 internal const val DEFAULT_ZAP_SATS = 21L
+internal const val MAX_ZAP_SATS = 2_100_000_000_000_000L
+internal val defaultZapAmounts = listOf(21L, 42L, 69L, 210L, 420L, 2_100L, 9_001L, 69_420L)
 internal data class WalletDetails(val name: String? = null, val balanceSats: Long? = null)
 internal fun sha256(value: ByteArray) = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
 
@@ -99,18 +101,23 @@ internal class ZapWallet(context: Context) {
             store.save(raw, owner)
         } finally { connection.secret.fill(0) }
     }
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests): Unit = withContext(Dispatchers.IO) {
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long): Unit = withContext(Dispatchers.IO) {
+        require(amountSats in 1..MAX_ZAP_SATS) { "Invalid zap amount" }
         val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
         var paymentUncertain = false
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
-            if (existing?.optString("status") == "paid") {
+            if (existing?.optString("status") == "paid" && existing.optLong("sats", DEFAULT_ZAP_SATS) == amountSats) {
                 store.savePayment(paymentId, existing.put("author", signer.pubKey).put("note", note.id))
                 return@withContext
             }
-            if (existing != null) {
+            if (existing?.optString("status") == "paid") {
+                // Preserve history before replacing the settled journal with a different explicit amount.
+                store.savePayment(sha256(existing.getString("invoice").toByteArray()), existing)
+            }
+            if (existing != null && existing.optString("status") != "paid") {
                 step = "Checking previous payment"
                 paymentUncertain = true
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
@@ -118,6 +125,9 @@ internal class ZapWallet(context: Context) {
                 if (status.optString("state") == "settled" || status.optString("preimage").length == 64) {
                     verifyPreimage(status, existing.getString("hash"))
                     store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
+                    paymentUncertain = false
+                    if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats)
+                        throw WalletFailure("Previous zap confirmed. No new payment was sent; select the new amount again to send it.")
                     return@withContext
                 }
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
@@ -127,8 +137,8 @@ internal class ZapWallet(context: Context) {
             val lnurl = LnurlForm.urlToBech32(endpoint)
             val params = get(endpoint)
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
-            val msats = DEFAULT_ZAP_SATS * 1000
-            require(msats >= params.getLong("minSendable") && msats <= params.getLong("maxSendable")) { "This address does not accept a 21-sat zap" }
+            val msats = amountSats * 1000
+            require(msats >= params.getLong("minSendable") && msats <= params.getLong("maxSendable")) { "This address does not accept a $amountSats-sat zap" }
             val callback = params.getString("callback")
             require(MediaContent.secureUrl(callback) != null) { "Invalid Lightning callback" }
             val tags = buildList {
@@ -148,7 +158,7 @@ internal class ZapWallet(context: Context) {
             step = "Requesting Lightning invoice"
             val invoice = get(url.toString()).getString("pr")
             step = "Validating Lightning invoice"
-            require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(DEFAULT_ZAP_SATS)) == 0) { "Invoice amount does not match 21 sats" }
+            require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(amountSats)) == 0) { "Invoice amount does not match $amountSats sats" }
             val descriptionHash = invoiceHash(invoice, 'h')
             val requestHash = sha256(json.toByteArray(Charsets.UTF_8))
             require(descriptionHash == requestHash) {
@@ -159,7 +169,7 @@ internal class ZapWallet(context: Context) {
             }
             val hash = invoiceHash(invoice, 'p')
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
-            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("author", signer.pubKey).put("note", note.id)
+            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("sats", amountSats).put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
             step = "Saving payment"
             store.savePayment(paymentId, record)
             // Persist before sending: process death or timeout must never cause a duplicate payment.

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Long-press zap amount picker in notes and galleries, with recent account-specific amounts, eight starter amounts, and custom sats; one-tap zaps remain 21 sats.
+
 ## [0.34.0] - 2026-10-11
 
 ### Added

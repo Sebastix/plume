@@ -65,7 +65,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             finally { walletBusy.value = false }
         }
     }
-    fun zap(note: Event) {
+    fun zap(note: Event, amountSats: Long = DEFAULT_ZAP_SATS) {
+        if (amountSats !in 1..MAX_ZAP_SATS) return
         if (note.id in zapping.value || !queueHasRoom()) return
         if (walletBusy.value) { message.value = "Wallet connection is being updated. Try again shortly."; return }
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
@@ -74,7 +75,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 paymentMutex.withLock {
                     check(signer.value === connected) { "Account changed" }
-                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected, signerRequests)
+                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected, signerRequests, amountSats)
                 }
             }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }

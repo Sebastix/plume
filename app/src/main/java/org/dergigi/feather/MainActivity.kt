@@ -115,6 +115,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val zapping by vm.zapping.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val confirmedPayments by vm.wallet.store.confirmedPayments.collectAsStateWithLifecycle()
+    val recentZapAmounts by vm.wallet.store.recentAmounts.collectAsStateWithLifecycle()
     val confirmedZaps = remember(confirmedPayments, s.publicKey) {
         confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
     }
@@ -244,10 +245,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
-    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps) { note ->
+    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, (recentZapAmounts[s.publicKey].orEmpty() + defaultZapAmounts).distinct().take(8)) { note, amount ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
-        else vm.zap(note)
+        else vm.zap(note, amount)
     }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {

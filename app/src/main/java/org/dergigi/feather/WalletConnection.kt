@@ -41,6 +41,7 @@ internal class WalletStore(context: Context) {
     private val prefs = context.getSharedPreferences("wallet", Context.MODE_PRIVATE)
     val connected = MutableStateFlow(false)
     val confirmedPayments = MutableStateFlow<Map<String, Pair<String, String>>>(emptyMap())
+    val recentAmounts = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
     private fun confirmed(value: org.json.JSONObject): Pair<String, String>? {
         if (value.optString("status") != "paid") return null
         val author = Protocol.publicKey(value.optString("author")) ?: return null
@@ -77,6 +78,12 @@ internal class WalletStore(context: Context) {
             runCatching { payment(key.removePrefix("payment:"))?.let(::confirmed)?.let { key to it } }.getOrNull()
         }.toMap()
         confirmedPayments.update { saved + it }
+        val history = prefs.all.keys.filter { it.startsWith("payment:") }.mapNotNull {
+            runCatching { payment(it.removePrefix("payment:")) }.getOrNull()
+        }.filter { confirmed(it) != null }.sortedByDescending { it.optLong("time") }
+        recentAmounts.value = history.groupBy { it.getString("author") }.mapValues { (_, records) ->
+            records.map { it.optLong("sats", DEFAULT_ZAP_SATS) }.filter { it in 1..MAX_ZAP_SATS }.distinct().take(8)
+        }
     }
     @Synchronized fun connection(owner: String): WalletConnection? {
         check(account == owner) { "Wallet account changed" }
@@ -109,6 +116,12 @@ internal class WalletStore(context: Context) {
         }
         require("payment:$id" in entries || prefs.all.keys.count { it.startsWith("payment:") } < 512) { "Wallet payment history is full" }
         check(prefs.edit().putString("payment:$id", seal(value.toString())).commit()) { "Could not save payment status" }
-        confirmed(value)?.let { paid -> confirmedPayments.update { it + ("payment:$id" to paid) } }
+        confirmed(value)?.let { paid ->
+            confirmedPayments.update { it + ("payment:$id" to paid) }
+            val amount = value.optLong("sats", DEFAULT_ZAP_SATS)
+            if (amount in 1..MAX_ZAP_SATS) recentAmounts.update {
+                it + (paid.first to (listOf(amount) + it[paid.first].orEmpty()).distinct().take(8))
+            }
+        }
     }
 }

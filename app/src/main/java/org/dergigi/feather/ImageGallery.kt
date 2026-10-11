@@ -135,6 +135,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     val accessibility = LocalAccessibilityManager.current
     var busy by remember { mutableStateOf(false) }
     var reactionPicker by remember { mutableStateOf(false) }
+    var zapPicker by remember { mutableStateOf(false) }
     val currentNote = sourceNote(pager.currentPage)
     val app = context.applicationContext as FeatherApplication
     val resources by app.media.resources.collectAsStateWithLifecycle()
@@ -189,8 +190,8 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     LaunchedEffect(pager.isScrollInProgress) {
         if (pager.isScrollInProgress) controlsVisible = false
     }
-    LaunchedEffect(controlsVisible, interaction, menu, busy, reactionPicker, actionPending) {
-        if (controlsVisible && !menu && !busy && !reactionPicker && !actionPending) {
+    LaunchedEffect(controlsVisible, interaction, menu, busy, reactionPicker, zapPicker, actionPending) {
+        if (controlsVisible && !menu && !busy && !reactionPicker && !zapPicker && !actionPending) {
             delay(accessibility?.calculateRecommendedTimeoutMillis(3_000L,
                 containsIcons = true, containsText = true, containsControls = true) ?: 3_000L)
             controlsVisible = false
@@ -257,7 +258,8 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
                             NoteZap(note, counts, state.publicKey,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canZap)
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canZap,
+                                onPickerVisibilityChanged = { zapPicker = it })
                         }
                         Surface(modifier = Modifier.graphicsLayer { alpha = if (canReact) 1f else 0.38f },
                             shape = androidx.compose.foundation.shape.CircleShape,
