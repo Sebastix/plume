@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
@@ -13,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -39,6 +37,8 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
     val orangeSent = sent.any { it == defaultReactions.first() }
+    // Repository snapshots and accepted local reactions are ordered newest first.
+    val latestReaction = sent.firstOrNull()
     Box {
         Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)
             .combinedClickable(enabled = actions.pending == null,
@@ -47,9 +47,19 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
                 onLongClick = { menuChoices = actions.choices; picker = true })
             .padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            else Icon(if (sent.isNotEmpty()) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                if (sent.isNotEmpty()) "Reacted; hold to choose another emoji" else "React; hold to choose an emoji",
-                Modifier.size(20.dp), tint = if (sent.isNotEmpty()) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (latestReaction != null) {
+                Box(Modifier.size(24.dp).semantics {
+                    contentDescription = "Your reaction: ${latestReaction.content}; hold to choose another emoji"
+                }, contentAlignment = Alignment.Center) {
+                    if (latestReaction.image == null) Text(latestReaction.content, fontSize = 20.sp)
+                    else {
+                        Text("◌", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        RemoteImage(latestReaction.image, Modifier.size(22.dp),
+                            "Your reaction: ${latestReaction.content}", crop = false)
+                    }
+                }
+            } else Icon(Icons.Default.FavoriteBorder, "React; hold to choose an emoji",
+                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Show your most recent reaction on each post’s reaction button, including custom emoji, instead of a generic orange heart.
+
 ## [0.21.1] - 2026-10-11
 
 ### Fixed
