@@ -792,3 +792,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.36.0 finished publishing to GitHub while this requested addition was being implemented; Zapstore publication uses 0.36.1 directly.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 15,028,719 bytes; SHA-256 `7941997b95e76c4087d3f40e16a4052a2a7f14b12b68fe69d51128e119e2a6e6`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.37.0 release
+
+- Version 0.37.0 (71), source commit `c6ff632c65a1db1da89d14a40bb473a7519b73ec`. Right-aligned reaction/zap actions and detail-only sharing, profile mention compose button, bottom-right send, and Blossom image attachments.
+- Debug and signed release builds passed, including release lint and R8. No automated tests, device checks, or live image uploads performed.
+- Blossom BUD-02/03/04/11 reviewed: account server discovery (kind 10063), explicit scoped signer authorization (24242), byte/hash/size validation, ordered primary attempts and mirroring. One upload job, four images per selection, 20 MB per image, bounded replies/timeouts; disk and network work on IO.
+- Successful upload URLs persist in drafts; cancellation closes remaining network work and removes the temporary file. Device validation of signer authorization and configured-server compatibility remains outstanding.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 15,045,103 bytes; SHA-256 `96b5b11573ed3eb1e42c3ca7de5e3e7bc73e968d33294efc18fc6b6c02089dc9`. Mapping archived locally. Website unchanged.
