@@ -394,3 +394,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.17.0 (34), 14,091,160 bytes.
 - APK SHA-256: `8cb4eabe68faac3fe0c8b99d92bedfaa4e7daa947da83ffd7a391608488a1bdd`.
+
+## 2026-10-11 — 0.17.1 release
+
+- Version 0.17.1, versionCode 35; theme-aware toolbar background and five progressively faded category slots.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.17.1 (35), 14,091,160 bytes.
+- APK SHA-256: `6b2e537867c6d13c776f7f08d7afb03f3a511cb01723f4d7fa2615eda61255a5`.
