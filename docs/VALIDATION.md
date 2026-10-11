@@ -732,3 +732,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Inspected the supplied zap recipient’s Primal LNURL endpoint with an already public signed request, without making a payment. Invoice description hash did not match, including with the LNURL callback parameter. This provider issue remains unresolved; request context and diagnostics improved without weakening validation.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,962,591 bytes; SHA-256 `de13153abfc961264758b20ad2607004a88e282ddf72a5baea9205b9f4c3d65f`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.32.0 release
+
+- Version 0.32.0 (64), source commit `84eef8133e21f660d5587be3f7bf3c2601ee0fb6`. Signed-in notifications, disabled search placeholder, profile homepage links, compact article dates/durations, and cross-client reaction sync/removal.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Notifications: bounded account-tagged requests only on the selected Notifications page, existing inbox/base relays, per-account display guard, cache-first snapshots, visible actor/target resolution, and mute/content filtering. Wisp compact notification rows reviewed as design reference; no source copied.
+- NIP-25 reviewed: empty and + incoming reactions normalize to the same like choice; signed events remain unchanged for NIP-09 deletion. Dedicated visible-target own-reaction queries avoid broad engagement and recent-history limits. Publishing remains explicit through the signer.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,979,567 bytes; SHA-256 `4a959345b431518327e92bf7bddd5255bf5d0e9c1492a306325abf5497cd2c22`. Mapping archived locally. Website unchanged.
