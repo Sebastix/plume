@@ -209,7 +209,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         val signer = connectedSigner
         val launch: (Intent) -> Unit = { intent ->
             scrollScope.launch {
-                if (vm.signer.value === signer && (vm.reacting.value != null || vm.zapping.value != null || vm.decryptingMutes.value)) {
+                if (vm.signer.value === signer && vm.signerRequests.active) {
                     try { reactionLauncher.launch(intent) }
                     catch (_: Exception) { vm.cancelSignerRequest("Could not open your signer. Please try again.") }
                 }
@@ -228,18 +228,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         }
     }
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
-        if (activePage && reacting == null) vm.loadMutes(s.pendingMuteList)
+        if (activePage) vm.loadMutes(s.pendingMuteList)
     }
     LaunchedEffect(message, activePage) { if (activePage) message?.let { snack.showSnackbar(it); vm.message.value = null } }
     LaunchedEffect(entry.key, activePage) { if (activePage) activate(entry) }
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, reacting != null || decryptingMutes, confirmedZaps) { note ->
+    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps) { note ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note)
-    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, disabled = decryptingMutes || zapping != null) { note, choice ->
+    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
@@ -758,11 +758,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             val zapped = note.id in zapActions.confirmed ||
                 (state.publicKey != null && counts.zappedByAccount == state.publicKey)
             Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
-                .clickable(enabled = !zapActions.disabled && zapActions.pending == null,
+                .clickable(enabled = note.id !in zapActions.pending,
                     onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    if (note.id in zapActions.pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     else Icon(painterResource(R.drawable.zap),
                         if (zapped) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
                         Modifier.size(20.dp), tint = if (zapped) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)

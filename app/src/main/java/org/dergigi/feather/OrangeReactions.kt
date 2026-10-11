@@ -24,10 +24,9 @@ import org.json.JSONObject
 
 internal const val ORANGE_HEART = "🧡"
 internal data class ReactionActions(
-    val pending: String? = null,
+    val pending: Set<String> = emptySet(),
     val choices: List<ReactionChoice> = defaultReactions,
     val customEmojis: List<ReactionChoice> = emptyList(),
-    val disabled: Boolean = false,
     val react: (Event, ReactionChoice) -> Unit = { _, _ -> },
 )
 internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions() }
@@ -36,7 +35,7 @@ internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions()
 @Composable
 internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     val actions = LocalReactionActions.current
-    val pending = actions.pending == note.id
+    val pending = note.id in actions.pending
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
@@ -45,7 +44,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     val latestReaction = sent.firstOrNull()
     Box {
         Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
-            .combinedClickable(enabled = !actions.disabled && actions.pending == null,
+            .combinedClickable(enabled = note.id !in actions.pending,
                 onClickLabel = "React with an orange heart", onLongClickLabel = "Choose a reaction",
                 onClick = { if (!orangeSent) actions.react(note, defaultReactions.first()) },
                 onLongClick = { menuChoices = actions.choices; picker = true })
@@ -72,7 +71,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
                     val alreadySent = choice in sent
-                    IconButton(enabled = !actions.disabled && actions.pending == null && !alreadySent, onClick = {
+                    IconButton(enabled = note.id !in actions.pending && !alreadySent, onClick = {
                         picker = false
                         actions.react(note, choice)
                     }, modifier = Modifier.size(48.dp)) {
@@ -84,7 +83,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
                         }
                     }
                 }
-                IconButton(enabled = !actions.disabled && actions.pending == null, onClick = {
+                IconButton(enabled = note.id !in actions.pending, onClick = {
                     picker = false
                     fullPicker = true
                 }, modifier = Modifier.size(48.dp)) {
@@ -101,7 +100,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
-                if (!latestActions.disabled && latestActions.pending == null && validReactionChoice(choice)) {
+                if (note.id !in latestActions.pending && validReactionChoice(choice)) {
                     fullPicker = false
                     if (choice !in latestSent) latestActions.react(note, choice)
                 }

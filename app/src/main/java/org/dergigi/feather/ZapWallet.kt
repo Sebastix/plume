@@ -98,7 +98,7 @@ internal class ZapWallet(context: Context) {
             store.save(raw)
         } finally { connection.secret.fill(0) }
     }
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal): Unit = withContext(Dispatchers.IO) {
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests): Unit = withContext(Dispatchers.IO) {
         val connection = store.connection() ?: error("Connect a wallet in settings")
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
@@ -131,7 +131,7 @@ internal class ZapWallet(context: Context) {
                 if (note.kind in 30000..39999) note.tagValue("d")?.let { add(arrayOf("a", "${note.kind}:${note.pubKey}:$it")) }
             }.toTypedArray()
             val now = System.currentTimeMillis() / 1000
-            val request = withTimeout(180_000) { signer.sign<Event>(now, 9734, tags, "") }
+            val request = signerRequests.run { withTimeout(180_000) { signer.sign<Event>(now, 9734, tags, "") } }
             require(request.pubKey == signer.pubKey && request.kind == 9734 && request.createdAt == now && request.content.isEmpty() &&
                 request.tags.contentDeepEquals(tags) && request.verify()) { "Invalid signed zap request" }
             val json = request.toJson()

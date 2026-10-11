@@ -17,7 +17,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
-internal data class ZapActions(val pending: String? = null, val disabled: Boolean = false, val confirmed: Set<String> = emptySet(), val zap: (Event) -> Unit = {})
+internal data class ZapActions(val pending: Set<String> = emptySet(), val confirmed: Set<String> = emptySet(), val zap: (Event) -> Unit = {})
 internal val LocalZapActions = staticCompositionLocalOf { ZapActions() }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +32,7 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
     var loadingDetails by remember { mutableStateOf(false) }
     LaunchedEffect(connected, busy, paying, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            if (connected && !busy && paying == null) {
+            if (connected && !busy && paying.isEmpty()) {
                 loadingDetails = true
                 try { vm.refreshWalletDetails() } finally { loadingDetails = false }
             }
@@ -52,7 +52,7 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     if (loadingDetails) CircularProgressIndicator(Modifier.padding(horizontal = 12.dp).size(16.dp), strokeWidth = 2.dp)
-                    IconButton(enabled = !busy && paying == null, onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, "Remove wallet connection") }
+                    IconButton(enabled = !busy && paying.isEmpty(), onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, "Remove wallet connection") }
                 }
             } else {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(8192) }, singleLine = true,

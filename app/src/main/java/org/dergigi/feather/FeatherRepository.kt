@@ -546,7 +546,7 @@ class FeatherRepository(context: Context) {
         ) else it }
     }
 
-    suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal) = withContext(Dispatchers.IO) {
+    internal suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
         reactionMutex.withLock {
             ready.await()
             val author = state.value.publicKey ?: error("Connect an Android signer first.")
@@ -570,7 +570,7 @@ class FeatherRepository(context: Context) {
                 if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
             }.toTypedArray()
             val createdAt = System.currentTimeMillis() / 1000
-            val signed = saved?.event ?: withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, choice.content) }.also {
+            val signed = saved?.event ?: signerRequests.run { withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, choice.content) } }.also {
                 require(it.createdAt == createdAt && it.tags.contentDeepEquals(tags)) { "Signer changed the reaction." }
             }
             require(signed.pubKey == author && signed.kind == 7 && signed.content == choice.content && reactionChoice(signed) == choice &&

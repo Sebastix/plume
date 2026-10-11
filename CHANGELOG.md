@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Let reactions and zaps be tapped in quick succession without disabling other note actions. Track progress per note/action and serialize only the shared signer interaction across action types.
+
 ### Added
 - Dynamic Zap activity tab on profiles and home feeds, showing sent/received Lightning zaps and Cashu nutzaps with sender, recipient, amount/unit, comment, and linked note. Nutzaps use purple styling, matching ants-android.
 

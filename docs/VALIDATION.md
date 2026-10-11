@@ -558,3 +558,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Kind 9321 joins the Zap activity tab, including authored (sent) and p-tagged (received) events in discovery, cached snapshots, subscriptions, and pagination. Adds bounded cache retention for nutzaps.
 - Uses Ants’ purple `#C084FC` for nutzap bolts and amounts; regular Lightning zaps remain gold. Public proof amounts are summed with bounded parsing on background dispatchers and retain their declared unit (default sat). No token redemption, mint interaction, or synthetic confirmed-payment state.
 - Debug build and diff check passed. No automated tests or device checks.
+
+## 2026-10-11 — Independent reaction and zap actions
+
+- Pending sets are per note and action type; only the matching in-flight action is disabled. Explicit taps queue immediately (bounded to 32 combined actions). Existing per-kind publication/payment serialization remains, but reactions and payments can progress independently after signing.
+- A shared coroutine mutex coordinates Android signer calls and private-mute decryption. Cancelling a signer request targets that request’s job, not an unrelated payment; logout/account changes cancel all queued work. Uncertain payment journals and duplicate-tap guards remain intact.
+- Debug build and diff check passed. No automated tests, device signer interactions, or live payments performed.

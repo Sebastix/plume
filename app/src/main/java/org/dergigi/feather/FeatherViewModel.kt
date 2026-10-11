@@ -8,6 +8,8 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip55AndroidSigner.client.NostrSignerExternal
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class FeatherViewModel(application: Application) : AndroidViewModel(application) {
     val repo = (application as FeatherApplication).repository
@@ -24,10 +26,24 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { /* Keep any available name; omit unavailable balances. */ }
     }
-    val zapping = MutableStateFlow<String?>(null)
-    private var zapJob: Job? = null
+    val zapping = MutableStateFlow<Set<String>>(emptySet())
+    internal val signerRequests = SignerRequests()
+    private val paymentMutex = Mutex()
+    private val zapJobs = mutableMapOf<String, Job>()
+    private val reactionJobs = mutableMapOf<String, Job>()
+    private fun queueHasRoom(): Boolean {
+        if (zapJobs.size + reactionJobs.size < 32) return true
+        message.value = "Action queue is full. Try again shortly."
+        return false
+    }
+    private fun cancelActions() {
+        zapJobs.values.toList().forEach { it.cancel() }
+        reactionJobs.values.toList().forEach { it.cancel() }
+        zapJobs.clear(); reactionJobs.clear()
+        zapping.value = emptySet(); reacting.value = emptySet()
+    }
     fun connectWallet(raw: String) {
-        if (walletBusy.value || zapping.value != null) return
+        if (walletBusy.value || zapping.value.isNotEmpty()) return
         walletBusy.value = true; walletError.value = null
         viewModelScope.launch {
             try { wallet.connect(raw) }
@@ -36,7 +52,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     fun disconnectWallet() {
-        if (walletBusy.value || zapping.value != null) return
+        if (walletBusy.value || zapping.value.isNotEmpty()) return
         walletBusy.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try { wallet.store.disconnect(); walletDetails.value = WalletDetails(); walletError.value = null }
@@ -45,32 +61,43 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     fun zap(note: Event) {
-        if (walletBusy.value || zapping.value != null || reacting.value != null || decryptingMutes.value) return
+        if (note.id in zapping.value || !queueHasRoom()) return
+        if (walletBusy.value) { message.value = "Wallet connection is being updated. Try again shortly."; return }
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
-        zapping.value = note.id
-        zapJob = viewModelScope.launch {
-            try { wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected) }
+        zapping.update { it + note.id }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                paymentMutex.withLock {
+                    check(signer.value === connected) { "Account changed" }
+                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected, signerRequests)
+                }
+            }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: WalletFailure) { message.value = failure.message }
             catch (_: Exception) { message.value = "Zap not completed. Check the author’s Lightning address and your wallet. No automatic retry." }
-            finally { zapping.value = null }
+            finally {
+                if (zapJobs[note.id] === currentCoroutineContext().job) {
+                    zapJobs.remove(note.id); zapping.update { it - note.id }
+                }
+            }
         }
+        zapJobs[note.id] = job
+        job.start()
     }
-    val reacting = MutableStateFlow<String?>(null)
-    private var reactionJob: Job? = null
+    val reacting = MutableStateFlow<Set<String>>(emptySet())
     val decryptingMutes = MutableStateFlow(false)
     private var muteJob: Job? = null
     private var attemptedMute: String? = null
 
     fun loadMutes(event: Event?) {
         val connected = signer.value ?: return
-        if (event == null || event.pubKey != connected.pubKey || attemptedMute == event.id || (reactionJob?.isActive == true || zapJob?.isActive == true)) return
+        if (event == null || event.pubKey != connected.pubKey || attemptedMute == event.id) return
         muteJob?.cancel()
         attemptedMute = event.id
         decryptingMutes.value = true
         muteJob = viewModelScope.launch {
-            try { repo.decryptMuteList(event, connected) }
+            try { signerRequests.run { repo.decryptMuteList(event, connected) } }
             catch (_: TimeoutCancellationException) { message.value = "Private mute list could not be read. Public mutes still apply." }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { message.value = "Private mute list could not be read. Public mutes still apply." }
@@ -85,11 +112,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun cancelSignerRequest(reason: String? = null) {
-        if (decryptingMutes.value) {
-            muteJob?.cancel()
-            if (reason != null) message.value = "Private mute list could not be read. Public mutes still apply."
-        } else if (zapJob?.isActive == true) { zapJob?.cancel(); message.value = reason }
-        else cancelReaction(reason)
+        signerRequests.cancel()
+        if (reason != null) message.value = reason
     }
     private fun signerFor(key: String?, packageName: String?) =
         if (key != null && packageName != null) NostrSignerExternal(key, packageName, getApplication<Application>().contentResolver) else null
@@ -102,7 +126,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             var identity = initialIdentity
             state.map { it.publicKey to it.signerPackage }.distinctUntilChanged().collect { next ->
                 if (next != identity) {
-                    cancelReaction(); zapJob?.cancel()
+                    cancelActions()
                     muteJob?.cancel(); attemptedMute = null; decryptingMutes.value = false
                     signer.value = signerFor(next.first, next.second)
                     identity = next
@@ -114,23 +138,25 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         runCatching { repo.account(key, packageName) }
             .onFailure { message.value = "Could not connect the signer. Please try again." }
     }
-    fun logout() = viewModelScope.launch { cancelReaction(); zapJob?.cancel(); muteJob?.cancel(); repo.logout() }
+    fun logout() = viewModelScope.launch { cancelActions(); muteJob?.cancel(); repo.logout() }
 
     fun react(note: Event, choice: ReactionChoice) {
-        if (decryptingMutes.value || zapping.value != null || reactionJob?.isActive == true || choice in state.value.sentReactions[note.id].orEmpty()) return
+        if (note.id in reacting.value || choice in state.value.sentReactions[note.id].orEmpty() || !queueHasRoom()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
-        reacting.value = note.id
-        reactionJob = viewModelScope.launch {
-            try { repo.react(note, choice, connected) }
+        reacting.update { it + note.id }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try { repo.react(note, choice, connected, signerRequests) }
             catch (_: TimeoutCancellationException) { message.value = "Reaction timed out. Choose the same reaction to retry." }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { message.value = "Reaction wasn't sent. Choose the same reaction to retry." }
-            finally { reacting.value = null }
+            finally {
+                if (reactionJobs[note.id] === currentCoroutineContext().job) {
+                    reactionJobs.remove(note.id); reacting.update { it - note.id }
+                }
+            }
         }
-    }
-    fun cancelReaction(reason: String? = null) {
-        reactionJob?.cancel()
-        if (reason != null) message.value = reason
+        reactionJobs[note.id] = job
+        job.start()
     }
     fun signerResponse(data: Intent) {
         val connected = signer.value ?: return
