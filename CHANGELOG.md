@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Tap your displayed reaction again to remove it, including custom emojis. Selected picker reactions also toggle off via signed NIP-09 deletion requests.
+
 ## [0.24.0] - 2026-10-11
 
 ### Fixed

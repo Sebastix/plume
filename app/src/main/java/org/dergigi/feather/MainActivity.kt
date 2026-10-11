@@ -115,7 +115,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
     }
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
-    val contentFilter = remember(s.mutedAuthors, s.embedded) { ContentFilter(s.mutedAuthors, s.embedded) }
+    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions) }
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
     val scrollScope = rememberCoroutineScope()
@@ -239,7 +239,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note)
-    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis) { note, choice ->
+    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },

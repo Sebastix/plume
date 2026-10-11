@@ -140,15 +140,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     fun logout() = viewModelScope.launch { cancelActions(); muteJob?.cancel(); repo.logout() }
 
-    fun react(note: Event, choice: ReactionChoice) {
-        if (note.id in reacting.value || choice in state.value.sentReactions[note.id].orEmpty() || !queueHasRoom()) return
+    fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
+        if (note.id in reacting.value || (!remove && choice in state.value.sentReactions[note.id].orEmpty()) || !queueHasRoom()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         reacting.update { it + note.id }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            try { repo.react(note, choice, connected, signerRequests) }
-            catch (_: TimeoutCancellationException) { message.value = "Reaction timed out. Choose the same reaction to retry." }
+            try { if (remove) repo.removeReaction(note, choice, connected, signerRequests) else repo.react(note, choice, connected, signerRequests) }
+            catch (_: TimeoutCancellationException) { message.value = if (remove) "Removal timed out. Tap the reaction to retry." else "Reaction timed out. Choose the same reaction to retry." }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { message.value = "Reaction wasn't sent. Choose the same reaction to retry." }
+            catch (_: Exception) { message.value = if (remove) "Reaction removal was not confirmed. Tap it to retry." else "Reaction wasn't sent. Choose the same reaction to retry." }
             finally {
                 if (reactionJobs[note.id] === currentCoroutineContext().job) {
                     reactionJobs.remove(note.id); reacting.update { it - note.id }

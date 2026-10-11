@@ -571,3 +571,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests, device checks, or live payments.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,787,766 bytes; SHA-256 `65b5b1765e3ec5ac09144344d49e645f464ab636b10941a71a2a4873ac61e982`. Matching mapping archived locally. Website unchanged.
+
+## 2026-10-11 — Remove own reactions
+
+- Tap the displayed reaction or a selected picker emoji to request kind-5 deletion of matching own kind-7 events; validate exact signed tags and author. Uses the same signer coordination and per-note pending state as adding reactions.
+- Persist signed deletion requests before publishing for explicit retry; apply accepted author/event tombstones to cached reaction choices, counts, and retained reaction cards. Re-adding creates a fresh event rather than reusing a deleted signed reaction. History is bounded to 512 deletion records, with up to 256 event IDs each.
+- Receive the connected account’s kind-5 requests to honor deletions from other apps. Remote relay retention is outside Feather’s control.
+- Debug build and diff checks passed; no automated tests or live signer/device checks.

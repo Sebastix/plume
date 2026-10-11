@@ -14,11 +14,13 @@ internal fun mutedPublicKeys(event: Event?): Set<String> = event?.tags.orEmpty()
 internal data class ContentFilter(
     val authors: Set<String> = emptySet(),
     val embedded: Map<String, Event> = emptyMap(),
+    val deletedReactions: Set<Pair<String, String>> = emptySet(),
 ) {
     fun hides(reference: NostrContent.Reference): Boolean =
         reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.pubKey in authors
 
     fun hides(event: Event): Boolean {
+        if (event.kind == 7 && (event.pubKey to event.id) in deletedReactions) return true
         if (event.pubKey in authors) return true
         if (authors.isEmpty() || event.kind !in listOf(6, 7, 9735, 9321)) return false
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.

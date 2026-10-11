@@ -27,6 +27,7 @@ internal data class ReactionActions(
     val pending: Set<String> = emptySet(),
     val choices: List<ReactionChoice> = defaultReactions,
     val customEmojis: List<ReactionChoice> = emptyList(),
+    val remove: (Event, ReactionChoice) -> Unit = { _, _ -> },
     val react: (Event, ReactionChoice) -> Unit = { _, _ -> },
 )
 internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions() }
@@ -39,21 +40,20 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
-    val orangeSent = sent.any { it == defaultReactions.first() }
     // Repository snapshots and accepted local reactions are ordered newest first.
     val latestReaction = sent.firstOrNull()
     Box {
         Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
             .combinedClickable(enabled = note.id !in actions.pending,
-                onClickLabel = "React with an orange heart", onLongClickLabel = "Choose a reaction",
-                onClick = { if (!orangeSent) actions.react(note, defaultReactions.first()) },
+                onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
+                onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
                 onLongClick = { menuChoices = actions.choices; picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                 if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else if (latestReaction != null) {
                     Box(Modifier.size(24.dp).semantics {
-                        contentDescription = "Your reaction: ${latestReaction.content}; hold to choose another emoji"
+                        contentDescription = "Your reaction: ${latestReaction.content}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {
                         if (latestReaction.image == null) Text(latestReaction.content, fontSize = 20.sp)
                         else {
@@ -71,13 +71,13 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
                     val alreadySent = choice in sent
-                    IconButton(enabled = note.id !in actions.pending && !alreadySent, onClick = {
+                    IconButton(enabled = note.id !in actions.pending, onClick = {
                         picker = false
-                        actions.react(note, choice)
+                        if (alreadySent) actions.remove(note, choice) else actions.react(note, choice)
                     }, modifier = Modifier.size(48.dp)) {
                         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
                             Text(if (choice.image == null) choice.content else "◌", fontSize = 24.sp,
-                                modifier = Modifier.semantics { contentDescription = if (alreadySent) "${choice.content} already sent" else "React with ${choice.content}" })
+                                modifier = Modifier.semantics { contentDescription = if (alreadySent) "Remove ${choice.content} reaction" else "React with ${choice.content}" })
                             choice.image?.let { RemoteImage(it, Modifier.size(28.dp), "React with ${choice.content}", crop = false) }
                             if (alreadySent) Icon(Icons.Default.Check, "Already sent", Modifier.size(14.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
                         }
@@ -102,7 +102,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
             SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
                 if (note.id !in latestActions.pending && validReactionChoice(choice)) {
                     fullPicker = false
-                    if (choice !in latestSent) latestActions.react(note, choice)
+                    if (choice in latestSent) latestActions.remove(note, choice) else latestActions.react(note, choice)
                 }
             }
         }
