@@ -20,8 +20,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     val walletError = MutableStateFlow<String?>(null)
     internal val walletDetails = MutableStateFlow(WalletDetails())
     internal suspend fun refreshWalletDetails() {
+        val identity = signer.value ?: return
         walletDetails.value = WalletDetails()
-        try { wallet.details { walletDetails.value = it } }
+        try { wallet.details(identity.pubKey) { if (signer.value === identity) walletDetails.value = it } }
         catch (_: TimeoutCancellationException) { /* Optional metadata must not interrupt wallet use. */ }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { /* Keep any available name; omit unavailable balances. */ }
@@ -42,19 +43,22 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         zapJobs.clear(); reactionJobs.clear()
         zapping.value = emptySet(); reacting.value = emptySet()
     }
+    private var walletJob: Job? = null
     fun connectWallet(raw: String) {
+        val identity = signer.value ?: return
         if (walletBusy.value || zapping.value.isNotEmpty()) return
         walletBusy.value = true; walletError.value = null
-        viewModelScope.launch {
-            try { wallet.connect(raw) }
+        walletJob = viewModelScope.launch {
+            try { wallet.connect(raw, identity.pubKey) }
+            catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { walletError.value = "Could not connect. Check the connection and wallet permissions." }
             finally { walletBusy.value = false }
         }
     }
     fun disconnectWallet() {
-        if (walletBusy.value || zapping.value.isNotEmpty()) return
+        if (signer.value == null || walletBusy.value || zapping.value.isNotEmpty()) return
         walletBusy.value = true
-        viewModelScope.launch(Dispatchers.IO) {
+        walletJob = viewModelScope.launch(Dispatchers.IO) {
             try { wallet.store.disconnect(); walletDetails.value = WalletDetails(); walletError.value = null }
             catch (_: Exception) { walletError.value = "Could not disconnect wallet" }
             finally { walletBusy.value = false }
@@ -120,15 +124,27 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private val initialIdentity = state.value.publicKey to state.value.signerPackage
     val signer = MutableStateFlow(signerFor(initialIdentity.first, initialIdentity.second))
 
+    private suspend fun selectWalletAccount(owner: String?) {
+        try { withContext(Dispatchers.IO) { wallet.store.selectAccount(owner) } }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { message.value = "Could not update the wallet connection for this account." }
+    }
+
     init {
         viewModelScope.launch(Dispatchers.IO) { wallet.store.load() }
         viewModelScope.launch {
             var identity = initialIdentity
+            selectWalletAccount(signer.value?.pubKey)
             state.map { it.publicKey to it.signerPackage }.distinctUntilChanged().collect { next ->
                 if (next != identity) {
                     cancelActions()
                     muteJob?.cancel(); attemptedMute = null; decryptingMutes.value = false
-                    signer.value = signerFor(next.first, next.second)
+                    signer.value = null
+                    walletJob?.cancelAndJoin()
+                    walletDetails.value = WalletDetails(); walletError.value = null
+                    val nextSigner = signerFor(next.first, next.second)
+                    selectWalletAccount(nextSigner?.pubKey)
+                    signer.value = nextSigner
                     identity = next
                 }
             }
@@ -138,7 +154,14 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         runCatching { repo.account(key, packageName) }
             .onFailure { message.value = "Could not connect the signer. Please try again." }
     }
-    fun logout() = viewModelScope.launch { cancelActions(); muteJob?.cancel(); repo.logout() }
+    fun logout() = viewModelScope.launch {
+        cancelActions(); muteJob?.cancel()
+        signer.value = null
+        walletJob?.cancelAndJoin()
+        walletDetails.value = WalletDetails(); walletError.value = null
+        selectWalletAccount(null)
+        repo.logout()
+    }
 
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
         if (note.id in reacting.value || (!remove && choice in state.value.sentReactions[note.id].orEmpty()) || !queueHasRoom()) return

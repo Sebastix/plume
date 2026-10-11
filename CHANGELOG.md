@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Bind NWC connections to the signed-in account, remove credentials on logout/account changes, and hide wallet setup while logged out. Existing unbound connections require reconnecting; payment history remains protected.
 - Show the failing zap step, HTTP status, Lightning endpoint reason, or NWC wallet error instead of a generic failure. Preserve payment uncertainty and redact connection secrets.
 
 ### Added

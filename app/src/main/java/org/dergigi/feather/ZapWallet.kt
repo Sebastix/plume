@@ -63,8 +63,8 @@ internal fun invoiceHash(invoice: String, field: Char): String {
 
 internal class ZapWallet(context: Context) {
     val store = WalletStore(context)
-    suspend fun details(onDetails: (WalletDetails) -> Unit) = withContext(Dispatchers.IO) {
-        val connection = store.connection() ?: return@withContext
+    suspend fun details(owner: String, onDetails: (WalletDetails) -> Unit) = withContext(Dispatchers.IO) {
+        val connection = store.connection(owner) ?: return@withContext
         try {
             val info = NwcWallet.request(connection, "get_info", JSONObject())
             val name = info.optString("alias").filterNot { it.isISOControl() }.trim().take(80).takeIf { it.isNotBlank() }
@@ -89,17 +89,18 @@ internal class ZapWallet(context: Context) {
             JSONObject(bytes.toString(Charsets.UTF_8)).also { require(it.optString("status") != "ERROR") { "Lightning endpoint: ${walletErrorText(it.optString("reason")).ifBlank { "request rejected" }}" } }
         }
     }
-    suspend fun connect(raw: String) = withContext(Dispatchers.IO) {
+    suspend fun connect(raw: String, owner: String) = withContext(Dispatchers.IO) {
         val connection = WalletConnection.parse(raw)
         try {
             val info = NwcWallet.request(connection, "get_info", JSONObject())
             val methods = info.optJSONArray("methods")
             require(methods != null && (0 until methods.length()).any { methods.optString(it) == "pay_invoice" }) { "Wallet does not allow payments" }
-            store.save(raw)
+            currentCoroutineContext().ensureActive()
+            store.save(raw, owner)
         } finally { connection.secret.fill(0) }
     }
     suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests): Unit = withContext(Dispatchers.IO) {
-        val connection = store.connection() ?: error("Connect a wallet in settings")
+        val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
         var paymentUncertain = false
         try {

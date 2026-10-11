@@ -127,6 +127,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showWallet by remember { mutableStateOf(false) }
+    LaunchedEffect(connectedSigner) { showWallet = false }
     LaunchedEffect(accountRequested) {
         if (accountRequested) { showAccount = true; onAccountHandled() }
     }
@@ -597,7 +598,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     } // Reaction actions.
     } // Per-visit saved UI state.
-    if (showWallet) WalletSheet(vm) { showWallet = false }
+    if (showWallet && connectedSigner != null) WalletSheet(vm) { showWallet = false }
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -911,9 +912,6 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (state.publicKey == null) {
-            IconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
-        }
         state.publicKey?.let { key ->
             val profile = state.profiles[key]
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

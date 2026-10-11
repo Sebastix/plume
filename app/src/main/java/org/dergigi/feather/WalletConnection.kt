@@ -64,21 +64,33 @@ internal class WalletStore(context: Context) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, data.copyOfRange(0, 12))) }
         return cipher.doFinal(data.copyOfRange(12, data.size)).toString(Charsets.UTF_8)
     }
+    private var account: String? = null
+    @Synchronized fun selectAccount(owner: String?) {
+        account = owner
+        connected.value = false
+        // Legacy connections have no provable owner. Reconnect explicitly rather than assigning them.
+        if (owner == null || prefs.getString("owner", null) != owner) disconnect()
+        connected.value = runCatching { owner != null && connection(owner)?.also { it.secret.fill(0) } != null }.getOrDefault(false)
+    }
     fun load() {
-        connected.value = runCatching { connection()?.also { it.secret.fill(0) } != null }.getOrDefault(false)
         val saved = prefs.all.keys.filter { it.startsWith("payment:") }.mapNotNull { key ->
             runCatching { payment(key.removePrefix("payment:"))?.let(::confirmed)?.let { key to it } }.getOrNull()
         }.toMap()
         confirmedPayments.update { saved + it }
     }
-    fun connection(): WalletConnection? = prefs.getString("connection", null)?.let { WalletConnection.parse(open(it)) }
-    fun save(raw: String) {
-        check(prefs.edit().putString("connection", seal(raw.trim())).commit()) { "Could not save wallet" }
+    @Synchronized fun connection(owner: String): WalletConnection? {
+        check(account == owner) { "Wallet account changed" }
+        if (prefs.getString("owner", null) != owner) return null
+        return prefs.getString("connection", null)?.let { WalletConnection.parse(open(it)) }
+    }
+    @Synchronized fun save(raw: String, owner: String) {
+        check(account == owner) { "Wallet account changed" }
+        check(prefs.edit().putString("connection", seal(raw.trim())).putString("owner", owner).commit()) { "Could not save wallet" }
         connected.value = true
     }
-    fun disconnect() {
+    @Synchronized fun disconnect() {
         // Preserve payment journal, so reconnecting cannot accidentally repeat an uncertain payment.
-        check(prefs.edit().remove("connection").commit())
+        check(prefs.edit().remove("connection").remove("owner").commit()) { "Could not remove wallet connection" }
         connected.value = false
     }
     fun forgetPayment(id: String) { check(prefs.edit().remove("payment:$id").commit()) }

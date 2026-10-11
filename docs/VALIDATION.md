@@ -585,3 +585,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - External error text is bounded and redacts connection URIs, URL paths/queries, private keys, long hex values, and invoices.
 - Uncertain payments retain their journal entry and tell the user to check status; no automatic payment retry. Coroutine cancellation still propagates.
 - Debug build passed. No automated tests or live payments performed.
+
+## Account-bound NWC (unreleased)
+
+- Wallet reads/saves require an explicit signer public key matching both the active wallet account and persisted connection owner. Keystore-encrypted credentials are removed on logout/account changes; unowned legacy connections are discarded.
+- Account transitions cancel and join wallet setup before switching ownership. Delayed wallet details cannot update another account's UI. Wallet setup is hidden while logged out.
+- Payment journal remains intact to protect uncertain payments after reconnection. Disk and Keystore work stays on IO.
+- Debug build passed; no automated tests or live payments performed. Device checks: reconnect once, restart while signed in, logout, then sign in with a different account.
