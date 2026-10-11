@@ -1,6 +1,6 @@
 # Feather
 
-- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader first: support explicit emoji (kind 7) reactions through the connected signer. Support explicit 21-sat NWC zaps. No composing posts/replies, follow editing, profile search, or DMs. Display existing replies, reactions, highlights, and engagement counts.
+- Native Android: Kotlin, Jetpack Compose, Material 3, Quartz. Reader first: support explicit emoji (kind 7) reactions through the connected signer. Support explicit 21-sat NWC zaps. No composing posts/replies, follow editing or DMs. Support minimal public profile search through Vertex NIP-50. Display existing replies, reactions, highlights, and engagement counts.
 - Signer-only login (NIP-55, e.g. Amber); no account creation or key import. Request identity signing only for explicit kind-7 emoji reactions, kind-5 deletion requests for the account’s own reactions, and kind-9734 zap requests; decrypt only the connected account’s private mute list (NIP-44 or legacy NIP-04), through its signer. No other private-list access. NWC uses its separate connection secret for encrypted wallet requests; store credentials encrypted with Android Keystore. Never automatically retry an uncertain payment.
 - Follow docs/DESIGN.md: icon-only interface chrome, accessible descriptions, content-first typography.
 - Convention over configuration: sensible defaults, automatic profile relay sets and discovery, no relay editor or setup wizard. Settings should remain exceptional.

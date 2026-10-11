@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Minimal Vertex profile search with avatars and tappable results, available without login; debounce requests and cancel them when leaving search.
+
 ### Changed
 - Order gallery floating actions as zap, like, then open note; dim and disable zaps without a connected wallet, and both zap and like when logged out.
 

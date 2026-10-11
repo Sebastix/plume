@@ -388,6 +388,10 @@ class FeatherRepository(context: Context) {
         }, listener)
     }
 
+    internal suspend fun cacheSearchProfile(event: Event) = withContext(Dispatchers.IO) {
+        if (event.kind == 0) accept(event)
+    }
+
     private suspend fun accept(event: Event, history: Boolean = false): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
         if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 30030)) || event.content.length > (if (event.kind in listOf(30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false

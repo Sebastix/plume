@@ -95,7 +95,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         modifier = Modifier.fillMaxSize().semantics { contentDescription = "${home.tab.label} feed" },
     ) { page ->
         val category = tabs[page]
-        if (category == ProfileTab.SEARCH) SearchPlaceholder()
+        if (category == ProfileTab.SEARCH) ProfileSearchPage(vm, navigation, home, active = home.tab == category)
         else if (category == ProfileTab.NOTIFICATIONS) {
             if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
         } else FeatherReader(vm, navigation, home.feedPage(category),

@@ -42,16 +42,6 @@ internal fun notificationTarget(event: Event): NostrContent.Reference? = when (e
 private data class NotificationPreview(val event: Event, val actor: String?, val text: String,
     val action: String, val reaction: ReactionChoice? = null, val amount: String? = null)
 
-@Composable
-internal fun SearchPlaceholder() {
-    Column(Modifier.fillMaxSize().statusBarsPadding().padding(top = 80.dp, start = 24.dp, end = 24.dp)) {
-        OutlinedTextField(value = "", onValueChange = {}, enabled = false,
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search, not available yet" },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), singleLine = true)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, home: ReaderEntry, active: Boolean) {

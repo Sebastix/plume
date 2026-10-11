@@ -20,6 +20,7 @@ internal class ReaderEntry(
     val list = LazyListState(index, offset)
     val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
     fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
+    var searchQuery by mutableStateOf("")
     var tab by mutableStateOf(tab)
     var toolbar by mutableStateOf(toolbar)
     var reference: NostrContent.Reference? = null
