@@ -1,0 +1,9 @@
+Feather uses Material Icons from Google, licensed under the Apache License 2.0.
+The app’s utility vector resources are adapted
+from https://github.com/google/material-design-icons.
+License: https://www.apache.org/licenses/LICENSE-2.0
+
+The Highlights tab uses Google's Material Symbols ink_highlighter icon, adapted
+from SVG to Android VectorDrawable. Copyright Google LLC, Apache License 2.0.
+Source: https://github.com/google/material-design-icons
+License: https://www.apache.org/licenses/LICENSE-2.0

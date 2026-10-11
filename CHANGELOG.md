@@ -6,7 +6,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Changed
 - Update the Zapstore description to describe Feather’s focus on simplicity and discoverability.
-- Refresh the website with a responsive light/dark design, 18 detailed feature descriptions, evergreen download links, and updated privacy information for posting, image uploads, search, and wallet payments.
+- Refresh the website with app icons, a responsive light/dark design, 18 detailed feature descriptions, evergreen download links, and current privacy information. Describe sane defaults, kind discovery and swipes, VLC-style controls, the full-screen gallery, NWC one-tap zaps, and custom reactions with emoji pickers.
 
 ## [0.37.1] - 2026-10-12
 
