@@ -620,7 +620,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account") }
                     }
                 } else {
-                    Icon(painterResource(R.drawable.feather), null, Modifier.size(64.dp), tint = Color.Unspecified)
                     FilledTonalButton(onClick = {
                         try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                         catch (_: Exception) { error = "Install an Android signer such as Amber first." }

@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Replace the ambiguous signer-login arrow with a compact “Log in” button. Label the missing-signer action “Get Amber”.
+- Replace the ambiguous signer-login arrow with a compact “Log in” button, remove the decorative feather from the login sheet, and label the missing-signer action “Get Amber”.
 
 ## [0.26.0] - 2026-10-11
 
