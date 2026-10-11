@@ -247,7 +247,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
-        snackbarHost = { SnackbarHost(snack) },
+        snackbarHost = { SnackbarHost(snack, Modifier.padding(bottom = if (homeToolbar != null) 64.dp else 0.dp)) },
         topBar = {
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
@@ -460,7 +460,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         )
                     },
                 ) {
-                    LazyColumn(Modifier.fillMaxSize().onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed") 64.dp else 0.dp, bottom = 24.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed" && homeToolbar == null) 64.dp else 0.dp, bottom = 24.dp + if (homeToolbar != null) 64.dp else 0.dp)) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]

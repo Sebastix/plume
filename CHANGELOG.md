@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Move the main feed bar to the bottom, preserving its controls, swipe indicator, and scroll visibility behavior. Respect navigation-bar insets and leave room to reach the last feed item. Profile and note bars remain at the top.
+
 ## [0.27.2] - 2026-10-11
 
 ### Fixed

@@ -87,7 +87,8 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             onAccountHandled = { accountRequested = false })
     }
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
-    AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+    AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), modifier = Modifier.align(Alignment.BottomCenter),
+        enter = expandVertically(tween(180), expandFrom = Alignment.Bottom), exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
         val buttonSurface = Modifier.size(RoundControlSize).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
@@ -153,6 +154,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 } else Spacer(Modifier.size(48.dp))
             },
             expandedHeight = 64.dp,
+            windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent,
                 titleContentColor = MaterialTheme.colorScheme.primary,
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
