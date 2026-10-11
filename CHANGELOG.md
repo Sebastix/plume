@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-11
+
 ### Added
 - Long-press the heart for five emoji choices based on recent and frequent reactions, including previously used custom emoji. Keep a normal tap as 🧡; mark sent choices and preserve per-emoji retry IDs.
 - Use a crossed-out account for muted/blocked content, a tumbleweed for empty content, an info icon for unavailable posts, and a warning triangle for reported loading errors. Tap any of them to view selectable status details and copy the message, app version, view, target, and relay connection count. Distinguish empty or filtered content from reported errors.
@@ -295,7 +297,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/dergigi/feather/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/dergigi/feather/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/dergigi/feather/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/dergigi/feather/compare/v0.12.0...v0.12.1

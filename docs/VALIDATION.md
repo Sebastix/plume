@@ -341,3 +341,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Query up to 200 own kind-7 events through the existing account outbox routes. Rank cached history off-main: most recent first, then frequency weighted by a 30-day decay, with five default emoji filling gaps. Include NIP-30 custom emoji with exact shortcode/image tags; checked the official NIP-30 format. No additional dependencies.
 - Store signed retry IDs per account/target/emoji identity (custom URL included), keep the existing 256-record bound, and read/migrate old orange-heart records without resigning retries. Suggestions use accepted records and verified relay history, not rejected or merely pending local sends. Account changes reset UI history. All JSON, ranking, signing, and persistence stay off-main.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or actual signer/device interaction.
+
+## 2026-10-11 — 0.15.0 release
+
+- Version 0.15.0, versionCode 31; recent/frequent emoji picker, mute/block filtering, and distinct tappable status icons with copyable details.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device/signer checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.15.0 (31), 14,075,560 bytes.
+- APK SHA-256: `96274ca62dc7ec71568b1556718ceb2213dee73dcb4a6a4fb6d3881585838499`.
