@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Six recent/frequent quick reactions plus an icon to open the native AndroidX full emoji picker, including categories and skin-tone variants. Full-picker selections use the existing signer and duplicate-reaction protection.
+
 ## [0.18.0] - 2026-10-11
 
 ### Changed

@@ -418,3 +418,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.18.0 (36), 14,091,160 bytes.
 - APK SHA-256: `0c8d7dee0d0c0ff234218e787deed34330c39b97963ce5ebbd665652271593de`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.18.0-mapping.txt` for crash retracing.
+
+## 2026-10-11 — Full emoji picker
+
+- Six quick suggestions, including the latest accepted choice, retain recent/frequent ranking and custom NIP-30 support. Add 🙏 to the fallback set; quick menu wraps on narrow screens with 48 dp buttons.
+- Plus icon opens AndroidX emoji2-emojipicker 1.7.0 in a native bottom sheet. Instantiate on demand; the library loads its bundled catalog on IO. Use existing reaction suggestions for recent Unicode choices; no additional recent-selection writes. Pending requests and already-sent choices are checked against current state.
+- Accept Unicode emoji arrows in addition to the existing sequence/variant ranges. Full-picker selection goes through the existing signer and public-reaction validation.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or signer/device checks.

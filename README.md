@@ -14,7 +14,7 @@ Read Nostr with chronological feeds, profiles, and conversations.
 - Browse a public feed or connect one account through an Android NIP-55 signer such as Amber.
 - Read your existing following feed, profiles, and conversations, with tappable profile mentions and embedded text-note previews. Profile tabs separate posts, replies, reactions, and highlights.
 - Read highlights with context, yellow emphasis, comments, and source attribution, adapted from ants-android.
-- Tap a post’s heart for 🧡, or hold for five emoji suggestions based on your recent and frequent reactions, with signer approval and relay confirmation.
+- Tap a post’s heart for 🧡, or hold for six emoji suggestions and a full emoji picker based on your recent and frequent reactions, with signer approval and relay confirmation.
 - See discovered reply, reaction, and validated zap totals in sats; validation happens in the background.
 - Follow Android’s light/dark setting automatically, without a theme preference.
 - Discover NIP-65 relay lists and read authors from their advertised write relays.
@@ -26,7 +26,7 @@ Read Nostr with chronological feeds, profiles, and conversations.
 - Cache media aggressively with a selectable 128 MB–2 GB disk budget (512 MB default).
 - Cache recent notes locally and pause relay connections and media work in the background.
 
-No account creation, npub login, key import, posting, replying, follow editing, profile search, DMs, wallet, sending zaps, media uploads, push notifications, or analytics. Signer login requests only the public identity. Tapping a post’s heart sends 🧡; holding it opens five recent/frequent emoji choices. Selecting a reaction requests kind-7 signing through the connected signer; no encryption permissions are requested. The app renders images and progressive video from HTTPS links and NIP-92 metadata, up to four attachments per note. Other links open externally. Initials remain as avatar fallbacks. Following subscriptions cover up to 1,000 authors including your account.
+No account creation, npub login, key import, posting, replying, follow editing, profile search, DMs, wallet, sending zaps, media uploads, push notifications, or analytics. Signer login requests only the public identity. Tapping a post’s heart sends 🧡; holding it opens six recent/frequent emoji choices plus a full-picker icon. Selecting a reaction requests kind-7 signing through the connected signer; no encryption permissions are requested. The app renders images and progressive video from HTTPS links and NIP-92 metadata, up to four attachments per note. Other links open externally. Initials remain as avatar fallbacks. Following subscriptions cover up to 1,000 authors including your account.
 
 Feather favors convention over configuration. Theme-aware account and settings sheets keep the interface quiet; only the media cache budget is configurable. Twelve seed candidates bootstrap a shared pool of up to four base and eight additional routes. Your signed relay list takes priority. Failed routes cool down for two minutes; discovery pauses in the background. NIP-66 monitor reports are not yet used.
 

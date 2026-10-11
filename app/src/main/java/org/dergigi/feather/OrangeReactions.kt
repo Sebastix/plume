@@ -7,6 +7,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.emoji2.emojipicker.EmojiPickerView
+import androidx.emoji2.emojipicker.RecentEmojiProvider
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,11 +33,13 @@ internal data class ReactionActions(
 )
 internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions() }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
     val actions = LocalReactionActions.current
     val pending = actions.pending == note.id
     var picker by remember(note.id) { mutableStateOf(false) }
+    var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
     val orangeSent = sent.any { it == defaultReactions.first() }
     Box {
@@ -49,7 +56,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
             if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
-            Row(Modifier.padding(horizontal = 4.dp)) {
+            FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
                     val alreadySent = choice in sent
                     IconButton(enabled = actions.pending == null && !alreadySent, onClick = {
@@ -64,7 +71,40 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
                         }
                     }
                 }
+                IconButton(enabled = actions.pending == null, onClick = {
+                    picker = false
+                    fullPicker = true
+                }, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Add, "Open full emoji picker")
+                }
             }
+        }
+    }
+    if (fullPicker) {
+        val latestActions by rememberUpdatedState(actions)
+        val latestSent by rememberUpdatedState(sent)
+        val recent = remember(menuChoices) { menuChoices.filter { it.image == null }.map { it.content } }
+        val height = (LocalConfiguration.current.screenHeightDp * 0.6f).coerceAtMost(480f).dp
+        ModalBottomSheet(onDismissRequest = { fullPicker = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            AndroidView(modifier = Modifier.fillMaxWidth().height(height), factory = { context ->
+                EmojiPickerView(context).apply {
+                    emojiGridColumns = 7
+                    // Suggestions already come from signed reaction history; opening or
+                    // cancelling the picker must not write a second recents database.
+                    setRecentEmojiProvider(object : RecentEmojiProvider {
+                        override suspend fun getRecentEmojiList() = recent
+                        override fun recordSelection(emoji: String) = Unit
+                    })
+                    setOnEmojiPickedListener { picked ->
+                        val choice = ReactionChoice(picked.emoji)
+                        if (latestActions.pending == null && validReactionChoice(choice)) {
+                            fullPicker = false
+                            if (choice !in latestSent) latestActions.react(note, choice)
+                        }
+                    }
+                }
+            })
         }
     }
 }

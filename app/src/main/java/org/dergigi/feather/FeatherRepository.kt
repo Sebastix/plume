@@ -512,7 +512,7 @@ class FeatherRepository(context: Context) {
     private fun recordReaction(author: String, target: String, choice: ReactionChoice) {
         _state.update { if (it.publicKey == author) it.copy(
             sentReactions = it.sentReactions + (target to (listOf(choice) + it.sentReactions[target].orEmpty()).distinctBy { item -> item.key }),
-            reactionChoices = (listOf(choice) + it.reactionChoices).distinctBy { item -> item.key }.take(5),
+            reactionChoices = (listOf(choice) + it.reactionChoices).distinctBy { item -> item.key }.take(6),
         ) else it }
     }
 
