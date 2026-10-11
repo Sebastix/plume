@@ -470,7 +470,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             val key = profileKey!!
                             val p = s.profiles[key]
                             val openGallery = LocalOpenGallery.current
-                            Column(Modifier.fillMaxWidth()) {
+                            Box(Modifier.fillMaxWidth()) {
                                 p?.banner?.let { banner ->
                                     Box(Modifier.fillMaxWidth().height(176.dp)
                                         .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }) {
@@ -480,8 +480,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                             .background(Brush.verticalGradient(listOf(surface.copy(alpha = 0f), surface))))
                                     }
                                 }
+                                // The 56dp avatar straddles the banner edge; content keeps its natural height.
+                                Column(Modifier.fillMaxWidth().padding(top = if (p?.banner != null) 148.dp else 0.dp)) {
                                 Column(Modifier.padding(start = 24.dp, end = 24.dp,
-                                    top = if (p?.banner != null) 8.dp else 24.dp, bottom = 24.dp),
+                                    top = if (p?.banner != null) 0.dp else 24.dp, bottom = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
@@ -508,6 +510,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     if (!p?.about.isNullOrBlank()) ProfileBiography(key, p, s, ::openReference)
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
+                                }
                             }
                         }
                         if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
