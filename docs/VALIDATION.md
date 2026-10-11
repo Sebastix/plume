@@ -386,3 +386,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Center selector uses existing profile-category icons: current emphasized, adjacent categories at reduced opacity with 48 dp tap targets. Missing neighbors reserve space so the current icon remains centered. Profile tabs share the icon renderer.
 - Vertical toolbar visibility is shared across feed pages; list positions and active-page media ownership remain independent.
 - `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device interaction.
+
+## 2026-10-11 — 0.17.0 release
+
+- Version 0.17.0, versionCode 34; stationary home toolbar with category hints, aligned avatars, and compact repost attribution.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.17.0 (34), 14,091,160 bytes.
+- APK SHA-256: `8cb4eabe68faac3fe0c8b99d92bedfaa4e7daa947da83ffd7a391608488a1bdd`.
