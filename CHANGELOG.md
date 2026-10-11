@@ -7,9 +7,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Added
 - Scan NWC QR codes directly in the wallet sheet, with local QR decoding, runtime camera permission, and validation before filling the masked connection field.
 
-
 ### Changed
-- Right-align the NWC confirm button beside the QR scan action.
+- Right-align the NWC confirm button beside the QR scan action and replace its checkmark with a centered spinner while connecting.
 - Compact settings footer: smaller GitHub icon at the left, version and commit links at the right.
 - Place settings and login side by side in the logged-out account sheet, right-aligned with matching tonal icon buttons.
 

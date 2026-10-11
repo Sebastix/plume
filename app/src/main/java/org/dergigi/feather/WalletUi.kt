@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,11 +95,15 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                     IconButton(enabled = !busy && input.isNotBlank(), onClick = {
                         scanError = null
                         vm.connectWallet(input); input = ""
-                    }) { Icon(Icons.Default.Check, "Connect wallet") }
+                    }) {
+                        if (busy) CircularProgressIndicator(
+                            Modifier.size(24.dp).semantics { contentDescription = "Connecting wallet" }, strokeWidth = 2.dp,
+                        ) else Icon(Icons.Default.Check, "Connect wallet")
+                    }
                 }
                 scanError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
-            if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            if (busy && connected) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
     }
