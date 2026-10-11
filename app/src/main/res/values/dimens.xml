@@ -1,0 +1,5 @@
+<resources>
+    <!-- AndroidX scales each emoji bitmap to its cell bounds. Inset the glyph
+         so category browsing stays close to the 26sp search-result emojis. -->
+    <dimen name="emoji_picker_emoji_view_padding">16dp</dimen>
+</resources>

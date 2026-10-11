@@ -101,7 +101,11 @@ internal fun SearchableEmojiPicker(recent: List<String>, modifier: Modifier = Mo
             if (query.isBlank()) {
                 AndroidView(modifier = Modifier.fillMaxSize(), factory = { viewContext ->
                     EmojiPickerView(viewContext).apply {
-                        emojiGridColumns = 7
+                        // Match search's adaptive spacing instead of stretching seven columns.
+                        addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+                            val columns = ((right - left) / (48 * resources.displayMetrics.density)).toInt().coerceAtLeast(1)
+                            if (emojiGridColumns != columns) emojiGridColumns = columns
+                        }
                         // Only signed reactions populate recents; browsing is not a selection history.
                         setRecentEmojiProvider(object : RecentEmojiProvider {
                             override suspend fun getRecentEmojiList() = recent
