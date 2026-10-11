@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Reveal the shared top bar during horizontal main-feed swipes and keep it visible after settling or cancelling the swipe.
+
 ## [0.21.0] - 2026-10-11
 
 ### Added

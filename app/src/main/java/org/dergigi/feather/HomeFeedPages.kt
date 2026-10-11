@@ -68,9 +68,19 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         }
     }
     LaunchedEffect(pager) {
+        var revealingToolbar = false
         snapshotFlow { Triple(pager.settledPage, pager.isScrollInProgress, reordering) }
             .distinctUntilChanged().collect { (page, scrolling, changingOrder) ->
-                if (!scrolling && !changingOrder) currentTabs.getOrNull(page)?.let { home.tab = it }
+                if (scrolling && !changingOrder) {
+                    revealingToolbar = true
+                    home.toolbar = true
+                }
+                if (!scrolling && !changingOrder) {
+                    // Keep it visible after settling, including a cancelled swipe.
+                    if (revealingToolbar) home.toolbar = true
+                    revealingToolbar = false
+                    currentTabs.getOrNull(page)?.let { home.tab = it }
+                }
             }
     }
     Box(Modifier.fillMaxSize()) {
@@ -87,7 +97,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             onAccountHandled = { accountRequested = false })
     }
     // One stationary toolbar overlays the pager; only its category hints change.
-    AnimatedVisibility(home.toolbar, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+    AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
         val buttonSurface = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
