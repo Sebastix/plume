@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-11
+
 ### Fixed
 - Render every Markdown text block in full articles and highlights instead of only the first paragraph. Keep unsupported blocks visible as plain text, and retain compact excerpts only in preview cards.
 
@@ -288,7 +290,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/dergigi/feather/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/dergigi/feather/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/dergigi/feather/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/dergigi/feather/compare/v0.11.1...v0.12.0

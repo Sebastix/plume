@@ -312,3 +312,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Publication uses up to four routes, prioritizing account write relays and recipient read relays inside the existing pool, with automatically selected fallback relays. Foreground resumes before publication after signer return. Gallery/list navigation remains intact.
 - Updated project rules, design, README, and staged privacy text to reflect the user-authorized reaction capability. Block/mute lists are still not implemented.
 - `./gradlew :app:assembleDebug`: passed after final changes. `git diff --check`: passed. No automated tests, real reactions, or signer/device interaction were performed from this development session; live signer/relay confirmation remains for device testing. No release published.
+
+## 2026-10-11 — 0.14.0 release
+
+- Version 0.14.0, versionCode 30; orange-heart reactions, gallery-to-note navigation, and full article/highlight text.
+- `./gradlew :app:assembleRelease`: passed, including release lint and R8. No automated tests or device/signer checks.
+- APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK metadata: org.dergigi.feather, 0.14.0 (30), 14,038,040 bytes.
+- APK SHA-256: `108fb941e859246976851c259b37887478c7823018f908700ccd1d918dcf5c5f`.
