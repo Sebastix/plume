@@ -43,6 +43,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -426,6 +427,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val refresh = {
                     if (activePage && !s.loading) { requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes() }
                 }
+                val initialViewport = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.roundToPx() }
+                var profileViewport by remember(entry.key) { mutableIntStateOf(initialViewport) }
+                val tabSpace = if (screen == "profile") remember(entry.key, profileTab, visibleNotes.isEmpty()) { ProfileTabSpace() } else null
+                val tabMinimum = with(LocalDensity.current) {
+                    (profileViewport - (tabSpace?.measured ?: 0)).coerceAtLeast(0).toDp()
+                }
                 PullToRefreshBox(
                     isRefreshing = refreshing && s.loading,
                     onRefresh = refresh,
@@ -444,7 +451,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         )
                     },
                 ) {
-                    LazyColumn(Modifier.fillMaxSize().onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed") 64.dp else 0.dp, bottom = 24.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed") 64.dp else 0.dp, bottom = 24.dp)) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
@@ -514,47 +521,58 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) {
                             itemsIndexed(photoRows, key = { _, row -> "photo:${row.first().first.id}:${row.first().second.url}" }) { rowIndex, row ->
                                 val openGallery = LocalOpenGallery.current
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    row.forEachIndexed { columnIndex, (_, photo) ->
-                                        RemoteImage(photo.url, Modifier.weight(1f).aspectRatio(1f).clickable(onClickLabel = "Open photo") {
-                                            openGallery(photoGrid.urls, rowIndex * 3 + columnIndex)
-                                        }, photo.alt ?: "Photo")
+                                ProfileTabRow(tabSpace, "photo:${row.first().first.id}:${row.first().second.url}", profileViewport) {
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        row.forEachIndexed { columnIndex, (_, photo) ->
+                                            RemoteImage(photo.url, Modifier.weight(1f).aspectRatio(1f).clickable(onClickLabel = "Open photo") {
+                                                openGallery(photoGrid.urls, rowIndex * 3 + columnIndex)
+                                            }, photo.alt ?: "Photo")
+                                        }
+                                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                     }
-                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PEOPLE) {
                             itemsIndexed(bookmarkRows, key = { _, row -> "${row.first.id}:${row.second.id}" }) { index, (collection, reference) ->
-                                if (index == 0 || bookmarkRows[index - 1].first.id != collection.id) {
-                                    collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.titleSmall) }
-                                }
-                                val person = s.profiles[reference.id]
-                                val name = person?.name ?: FeatherRepository.shortKey(reference.id)
-                                Row(Modifier.fillMaxWidth().clickable { openReference(reference) }.padding(horizontal = 24.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Avatar(name, 44, person?.picture)
-                                    Column(Modifier.weight(1f)) {
-                                        Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        person?.about?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                ProfileTabRow(tabSpace, "${collection.id}:${reference.id}", profileViewport) {
+                                    if (index == 0 || bookmarkRows[index - 1].first.id != collection.id) {
+                                        collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.titleSmall) }
+                                    }
+                                    val person = s.profiles[reference.id]
+                                    val name = person?.name ?: FeatherRepository.shortKey(reference.id)
+                                    Row(Modifier.fillMaxWidth().clickable { openReference(reference) }.padding(horizontal = 24.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Avatar(name, 44, person?.picture)
+                                        Column(Modifier.weight(1f)) {
+                                            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            person?.about?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                        }
                                     }
                                 }
                             }
                         } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS) {
                             items(bookmarkRows, key = { "${it.first.id}:${it.second.id}" }) { (collection, reference) ->
-                                Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { title ->
-                                        Text(title, style = MaterialTheme.typography.labelMedium)
+                                ProfileTabRow(tabSpace, "${collection.id}:${reference.id}", profileViewport) {
+                                    Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        collection.tagValue("title")?.takeIf { it.isNotBlank() }?.let { title ->
+                                            Text(title, style = MaterialTheme.typography.labelMedium)
+                                        }
+                                        EmbeddedNote(reference, s.embedded[reference.id], s.profiles, "bookmark:${collection.id}:${reference.id}", ::openReference)
                                     }
-                                    EmbeddedNote(reference, s.embedded[reference.id], s.profiles, "bookmark:${collection.id}:${reference.id}", ::openReference)
                                 }
                             }
                         } else items(visibleNotes, key = { it.id }) { note ->
-                            if (note.kind == 30617) ProjectCard(note)
-                            else if (note.kind == 32267) SoftwareAppCard(note)
-                            else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
-                                openNote(original)
-                            } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
+                            ProfileTabRow(tabSpace, note.id, profileViewport) {
+                                if (note.kind == 30617) ProjectCard(note)
+                                else if (note.kind == 32267) SoftwareAppCard(note)
+                                else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                                    openNote(original)
+                                } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
+                            }
+                        }
+                        if (screen == "profile") item("profile-tab-minimum") {
+                            Spacer(Modifier.fillMaxWidth().height(tabMinimum))
                         }
                         if (s.loadingOlder && screen != "thread") item("older-progress") {
                             Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep a viewport-sized minimum beneath profile tabs while loading or showing short content, preventing the profile header from snapping back into view during tab switches. Rows remain lazy; measured content replaces the reserved space.
+
 ## [0.22.0] - 2026-10-11
 
 ### Added
