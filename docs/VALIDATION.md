@@ -801,3 +801,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Successful upload URLs persist in drafts; cancellation closes remaining network work and removes the temporary file. Device validation of signer authorization and configured-server compatibility remains outstanding.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 15,045,103 bytes; SHA-256 `96b5b11573ed3eb1e42c3ca7de5e3e7bc73e968d33294efc18fc6b6c02089dc9`. Mapping archived locally. Website unchanged.
+
+## 2026-10-12 — 0.37.1 release
+
+- Version 0.37.1 (72), source commit `955a09cc867b63537ba476a1d1cdab93f18c909e`. Standard padded Blossom authorization for Haven/Primal, bounded upload error details, and detail-toolbar Nostr reference copying.
+- Signed release build passed, including lint and R8. No automated tests or live device upload checks. Website unchanged.
+- APK: 15,045,103 bytes; SHA-256 `33b6eef70fb20fa5c51af4aa8ab616ac5f6031b4179306c7f15e7d72ded0bb14`. Mapping archived locally.
+- Primal zap description-hash mismatch remains unresolved; exact-request validation retained, with no payment attempted.
