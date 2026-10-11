@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-10-11
+
+### Changed
+- Color cache usage green, orange, then red as it fills the selected storage budget; red starts at 95%, with matching usage text and theme-aware colors.
+
 ## [0.36.0] - 2026-10-11
 
 ### Changed

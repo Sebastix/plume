@@ -997,7 +997,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
                 val limit = if (mb >= 1024) "${mb / 1024} GB" else "$mb MB"
                 val used = usedBytes?.let(::cacheSizeLabel) ?: "—"
-                Text(used, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary,
+                Text(used, style = MaterialTheme.typography.bodyMedium, color = cacheUsageColor(usedBytes, mb),
                     modifier = Modifier.weight(1f).semantics { contentDescription = "$used media cache used" })
                 if (resources == null) { Spacer(Modifier.width(16.dp)); CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
                 Spacer(Modifier.width(16.dp))
