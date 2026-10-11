@@ -125,6 +125,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var routingPool: Set<String> = emptySet()
     @Volatile private var relayLists: Map<String, Outbox.RelayList> = emptyMap()
     @Volatile private var visibleIds: List<String> = emptyList()
+    @Volatile private var galleryNote: Event? = null
     @Volatile private var emojiPackRequests: List<EmojiPack> = emptyList()
     @Volatile private var references: List<NostrContent.Reference> = emptyList()
     @Volatile private var embeddedIds: List<String> = emptyList()
@@ -138,6 +139,11 @@ class FeatherRepository(context: Context) {
         changed.tryEmit(Unit)
     }
     fun openReference(reference: NostrContent.Reference?) { openedReference = reference }
+    fun readingGallery(note: Event?) {
+        if (galleryNote?.id == note?.id) return
+        galleryNote = note
+        changed.tryEmit(Unit)
+    }
 
     private var seedOffset = 0
     private var embeddedSeedOffset = 6
@@ -447,9 +453,9 @@ class FeatherRepository(context: Context) {
         }.orEmpty()
         val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
         val readingPool = (threadNotes + hashtagNotes + profileEvents + all).filterNot(contentFilter::hides).distinctBy { it.id }
-        val visible = visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
+        val visible = (galleryNote?.let { listOf(it) } ?: visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
             if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.filter(feed::matchesFeed).take(12)
-        }.filterNot(contentFilter::hides)
+        }).filterNot(contentFilter::hides)
         val biography = profile?.let { author -> mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(0), authors = listOf(author), limit = 1)).firstOrNull()
         } }

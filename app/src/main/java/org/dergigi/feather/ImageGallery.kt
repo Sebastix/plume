@@ -7,6 +7,12 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
@@ -26,11 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -41,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
@@ -57,7 +68,7 @@ internal class GalleryOpener(private val open: (List<String>, Int, Event?) -> Un
 internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _ -> } }
 
 @Composable
-internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
+internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
@@ -88,7 +99,16 @@ internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpe
         }
     }) {
         content()
-        if (urls.isNotEmpty() && !hiddenSource) ImageGallery(urls, index, noteIds,
+        if (urls.isNotEmpty() && !hiddenSource && !covered) ImageGallery(urls, index, noteIds, state,
+            sourceNote = { page ->
+                val id = noteIds.getOrNull(page)
+                sourceNotes.getOrNull(page)?.takeIf { it.id == id }
+                    ?: currentAlbum().sources.find { it.id == id }
+                    ?: state.embedded[id]
+                    ?: state.notes.find { it.id == id }
+                    ?: state.profileEvents.find { it.id == id }
+                    ?: state.threadNotes.find { it.id == id }
+            },
             onPage = { index = it },
             onDismiss = { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() },
             onOpenNote = { page ->
@@ -104,14 +124,29 @@ internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpe
 
 // Swipe, double-tap/pinch zoom, background cycling and actions follow Boris.
 @Composable
-private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
+private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
     val pager = rememberPagerState(initialPage = initialIndex.coerceIn(urls.indices), pageCount = { urls.size })
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var zoomed by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var controlsVisible by remember { mutableStateOf(false) }
+    var interaction by remember { mutableIntStateOf(0) }
+    val accessibility = LocalAccessibilityManager.current
     var busy by remember { mutableStateOf(false) }
+    var reactionPicker by remember { mutableStateOf(false) }
+    val currentNote = sourceNote(pager.currentPage)
+    val app = context.applicationContext as FeatherApplication
+    val resources by app.media.resources.collectAsStateWithLifecycle()
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    DisposableEffect(currentNote?.id) {
+        app.repository.readingGallery(currentNote)
+        onDispose { app.repository.readingGallery(null) }
+    }
+    val reactionActions = LocalReactionActions.current
+    val zapActions = LocalZapActions.current
+    val actionPending = currentNote?.id?.let { it in reactionActions.pending || it in zapActions.pending } == true
     var background by rememberSaveable { mutableIntStateOf(0) }
     var pendingSave by remember { mutableStateOf<List<String>?>(null) }
     val colors = listOf(Color.Black, Color.White, Color(0xFF666666))
@@ -152,13 +187,37 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
         }
     }
     LaunchedEffect(pager.currentPage) { zoomed = false; onPage(pager.currentPage) }
+    LaunchedEffect(pager.isScrollInProgress) {
+        if (pager.isScrollInProgress) controlsVisible = false
+    }
+    LaunchedEffect(controlsVisible, interaction, menu, busy, reactionPicker, actionPending) {
+        if (controlsVisible && !menu && !busy && !reactionPicker && !actionPending) {
+            delay(accessibility?.calculateRecommendedTimeoutMillis(3_000L,
+                containsIcons = true, containsText = true, containsControls = true) ?: 3_000L)
+            controlsVisible = false
+        }
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        HidePhotoStatusBar((LocalView.current.parent as DialogWindowProvider).window)
-        Box(Modifier.fillMaxSize().background(colors[background])) {
-            HorizontalPager(state = pager, userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(vertical = 56.dp)) { page ->
-                ZoomableGalleryImage(urls[page], page == pager.currentPage) { if (page == pager.currentPage) zoomed = it }
+        HidePhotoStatusBar((LocalView.current.parent as DialogWindowProvider).window, hideNavigationBar = true)
+        CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, lifecycle.isAtLeast(Lifecycle.State.STARTED), null)) {
+        Box(Modifier.fillMaxSize().background(colors[background]).pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.changes.any { it.pressed && !it.previousPressed }) interaction++
+                }
             }
-            Row(Modifier.fillMaxWidth().statusBarsPadding().align(Alignment.TopCenter).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        }) {
+            HorizontalPager(state = pager, userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize()) { page ->
+                ZoomableGalleryImage(urls[page], page == pager.currentPage,
+                    onToggleControls = { controlsVisible = !controlsVisible },
+                    onZoomed = { if (page == pager.currentPage) { zoomed = it; if (it) controlsVisible = false } })
+            }
+            AnimatedVisibility(controlsVisible, modifier = Modifier.align(Alignment.TopCenter),
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it }) {
+            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 4.dp)
+                .background(colors[background].copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close gallery", tint = foreground) }
                 if (!noteIds.getOrNull(pager.currentPage).isNullOrBlank()) IconButton(onClick = { onOpenNote(pager.currentPage) }) {
                     Icon(painterResource(R.drawable.conversation), "Open image's note", tint = foreground)
@@ -185,17 +244,35 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                     }
                 }
             }
-            if (urls.size > 1) Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            }
+            AnimatedVisibility(controlsVisible && (urls.size > 1 || currentNote != null), modifier = Modifier.align(Alignment.BottomCenter),
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it }) {
+            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 8.dp)
+                .background(colors[background].copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                currentNote?.let { note -> key(note.id) {
+                    val counts = state.engagement[note.id] ?: Engagement()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(), tint = foreground,
+                            onPickerVisibilityChanged = { reactionPicker = it })
+                        NoteZap(note, counts, state.publicKey, tint = foreground)
+                    }
+                } }
+                if (urls.size > 1) Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous image", tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
                 Text("${pager.currentPage + 1} / ${urls.size}", color = foreground, modifier = Modifier.padding(horizontal = 16.dp))
                 IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next image", tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
+                }
             }
+            }
+        }
         }
     }
 }
 
 @Composable
-private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boolean) -> Unit) {
+private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleControls: () -> Unit, onZoomed: (Boolean) -> Unit) {
     val context = LocalContext.current
     val media = (context.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsState()
@@ -208,6 +285,10 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
     var scale by remember(url) { mutableFloatStateOf(1f) }
     var offset by remember(url) { mutableStateOf(Offset.Zero) }
     var lastTap by remember(url) { mutableLongStateOf(0L) }
+    val gestureScope = rememberCoroutineScope()
+    var singleTap by remember(url) { mutableStateOf<Job?>(null) }
+    val currentToggleControls by rememberUpdatedState(onToggleControls)
+    DisposableEffect(url, isCurrent) { onDispose { singleTap?.cancel() } }
     var failed by remember(url) { mutableStateOf(false) }
     var loaded by remember(url) { mutableStateOf(false) }
     var retry by remember(url) { mutableIntStateOf(0) }
@@ -222,14 +303,16 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
         if (failed) {
             IconButton(onClick = { failed = false; loaded = false; retry++ }) { Icon(Icons.Outlined.Refresh, "Image failed to load. Retry.") }
         } else if (resources != null) key(url, retry) {
-            AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; pinch or double-tap to zoom", contentScale = ContentScale.Fit,
+            AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; tap for controls, pinch or double-tap to zoom", contentScale = ContentScale.Fit,
                 onSuccess = { loaded = true; decoded = it.result.image }, onError = { failed = true },
                 modifier = Modifier.fillMaxSize().semantics {
-                    customActions = listOf(CustomAccessibilityAction("Zoom in") { applyScale(2.5f); true }, CustomAccessibilityAction("Reset zoom") { applyScale(1f); true })
+                    customActions = listOf(CustomAccessibilityAction("Toggle gallery controls") { currentToggleControls(); true }, CustomAccessibilityAction("Zoom in") { applyScale(2.5f); true }, CustomAccessibilityAction("Reset zoom") { applyScale(1f); true })
                 }.pointerInput(url) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val start = down.uptimeMillis
+                        // Cancel the pending single tap as soon as the second touch arrives.
+                        if (lastTap > 0 && start - lastTap < 300) singleTap?.cancel()
                         var endedAt = start
                         var pinching = false
                         var dragged = false
@@ -249,6 +332,7 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
                         } while (event.changes.any { it.pressed })
                         if (!pinching && !dragged && endedAt - start < 300) {
                             if (lastTap > 0 && start - lastTap < 300) {
+                                singleTap?.cancel()
                                 if (scale > 1f) applyScale(1f)
                                 else {
                                     val next = 2.5f
@@ -259,7 +343,11 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onZoomed: (Boo
                                 }
                                 lastTap = 0L
                             }
-                            else lastTap = start
+                            else {
+                                lastTap = start
+                                singleTap?.cancel()
+                                singleTap = gestureScope.launch { delay(300); currentToggleControls() }
+                            }
                         }
                     }
                 }.graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y })

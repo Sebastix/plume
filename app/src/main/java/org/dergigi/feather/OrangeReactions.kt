@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -34,12 +35,17 @@ internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions()
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
+internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
     val pending = note.id in actions.pending
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
+    val pickerCallback by rememberUpdatedState(onPickerVisibilityChanged)
+    LaunchedEffect(picker, fullPicker) { pickerCallback(picker || fullPicker) }
+    DisposableEffect(Unit) { onDispose { pickerCallback(false) } }
     // Repository snapshots and accepted local reactions are ordered newest first.
     val latestReaction = sent.firstOrNull()
     Box {
@@ -50,22 +56,22 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>) {
                 onLongClick = { menuChoices = actions.choices; picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
                 else if (latestReaction != null) {
                     Box(Modifier.size(24.dp).semantics {
                         contentDescription = "Your reaction: ${latestReaction.content}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {
                         if (latestReaction.image == null) Text(latestReaction.content, fontSize = 20.sp)
                         else {
-                            Text("◌", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("◌", fontSize = 20.sp, color = tint)
                             RemoteImage(latestReaction.image, Modifier.size(22.dp),
                                 "Your reaction: ${latestReaction.content}", crop = false)
                         }
                     }
                 } else Icon(Icons.Default.FavoriteBorder, "React; hold to choose an emoji",
-                    Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Modifier.size(20.dp), tint = tint)
             }
-            if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
         }
         DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {

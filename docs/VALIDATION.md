@@ -696,3 +696,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,964,699 bytes; SHA-256 `a003712bdc3afff5c933c6dd3142625314d77e8056fc5f3b40084ee6d14ce92e`. Mapping archived locally. Website unchanged.
+
+## Immersive gallery and note actions (unreleased)
+
+- Images use the full viewport with ContentScale.Fit, no fixed toolbar/footer padding, and hidden status/navigation bars. Controls respect safe insets while images can extend behind short-edge cutouts.
+- Single tap toggles floating controls; double tap remains zoom. Controls fade/slide away after an accessibility-adjusted three seconds and remain while menus, emoji pickers, saves/shares, or note actions are pending.
+- Gallery uses the same reaction and zap controls as notes. Source events follow the selected image; one gallery source temporarily drives the existing bounded engagement pipeline. Login/wallet setup temporarily covers the gallery. Custom emoji images reuse the shared media loader.
+- Debug build and diff check passed. No automated tests or device gesture/orientation/payment checks.

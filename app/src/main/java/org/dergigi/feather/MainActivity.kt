@@ -247,7 +247,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
-    GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
+    GalleryHost(state = s, covered = showAccount || showWallet || showSettings, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
@@ -766,22 +766,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
-            val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
-            val zapActions = LocalZapActions.current
-            val zapped = note.id in zapActions.confirmed ||
-                (state.publicKey != null && counts.zappedByAccount == state.publicKey)
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
-                .clickable(enabled = note.id !in zapActions.pending,
-                    onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    if (note.id in zapActions.pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Icon(painterResource(R.drawable.zap),
-                        if (zapped) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
-                        Modifier.size(20.dp), tint = if (zapped) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            NoteZap(note, counts, state.publicKey)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

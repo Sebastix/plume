@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- React and send 21-sat zaps to an image’s source note directly from the gallery, including long-press emoji selection, reaction removal, and shared engagement state.
+
 ### Changed
+- Let gallery images fill the viewport with their aspect ratio preserved; hide system bars and float auto-hiding controls over the image, revealed by a single tap.
 - Cycle timestamp format globally when tapping any note timestamp, remembering the choice across app restarts.
 
 ## [0.29.0] - 2026-10-11
