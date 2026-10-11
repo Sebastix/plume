@@ -402,3 +402,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.17.1 (35), 14,091,160 bytes.
 - APK SHA-256: `6b2e537867c6d13c776f7f08d7afb03f3a511cb01723f4d7fa2615eda61255a5`.
+
+## 2026-10-11 — Local crash details and feed-selector pill
+
+- Install the uncaught Java/Kotlin exception handler at Application startup. Keep one atomic private report, bounded to 32,768 characters plus a truncation marker; preserve Android’s previous exception handler and termination. Include version/code, time, Android API, manufacturer/model, thread and throwable causes/stack. No telemetry or automatic uploads. Native crashes, ANRs, abrupt OS kills, and failures that prevent report persistence are not guaranteed to be captured.
+- Read and acknowledge the previous report on IO. Show the existing selectable, scrollable native details dialog at the app root, with one-tap copy and explicit dismissal; copying retains the report. Check report identity before deleting. The fatal-handler write is intentionally synchronous so termination cannot discard it.
+- Restore the transparent home toolbar and constrain the 82%-opaque theme surface to the rounded five-icon selector. The strip uses continuous pager position for translation, scale, and fading, with stable category keys and bounded entering neighbors. Frame-by-frame offset/opacity reads stay in layout/drawing, avoiding full-reader recomposition. Feather/account button surfaces remain.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests, intentional crashes, or device checks.

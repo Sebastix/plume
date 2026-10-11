@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Restore the transparent home toolbar; place a semi-transparent pill behind only the five-icon feed selector. Slide, scale, and fade the icons continuously with the swipe gesture, including cancelled swipes and tap-to-switch animations.
+
+### Added
+- Save uncaught Java/Kotlin crashes locally and show the error and stack trace on the next launch, with selectable text and one-tap copying. Keep one bounded report until dismissed; no automatic uploads.
+
 ## [0.17.1] - 2026-10-11
 
 ### Changed

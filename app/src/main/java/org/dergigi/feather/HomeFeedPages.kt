@@ -3,11 +3,12 @@ package org.dergigi.feather
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,6 +21,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -87,22 +91,36 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         val buttonSurface = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
-                Row(Modifier.widthIn(max = 240.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    val selectedPage = pager.currentPage
-                    for (offset in -2..2) {
-                        val index = selectedPage + offset
-                        val category = tabs.getOrNull(index)
-                        if (category == null) Spacer(Modifier.weight(1f).height(48.dp))
-                        else {
-                            val emphasis by animateFloatAsState(when (kotlin.math.abs(offset)) { 0 -> 1f; 1 -> 0.42f; else -> 0.16f }, tween(180))
+                BoxWithConstraints(Modifier.widthIn(max = 240.dp).fillMaxWidth().height(48.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))) {
+                    val slotWidth = maxWidth / 5
+                    val center = pager.currentPage
+                    // Include the entering icons outside either edge. Stable keys and the
+                    // continuous page position avoid a jump when currentPage changes halfway.
+                    for (index in (center - 3)..(center + 3)) {
+                        val category = tabs.getOrNull(index) ?: continue
+                        key(category) {
                             IconButton(onClick = {
                                 if (!reordering) scope.launch { pager.animateScrollToPage(index) }
-                            }, modifier = Modifier.weight(1f).height(48.dp).semantics {
+                            }, modifier = Modifier.offset {
+                                val position = pager.currentPage + pager.currentPageOffsetFraction
+                                IntOffset(((2f + index - position) * slotWidth.toPx()).roundToInt(), 0)
+                            }.width(slotWidth).height(48.dp).semantics {
                                 contentDescription = "${category.label} feed"
-                                selected = offset == 0
+                                selected = index == pager.currentPage
                             }) {
-                                FeedCategoryIcon(category, Modifier.size(if (offset == 0) 24.dp else 20.dp)
-                                    .graphicsLayer { alpha = emphasis })
+                                FeedCategoryIcon(category, Modifier.size(24.dp).graphicsLayer {
+                                    val distance = abs(index - pager.currentPage - pager.currentPageOffsetFraction)
+                                    alpha = when {
+                                        distance <= 1f -> 1f - 0.58f * distance
+                                        distance <= 2f -> 0.42f - 0.26f * (distance - 1f)
+                                        else -> (0.16f * (3f - distance)).coerceIn(0f, 0.16f)
+                                    }
+                                    val scale = 1f - distance.coerceIn(0f, 1f) / 6f
+                                    scaleX = scale
+                                    scaleY = scale
+                                })
                             }
                         }
                     }
@@ -135,7 +153,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 }
             },
             expandedHeight = 64.dp,
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent,
                 titleContentColor = MaterialTheme.colorScheme.primary,
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )

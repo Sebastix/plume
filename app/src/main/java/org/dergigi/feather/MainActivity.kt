@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FeatherTheme { FeatherApp() }
+            FeatherTheme { FeatherApp(); PreviousCrashDialog() }
         }
     }
     override fun onStart() { super.onStart(); repo.foreground() }

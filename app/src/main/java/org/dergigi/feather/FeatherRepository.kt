@@ -23,8 +23,10 @@ import org.json.JSONObject
 class FeatherApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        crashes.install()
         com.vitorpamplona.quartz.utils.Log.minLevel = com.vitorpamplona.quartz.utils.LogLevel.ERROR
     }
+    internal val crashes by lazy { CrashReports(this) }
     val repository by lazy { FeatherRepository(this) }
     val media by lazy { MediaStore(this) }
 }
