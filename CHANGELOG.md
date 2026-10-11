@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Show follow status and live NIP-05 verification icons in reply mention suggestions, using the shared bounded identity cache.
 - Long-press zap amount picker in notes and galleries, with recent account-specific amounts, eight starter amounts, and custom sats; one-tap zaps remain 21 sats.
 
 ## [0.34.0] - 2026-10-11

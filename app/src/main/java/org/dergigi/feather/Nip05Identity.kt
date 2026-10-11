@@ -123,7 +123,7 @@ private suspend fun Call.awaitIdentity(): Response = suspendCancellableCoroutine
 }
 
 @Composable
-internal fun Nip05Identity(raw: String, pubkey: String) {
+internal fun Nip05Identity(raw: String, pubkey: String, iconOnly: Boolean = false) {
     val identity = remember(raw) { internetIdentity(raw) }
     val view = LocalView.current
     var visible by remember(raw, pubkey) { mutableStateOf(false) }
@@ -141,13 +141,13 @@ internal fun Nip05Identity(raw: String, pubkey: String) {
         IdentityStatus.INVALID -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Row(Modifier.fillMaxWidth().onGloballyPositioned {
+    Row((if (iconOnly) Modifier.size(40.dp) else Modifier.fillMaxWidth()).onGloballyPositioned {
         val bounds = it.boundsInWindow()
         visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
     }.clickable(onClickLabel = "NIP-05 verification details") { details = true }
         .semantics(mergeDescendants = true) { contentDescription = "$label. ${result.detail}" },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(6.dp)) {
+        if (!iconOnly) Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         when (result.status) {
             IdentityStatus.PENDING -> CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp)

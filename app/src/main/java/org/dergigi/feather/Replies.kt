@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -225,7 +227,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             searchError?.let { error -> IconButton(onClick = { AppMessages.show(error) }) {
                 Icon(androidx.compose.material.icons.Icons.Default.Info, "Mention search error")
             } }
-            if (mention != null && !busy) suggestions.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }.forEach { profile ->
+            if (mention != null && !busy) suggestions.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }.forEach { profile -> key(profile.event.pubKey) {
                 Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Mention ${profile.name}") {
                     val input = mentionInput(editor) ?: return@clickable
                     val reference = "nostr:${Protocol.npub(profile.event.pubKey)} "
@@ -239,9 +241,22 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Avatar(profile.name, 32, profile.picture)
-                    Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                    Text(profile.name, modifier = Modifier.weight(1f), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                    val following = profile.event.pubKey in state.following
+                    Box(Modifier.size(28.dp).semantics(mergeDescendants = true) {
+                        contentDescription = if (following) "Following" else "Not following"
+                    }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, null, Modifier.size(20.dp),
+                            tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (following) Icon(Icons.Default.Check, null, Modifier.size(12.dp).align(Alignment.BottomEnd),
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                    if (!profile.identity.isNullOrBlank()) {
+                        Nip05Identity(profile.identity, profile.event.pubKey, iconOnly = true)
+                    } else Spacer(Modifier.size(40.dp).semantics { contentDescription = "No NIP-05 identity" })
                 }
-            }
+            } }
         }
         }
         LaunchedEffect(current.owner, current.target.id) { focus.requestFocus() }
