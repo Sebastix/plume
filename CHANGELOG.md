@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-11
+
 ### Added
 - Hide author-marked NSFW/content-warning content by default across feeds, embeds, bookmarks, and media galleries. Add a persistent “Show NSFW content” opt-in setting.
 
