@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Automatically hide notes from accounts in your NIP-51 mute/block list across feeds, threads, profiles, reposts, embeds, bookmarks, and media prefetch. Support public entries, signer-decrypted private entries, offline caching, and the deprecated mute-list format.
+
 ## [0.14.0] - 2026-10-11
 
 ### Fixed

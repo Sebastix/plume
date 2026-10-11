@@ -60,9 +60,14 @@ internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpe
     var index by rememberSaveable { mutableIntStateOf(0) }
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var sourceNotes by remember { mutableStateOf<List<Event?>>(emptyList()) }
+    val filter = LocalContentFilter.current
+    val hiddenSource = sourceNotes.any { it != null && filter.hides(it) } || noteIds.any { filter.embedded[it]?.pubKey in filter.authors }
+    LaunchedEffect(hiddenSource) {
+        if (hiddenSource) { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() }
+    }
     val currentAlbum by rememberUpdatedState(album)
     CompositionLocalProvider(LocalGalleryVisible provides urls.isNotEmpty(), LocalOpenGallery provides GalleryOpener { images, start, note ->
-        if (images.isNotEmpty()) {
+        if (images.isNotEmpty() && (note == null || !filter.hides(note))) {
             val selected = start.coerceIn(images.indices)
             val photos = currentAlbum()
             val collection = photos.urls
@@ -81,7 +86,7 @@ internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpe
         }
     }) {
         content()
-        if (urls.isNotEmpty()) ImageGallery(urls, index, noteIds,
+        if (urls.isNotEmpty() && !hiddenSource) ImageGallery(urls, index, noteIds,
             onPage = { index = it },
             onDismiss = { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() },
             onOpenNote = { page ->

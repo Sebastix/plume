@@ -60,7 +60,7 @@ Avoid adding a media proxy or backend to this release. Direct loading keeps the 
 
 ## Identity belongs to the signer
 
-Account access uses an Android NIP-55 signer such as Amber, exclusively. Login requests only the public identity. An explicit heart tap requests signing of a kind-7 orange-heart reaction; no encryption or decryption permissions are requested. Account creation and private-key management belong in the signer. A disconnected public feed is browsing, not an alternative login method.
+Account access uses an Android NIP-55 signer such as Amber, exclusively. Login requests only the public identity. An explicit heart tap requests signing of a kind-7 orange-heart reaction; the only decryption request is for the connected account’s private mute list, through its signer. No encryption is requested. Account creation and private-key management belong in the signer. A disconnected public feed is browsing, not an alternative login method.
 
 Existing follows come from the account’s public contact list. Feather never changes those follows. The only publishing action is an explicit orange-heart reaction.
 
@@ -120,7 +120,7 @@ Offer Photos (kind 20 and images in kind 1), Videos (21, 22, 34235, 34236 and vi
 
 Photos use three-column lazy thumbnail rows and the existing gallery. Videos reuse the single autoplay player, fullscreen controls, media cache, and HLS decoder. Read media URLs and MIME types from imeta even when absent from the caption; choose one video variant rather than rendering every resolution. Fetch each selected kind independently through the profile’s write-relay routes.
 
-Public bookmarks show lazy reference cards, resolve only the visible/nearby items with bounded subscriptions, and open addressable items through the existing external-reader fallback. Never render or decrypt private list content. Keep the latest replaceable/addressable list version so removed entries do not return from old cached pages. Profile biography chevrons are centered. When a profile supplies a Lightning address, a bolt to the left of copy-npub copies that address without initiating a payment.
+Public bookmarks show lazy reference cards, resolve only the visible/nearby items with bounded subscriptions, and open addressable items through the existing external-reader fallback. Never render or decrypt private bookmark content. Keep the latest replaceable/addressable list version so removed entries do not return from old cached pages. Profile biography chevrons are centered. When a profile supplies a Lightning address, a bolt to the left of copy-npub copies that address without initiating a payment.
 
 ### Published apps
 
@@ -130,8 +130,12 @@ The website follows the system color scheme with CSS alone, using the same light
 
 ### Articles, people, and projects
 
-Articles use native text with background Markdown formatting, cover images, and inline media. The article opens from its cached event; no browser is required to read it. People lists expose only public follows and public list members, with lazy rows and metadata discovery for visible members. Projects show the repository name and description and link to its published web address. Tabs remain icon-only and conditional on public activity, with Posts and Replies first and remaining tabs ordered by observed frequency. No follow editing, private-list decryption, or code collaboration tools are added.
+Articles use native text with background Markdown formatting, cover images, and inline media. The article opens from its cached event; no browser is required to read it. People lists expose only public follows and public list members, with lazy rows and metadata discovery for visible members. Projects show the repository name and description and link to its published web address. Tabs remain icon-only and conditional on public activity, with Posts and Replies first and remaining tabs ordered by observed frequency. No follow editing, private people-list decryption, or code collaboration tools are added.
 
 ### Orange-heart reactions
 
 Tapping a post’s heart sends a NIP-25 kind-7 event with content 🧡 through the connected signer. Guests are taken to signer login and must tap again to react. Keep signing, response verification, persistence, and publishing off-main. One reaction may be pending at a time; show a small spinner, then an orange heart after relay acceptance. Never turn a second tap into deletion or create duplicate reactions. Store the signed event before publishing so a manual retry after network failure or process restart reuses its ID. Retain at most 256 local reaction records. Use automatically discovered account write relays and the author’s read relays within the connection budget. Signer rejection and network failure return to a retryable state; no automatic publishing queue or background service.
+
+### Account mute lists
+
+Automatically honor the connected account’s NIP-51 muted/blocked public keys (kind 10000; deprecated kind 30000 with d=mute only if no current list exists). Hide authored notes, replies, reposts, reactions to hidden posts, bookmark targets, and embedded notes across cached navigation and media prefetch. Decrypt only the account’s own private mute list using its signer, off-main, with NIP-44 and legacy NIP-04 support. Cache the resulting public-key set privately for startup/offline filtering; retain known private mutes while a replacement awaits approval. Never publish or display decrypted entries. A cancelled/failed request leaves public and previously cached private filtering active and reports that private-list loading failed. No list editor or additional configuration.

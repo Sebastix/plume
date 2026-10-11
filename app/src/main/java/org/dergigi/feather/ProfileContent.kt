@@ -118,7 +118,7 @@ internal data class ProfilePhotos(
 
 /** Public follow/list members only; encrypted content stays opaque. */
 internal fun peopleReferences(event: Event): List<NostrContent.Reference> {
-    if (event.kind !in listOf(3, 30000)) return emptyList()
+    if (event.kind !in listOf(3, 30000) || (event.kind == 30000 && event.tagValue("d") == "mute")) return emptyList()
     return event.tags.asSequence().filter { it.firstOrNull() == "p" }.mapNotNull { tag ->
         tag.getOrNull(1)?.let(Protocol::publicKey)?.let { key ->
             NostrContent.Reference(key, profile = true, relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)))

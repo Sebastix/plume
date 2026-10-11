@@ -320,3 +320,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.14.0 (30), 14,038,040 bytes.
 - APK SHA-256: `108fb941e859246976851c259b37887478c7823018f908700ccd1d918dcf5c5f`.
+
+## 2026-10-11 — Account mute/block filtering (unreleased)
+
+- Checked official NIP-51: kind 10000 p tags and private JSON tags (NIP-44; legacy NIP-04), with deprecated kind 30000/d=mute fallback. A current empty list supersedes legacy entries. Only the connected account's signed lists are used; public lists authored by other people never become local blocks.
+- Use the existing bounded outbox account subscription with separate per-kind filters so metadata/contact events cannot consume the mute-list limit. Keep raw timeline windows for pagination, with filtering at reading-data selection, cached/retained note display, thread handoff, repost/reaction targets, embedded/bookmarked references, gallery sources, and media prefetch. Remove muted authors from feed routing and reply/reaction counts. Legacy mute sets no longer appear as People lists.
+- Decrypt only the account's own private mute list on IO through its existing Android signer; serialize against reaction signing. Signature validation precedes storage, account/event IDs are rechecked after signer return, cancellation handles account changes, and a failed/denied request is not repeatedly relaunched. Pull-to-refresh permits a manual retry. Existing cached private mutes remain active while a replacement awaits approval.
+- Cache at most one decrypted list per account, at most eight accounts and 5,000 tags per list, in private app data with backup disabled. Public entries and successfully cached private entries apply offline before the initial note snapshot. No list publishing, list editing, bookmark/people decryption, or configuration added.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or signer/device interaction; live decryption and account-list updates remain for device testing. No release published.

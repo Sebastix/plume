@@ -98,6 +98,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val message by vm.message.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
+    val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
+    val contentFilter = remember(s.mutedAuthors, s.embedded) { ContentFilter(s.mutedAuthors, s.embedded) }
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
     val scrollScope = rememberCoroutineScope()
@@ -154,6 +156,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
         activate(navigation.current)
     }
     fun openReference(ref: NostrContent.Reference) {
+        if (contentFilter.hides(ref)) return
         val resolved = s.embedded[ref.id]
         if (resolved != null && resolved.kind in readableKinds) {
             val destination = ReaderEntry("thread", resolved.id)
@@ -169,6 +172,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     }
     fun openProfile(key: String) = openReference(NostrContent.Reference(key, profile = true))
     fun openNote(note: Event) {
+        if (contentFilter.hides(note)) return
         val destination = ReaderEntry("thread", note.id)
         destination.reference = NostrContent.Reference(note.id, profile = false)
         destination.notes[ProfileTab.POSTS] = listOf(note)
@@ -177,16 +181,16 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val reactionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data
         if (result.resultCode != android.app.Activity.RESULT_OK || data == null || data.getBooleanExtra("rejected", false))
-            vm.cancelReaction("Reaction cancelled.")
+            vm.cancelSignerRequest("Signer request cancelled.")
         else vm.signerResponse(data)
     }
     DisposableEffect(connectedSigner, reactionLauncher) {
         val signer = connectedSigner
         val launch: (Intent) -> Unit = { intent ->
             scrollScope.launch {
-                if (vm.signer.value === signer && vm.reacting.value != null) {
+                if (vm.signer.value === signer && (vm.reacting.value != null || vm.decryptingMutes.value)) {
                     try { reactionLauncher.launch(intent) }
-                    catch (_: Exception) { vm.cancelReaction("Could not open your signer. Please try again.") }
+                    catch (_: Exception) { vm.cancelSignerRequest("Could not open your signer. Please try again.") }
                 }
             }
         }
@@ -202,11 +206,14 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             } else vm.message.value = "Could not connect the signer. Please try again."
         }
     }
+    LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting) {
+        if (reacting == null) vm.loadMutes(s.pendingMuteList)
+    }
     LaunchedEffect(message) { message?.let { snack.showSnackbar(it); vm.message.value = null } }
     LaunchedEffect(entry.key) { activate(entry) }
     LaunchedEffect(entry.key, profileTab) { if (screen == "profile") vm.repo.profileTab(profileTab) }
     BackHandler(navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalReactionActions provides ReactionActions(reacting) { note ->
+    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else reacting) { note ->
         if (s.publicKey == null) showAccount = true else vm.react(note)
     }) {
     GalleryHost(album = { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
@@ -251,8 +258,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     ) { padding ->
         when (screen) {
             else -> {
-                val preparedNotes by key(profileTab) { produceState<List<Event>>(entry.notes[profileTab].orEmpty(), entry.key, s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following) {
-                    val retained = entry.notes[profileTab].orEmpty()
+                val preparedNotes by key(profileTab) { produceState<List<Event>>(entry.notes[profileTab].orEmpty(), entry.key, s.notes, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, contentFilter) {
+                    val retained = entry.notes[profileTab].orEmpty().filterNot(contentFilter::hides)
                     value = withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
@@ -272,7 +279,10 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                     val current = vm.repo.state.value
                     (current.threadNotes.takeIf { current.threadId == threadId && it.size >= entry.notes[profileTab].orEmpty().size } ?: entry.notes[profileTab]).orEmpty()
                 } else preparedNotes
-                SideEffect { if (notes.isNotEmpty()) entry.notes[profileTab] = notes }
+                // Re-check retained/handoff state synchronously when a list changes. These are
+                // bounded in-memory key checks; no parsing, disk, or network work on main.
+                val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
+                SideEffect { entry.notes[profileTab] = visibleNotes }
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
@@ -294,24 +304,29 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 }
                 val playback = LocalMedia.current.playback
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
-                val bookmarkRows by produceState<List<Pair<Event, NostrContent.Reference>>>(if (profileTab == ProfileTab.PEOPLE) entry.people else entry.bookmarks, notes, profileTab) {
+                val preparedBookmarks by produceState<List<Pair<Event, NostrContent.Reference>>>(if (profileTab == ProfileTab.PEOPLE) entry.people else entry.bookmarks, visibleNotes, profileTab) {
                     value = withContext(Dispatchers.Default) {
                         if (screen == "profile" && profileTab in listOf(ProfileTab.BOOKMARKS, ProfileTab.PEOPLE))
-                            notes.asSequence().flatMap { collection -> (if (profileTab == ProfileTab.PEOPLE) peopleReferences(collection) else bookmarkReferences(collection)).asSequence().map { collection to it } }.take(5000).toList()
+                            visibleNotes.asSequence().flatMap { collection -> (if (profileTab == ProfileTab.PEOPLE) peopleReferences(collection) else bookmarkReferences(collection)).asSequence().map { collection to it } }.take(5000).toList()
                         else emptyList()
                     }
                     if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
                     if (screen == "profile" && profileTab == ProfileTab.PEOPLE) entry.people = value
                 }
-                val photoGrid by produceState(entry.photos, notes, profileTab) {
+                val bookmarkRows = remember(preparedBookmarks, contentFilter) {
+                    preparedBookmarks.filterNot { contentFilter.hides(it.first) || contentFilter.hides(it.second) }
+                }
+                val preparedPhotos by produceState(entry.photos, visibleNotes, profileTab) {
                     value = withContext(Dispatchers.Default) {
                         if (screen == "profile" && profileTab == ProfileTab.PHOTOS) {
-                            val photos = notes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }
+                            val photos = visibleNotes.flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }
                             ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
                         } else ProfilePhotos()
                     }
                     if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos = value
                 }
+                val photoGrid = if (profileKey in s.mutedAuthors) ProfilePhotos() else preparedPhotos
+                SideEffect { if (screen == "profile" && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
                 val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
                 val mediaKeys = remember(photoRows, bookmarkRows, s.embedded) {
@@ -319,10 +334,11 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                         bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) }
                 }
                 val mediaNotes = if (screen == "profile" && profileTab == ProfileTab.BOOKMARKS)
-                    bookmarkRows.mapNotNull { s.embedded[it.second.id] }.distinctBy { it.id } else notes
-                PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, s.embedded, mediaKeys)
+                    bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else visibleNotes
+                val mediaEmbeds = remember(s.embedded, contentFilter) { s.embedded.filterValues { !contentFilter.hides(it) } }
+                PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, mediaEmbeds, mediaKeys)
                 val currentBookmarks by rememberUpdatedState(bookmarkRows)
-                val currentNotes by rememberUpdatedState(notes)
+                val currentNotes by rememberUpdatedState(visibleNotes)
                 LaunchedEffect(activeListState, screen) {
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
                         .distinctUntilChanged().collect { keys ->
@@ -370,7 +386,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                 var refreshing by remember(screen) { mutableStateOf(false) }
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
-                    if (!s.loading) { requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh() }
+                    if (!s.loading) { requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes() }
                 }
                 PullToRefreshBox(
                     isRefreshing = refreshing && s.loading,
@@ -455,7 +471,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                             }
                         }
                         s.error?.let { error -> item("error") { Text(error, Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
-                        if (notes.isEmpty() && !s.loading) item("empty") {
+                        if (visibleNotes.isEmpty() && !s.loading) item("empty") {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (screen == "thread") Icon(Icons.Default.Info, "Post unavailable", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 else Icon(Icons.Default.Info, "No notes yet", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -498,7 +514,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
                                     EmbeddedNote(reference, s.embedded[reference.id], s.profiles, "bookmark:${collection.id}:${reference.id}", ::openReference)
                                 }
                             }
-                        } else items(notes, key = { it.id }) { note ->
+                        } else items(visibleNotes, key = { it.id }) { note ->
                             if (note.kind == 30617) ProjectCard(note)
                             else if (note.kind == 32267) SoftwareAppCard(note)
                             else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
@@ -587,6 +603,7 @@ private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> 
 @Composable
 private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit,
     onProfile: (String) -> Unit, onOpen: (Event) -> Unit) {
+    if (LocalContentFilter.current.hides(repost)) return
     val target = remember(repost.id) { repostTarget(repost) } ?: return
     val original = state.embedded[target.id]?.takeIf { it.kind == 1 }
     if (original != null) {
@@ -601,6 +618,7 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
 
 @Composable
 private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null) {
+    if (LocalContentFilter.current.hides(note)) return
     val profile = state.profiles[note.pubKey]
     val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
@@ -708,6 +726,8 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
 
 @Composable
 private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
+    val filter = LocalContentFilter.current
+    if (filter.hides(reference) || (note != null && filter.hides(note))) return
     Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
