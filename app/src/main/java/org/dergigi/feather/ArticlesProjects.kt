@@ -22,6 +22,10 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private data class ArticleBlock(val text: AnnotatedString? = null, val image: String? = null, val alt: String? = null)
 private data class Article(val title: String?, val cover: String?, val blocks: List<ArticleBlock>)
@@ -91,7 +95,7 @@ internal fun ArticleListRow(event: Event, author: String, picture: String?, onPr
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             ArticleReadingTime(event)
-            NoteTimestamp(event)
+            ArticleDate(event)
         }
     }
 }
@@ -120,8 +124,28 @@ private fun ArticleReadingTime(event: Event) {
             contentDescription = "Estimated reading time: $estimate ${if (estimate == 1) "minute" else "minutes"}"
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Icon(painterResource(R.drawable.reading_time), null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("$estimate min read", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val duration = when {
+                estimate < 60 -> "${estimate}m"
+                estimate % 60 == 0 -> "${estimate / 60}h"
+                else -> "${estimate / 60}h ${estimate % 60}m"
+            }
+            Text(duration, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+/** Article cards use a fixed calendar date, independent of the note timestamp preference. */
+@Composable
+private fun ArticleDate(event: Event) {
+    val locale = Locale.getDefault()
+    val zone = ZoneId.systemDefault()
+    val date = remember(event.createdAt, locale, zone) {
+        DateTimeFormatter.ofPattern("MMM d", locale).withZone(zone).format(Instant.ofEpochSecond(event.createdAt))
+    }
+    Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "Article date: $date" },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(painterResource(R.drawable.calendar), null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

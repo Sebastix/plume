@@ -7,6 +7,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Added
 - Show a homepage icon left of the Lightning address icon on profiles with a website; tap to open it.
 
+### Changed
+- Use a fixed short calendar date on article cards and compact reading durations such as 5m, 1h, or 1h 15m beside the existing clock icon.
+
 ## [0.31.0] - 2026-10-11
 
 ### Added
