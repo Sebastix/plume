@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Render every Markdown text block in full articles and highlights instead of only the first paragraph. Keep unsupported blocks visible as plain text, and retain compact excerpts only in preview cards.
+
 ### Added
 - Open the current gallery image’s source note with an icon. Preserve per-image source events across Photos-tab browsing, regular/embedded notes, and article images; open cached content immediately.
 

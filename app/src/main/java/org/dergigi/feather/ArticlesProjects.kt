@@ -11,10 +11,8 @@ import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -38,11 +36,7 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
     } }
     val article by produceState<Article?>(null, event.id, compact, style, linkStyle, codeStyle) {
         value = withContext(Dispatchers.Default) {
-            fun render(text: String): AnnotatedString = try {
-                text.buildMarkdownAnnotatedString(style = style, linkTextSpanStyle = linkStyle,
-                    codeSpanStyle = codeStyle, linkInteractionListener = listener).takeUnless { it.isEmpty() && text.isNotBlank() } ?: AnnotatedString(text)
-            } catch (cancelled: CancellationException) { throw cancelled
-            } catch (_: Exception) { AnnotatedString(text) }
+            fun render(text: String) = markdownDocument(text, style, linkStyle, codeStyle, listener)
             val body = (if (compact) event.tagValue("summary")?.takeIf { it.isNotBlank() } ?: event.content.take(1000) else event.content).withoutObjectMarkers()
             val blocks = mutableListOf<ArticleBlock>()
             var offset = 0

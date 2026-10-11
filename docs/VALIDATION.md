@@ -296,3 +296,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Gallery openings now carry optional source events. Photos-tab albums build parallel per-image source lists alongside URLs off-main, preserving the exact source for duplicate image URLs at different grid indices. Regular/embedded note images and article cover/inline images pass their source event.
 - A conversation icon in the gallery toolbar opens the current pager page's source note and dismisses the gallery. Native detail navigation is seeded from the retained event; source IDs survive gallery state restoration without serializing events. Avatar/banner galleries without a source note omit the action.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Full article text (unreleased)
+
+- Traced bookmark navigation through the cached-event handoff: detail views already set compact=false and read the full event content. The loss happened inside the Markdown library's String convenience overload, which selects only the first TEXT/PARAGRAPH node (confirmed against v0.35.0 AnnotatedStringKtx.kt).
+- Replaced that overload with a shared background document formatter that visits every top-level block, formats individual paragraphs and headings, and retains unsupported blocks as plain source text. Paragraph breaks, inline formatting/links, existing image ordering, and full detail content remain visible. Preview cards alone retain their excerpt limit.
+- Applied the same correction to highlight passages, context, and comments. No dependencies added; formatting remains on Dispatchers.Default.
+- `./gradlew :app:assembleDebug`: passed after supplying the annotator required by the library's settings constructor. `git diff --check`: passed. No automated tests or device checks; no release published.

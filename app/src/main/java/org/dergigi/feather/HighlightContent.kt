@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.UriHandler
-import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,19 +87,7 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
     val rendered by produceState<Pair<AnnotatedString, AnnotatedString?>?>(null, event.id, compact, profiles, style, codeStyle, linkStyle, textColor) {
         value = withContext(Dispatchers.Default) {
             try {
-                fun markdown(raw: String): AnnotatedString {
-                    val text = raw.withoutObjectMarkers()
-                    return try {
-                        text.buildMarkdownAnnotatedString(style = style, linkTextSpanStyle = linkStyle, codeSpanStyle = codeStyle, linkInteractionListener = linkListener).takeUnless { it.isEmpty() && text.isNotBlank() }
-                            ?: AnnotatedString(text)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (error: Exception) {
-                        // A single publisher's Markdown must not cancel the composition's scope.
-                        Log.w("HighlightContent", "Unable to format highlight ${event.id}", error)
-                        AnnotatedString(text)
-                    }
-                }
+                fun markdown(raw: String) = markdownDocument(raw.withoutObjectMarkers(), style, linkStyle, codeStyle, linkListener)
                 val passage = passage(markdown(event.content.trim()), markdown(event.tagValue("context").orEmpty()), compact)
                 fun mentions(text: AnnotatedString): AnnotatedString {
                     val protected = text.getLinkAnnotations(0, text.length)
