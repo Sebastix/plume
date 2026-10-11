@@ -623,7 +623,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     FilledTonalIconButton(onClick = {
                         try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                         catch (_: Exception) { error = "Install an Android signer such as Amber first." }
-                    }, modifier = Modifier.size(56.dp)) {
+                    }, modifier = Modifier.align(Alignment.End).size(56.dp)) {
                         Icon(painterResource(R.drawable.login), "Log in with an Android signer", Modifier.size(28.dp))
                     }
                     IconButton(onClick = { showAccount = false; showSettings = true }) { Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.primary) }
@@ -922,7 +922,8 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Show NSFW content", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Icon(painterResource(R.drawable.sensitive_content), null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.weight(1f))
             Switch(checked = state.showSensitive, onCheckedChange = { show ->
                 scope.launch {
                     runCatching { (context.applicationContext as FeatherApplication).repository.showSensitive(show) }

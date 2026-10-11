@@ -5,7 +5,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Replace the ambiguous signer-login arrow with a door-and-arrow login icon, remove the decorative feather from the login sheet, and label the missing-signer action “Get Amber”.
+- Use an 18+ icon for the sensitive-content setting, retaining an accessible switch description.
+- Replace the ambiguous signer-login arrow with a right-aligned door-and-arrow login icon, remove the decorative feather from the login sheet, and label the missing-signer action “Get Amber”.
 
 ## [0.26.0] - 2026-10-11
 

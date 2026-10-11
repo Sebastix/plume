@@ -158,4 +158,4 @@ An explicit bolt tap signs a public NIP-57 request through the Android signer an
 
 ### Sensitive content
 
-Hide author-marked sensitive content by default, including media grids, embeds, reposts, and bookmarks. Honor NIP-36 content warnings even without a reason, content-warning labels, and explicit NSFW tags. Settings may offer a clearly labeled “Show NSFW content” switch, off by default; this exceptional preference needs visible text to make its meaning unambiguous. Do not infer safety from missing tags or add a remote classifier.
+Hide author-marked sensitive content by default, including media grids, embeds, reposts, and bookmarks. Honor NIP-36 content warnings even without a reason, content-warning labels, and explicit NSFW tags. Settings offers an 18+ icon beside the opt-in switch, off by default, with an accessible description explaining that it enables NSFW and content-warning tagged content. Do not infer safety from missing tags or add a remote classifier.
