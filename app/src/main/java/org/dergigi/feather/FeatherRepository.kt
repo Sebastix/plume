@@ -30,6 +30,7 @@ class FeatherApplication : Application() {
     internal val crashes by lazy { CrashReports(this) }
     val repository by lazy { FeatherRepository(this) }
     val media by lazy { MediaStore(this) }
+    internal val timestamps by lazy { TimestampPreference(this) }
 }
 
 data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null, val aboutTokens: List<NostrContent.Token> = emptyList())

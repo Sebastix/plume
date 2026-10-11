@@ -7,7 +7,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInWindow
@@ -19,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
@@ -51,7 +51,8 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     val view = LocalView.current
     val blocktime = (context.applicationContext as FeatherApplication).repository.blocktime
     // Order: absolute date/time, block height, relative age. Start with relative age.
-    var mode by rememberSaveable(note.id) { mutableIntStateOf(2) }
+    val preference = (context.applicationContext as FeatherApplication).timestamps
+    val mode by preference.mode.collectAsStateWithLifecycle()
     var height by remember(note.id) { mutableStateOf<Int?>(null) }
     var loading by remember(note.id) { mutableStateOf(false) }
     var visible by remember(note.id) { mutableStateOf(false) }
@@ -85,7 +86,7 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
         Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp).onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
-        }.clickable(onClickLabel = nextLabel) { mode = (mode + 1) % 3 }
+        }.clickable(onClickLabel = "$nextLabel for all notes") { preference.cycle() }
             .semantics { contentDescription = when {
                 mode == 1 && blockLabel != null -> "Bitcoin block $blockLabel at note time"
                 mode == 2 -> relative.spoken

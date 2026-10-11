@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Cycle timestamp format globally when tapping any note timestamp, remembering the choice across app restarts.
+
 ## [0.29.0] - 2026-10-11
 
 ### Added
