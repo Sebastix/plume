@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Query all bounded known write relays for the viewed profile’s selected kinds and older pages, rather than using the home feed’s two-relay coverage shortcut.
+- Pull-to-refresh on a profile explicitly restarts its selected-kind request without resetting home-feed pagination.
+
 ## [0.33.0] - 2026-10-11
 
 ### Added

@@ -219,10 +219,43 @@ class FeatherRepository(context: Context) {
     fun background() { active = false; foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         historyJob?.cancel()
+        val profile = viewedProfile.takeIf { viewedThread == null && viewedHashtag == null }
+        if (profile != null) {
+            profileUntil = null; profileLimit = 100
+            _state.update { it.copy(loading = true, error = null) }
+            scope.launch {
+                ready.await()
+                if (!active || viewedProfile != profile) return@launch
+                // Explicit refresh must send a new REQ even when the filters are unchanged.
+                relayLists[profile]?.write.orEmpty().forEach { unavailableUntil.remove(it) }
+                updateRoutingPool()
+                client.unsubscribe("profile")
+                if (profileTab == ProfileTab.APPS) client.unsubscribe("profile-apps")
+                changed.tryEmit(Unit)
+                subscribeProfile(profile)
+                client.connect()
+                refreshTimeout?.cancel()
+                refreshTimeout = scope.launch {
+                    delay(12_000)
+                    _state.update { it.copy(loading = false) }
+                }
+            }
+            return
+        }
         feedUntil = null; feedCeilings.remove(selectedFeed); feedDiscoveryAt = 0; profileUntil = null; hashtagUntil = null
         profileLimit = 100; hashtagLimit = 200
         _state.update { it.copy(loading = true, error = null) }
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
+    }
+
+    /** A single profile needs all known write routes, not the home feed's two-relay coverage heuristic. */
+    private fun profileFilters(author: String, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
+        val writes = relayLists[author]?.write.orEmpty()
+        val routes = (if (writes.isNotEmpty()) writes else state.value.relays).filter { it in routingPool && healthy(it) }
+        val filters = kinds.flatMap { kind -> Filter(authors = listOf(author), kinds = listOf(kind), limit = limit, until = until).activityFilters() }
+        val result = routes.associate { it.normalizeRelayUrl() to filters }
+        return if (32267 in kinds) result + (ZAPSTORE_RELAY.normalizeRelayUrl() to
+            listOf(Filter(authors = listOf(author), kinds = listOf(32267), limit = limit, until = until))) else result
     }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
         val routes = (if (authors == null) routingPool.filter { it != "wss://purplepag.es" }
@@ -255,9 +288,9 @@ class FeatherRepository(context: Context) {
         val publishRoutes = publishingAuthor?.let { author ->
             own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
         }.orEmpty()
-        val priority = (publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+        val priority = (relayLists[viewedProfile]?.write.orEmpty() + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
-            emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback + relayLists[viewedProfile]?.write.orEmpty().take(2) +
+            emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
             own?.read.orEmpty() + own?.write.orEmpty() +
             profileAuthors.take(12).flatMap { relayLists[it]?.write.orEmpty().take(1) }).distinct().filter(::healthy)
@@ -801,13 +834,11 @@ class FeatherRepository(context: Context) {
         // Apps are commonly published only to the catalog relay, not personal write relays.
         client.subscribe("profile-apps", mapOf(ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(kinds = listOf(32267), authors = listOf(key), limit = if (profileTab == ProfileTab.APPS) 80 else 8))), listener)
-        val routes = authorFilters(listOf(key), listOf(1), 80).keys
+        val routes = profileFilters(key, profileTab.kinds, 80)
         // Separate kind filters keep ordinary notes from starving dedicated media posts.
-        client.subscribe("profile", routes.associateWith {
-            profileTab.kinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = listOf(key), limit = 80).activityFilters() }
-        }, listener)
+        client.subscribe("profile", routes, listener)
         // Small independent existence probes keep rare kinds from being crowded out by notes.
-        client.subscribe("profile-activity", routes.associateWith {
+        client.subscribe("profile-activity", profileFilters(key, listOf(1), 80).keys.associateWith {
             profileKinds.filter { it !in profileTab.kinds }.flatMap { kind ->
                 Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else if (kind in listOf(10003, 30000, 30003)) 8 else 1).activityFilters()
             }
@@ -882,7 +913,7 @@ class FeatherRepository(context: Context) {
                 val cached = mutex.withLock { db.query<Event>(filter.activityFilters()) }
                 var found = cached.isNotEmpty()
                 if (!found) {
-                    val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
+                    val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
                     if (routes.isEmpty()) return@launch
                     val complete = CompletableDeferred<Unit>()
                     val ended = java.util.concurrent.ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()
