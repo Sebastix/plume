@@ -606,3 +606,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Feed/profile/detail rendering, embedded references, bookmark targets, media prefetch inputs, and cached photo-grid sources use the filter. Galleries close if a known source becomes hidden. Disabling the setting immediately guards retained content while background preparation updates.
 - Preference writes and feed discovery run on IO; existing media preparation remains on background dispatchers. No classification of untagged content.
 - Debug build passed. No automated tests, release, or website changes. Device checks: tagged photo/video, repost and bookmark of tagged content, toggle on/off, then restart.
+
+## 2026-10-11 — 0.26.0 release
+
+- Version 0.26.0 (51), source commit `53e22f4fbd650e9c4839db3af5657f8f51395619`. Sensitive content hidden by default with persistent opt-in.
+- Signed release build passed, including release lint and R8. No automated tests.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,804,154 bytes; SHA-256 `77162238341c86578048381b110bce8e157bf20ae49e1f8b233b8ac1d2fd57ca`. Mapping archived locally. Website unchanged.
