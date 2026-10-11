@@ -538,3 +538,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests or device checks.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,787,766 bytes; SHA-256 `0a6a28833528de7c9c222b827ecefc6aa7bd6727d21b0a4cf9c00fd8c42c960e`. Matching mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.23.4 release
+
+- Version 0.23.4 (48), source commit `3747360791104cf92f8b07f4c11f3cb1dda08bbd` embedded in BuildConfig. Cross-app own-zap indicators and yellow-only highlight styling.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or device checks.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,787,766 bytes; SHA-256 `1932487fa387d49e5f5b7ab0c4e09449380d0c3a283e95787c592a537278333f`. Matching mapping archived locally. Website unchanged.
