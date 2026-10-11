@@ -6,6 +6,7 @@ import com.vitorpamplona.quartz.nip55AndroidSigner.client.NostrSignerExternal
 import com.vitorpamplona.quartz.nip01Core.relay.client.accessories.publishAndConfirm
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip01Core.crypto.verify
+import com.vitorpamplona.quartz.nip57Zaps.ZapReceiptEvent
 import com.vitorpamplona.quartz.nip01Core.relay.client.NostrClient
 import com.vitorpamplona.quartz.nip01Core.relay.client.listeners.RelayConnectionListener
 import com.vitorpamplona.quartz.nip01Core.relay.client.reqs.SubscriptionListener
@@ -475,14 +476,18 @@ class FeatherRepository(context: Context) {
             )
         }
         val counts = countTargets.associate { target ->
+            var zappedByAccount: String? = null
             val replies = activity.count { it.pubKey !in mutedAuthors && replyTarget(it) == target.id }
             val reactions = activity.filter { it.kind == 7 && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
             val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
                 .mapNotNull { receipt ->
                     val amount = zapVerification.amountInSats(receipt, target, profiles[receipt.tagValue("p")] ?: state.value.profiles[receipt.tagValue("p")], active)
+                    if (amount.signum() > 0 && key != null && (receipt as? ZapReceiptEvent)?.zapRequest?.pubKey == key) {
+                        zappedByAccount = key
+                    }
                     amount.takeIf { it.signum() > 0 }?.let { receipt.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) to it }
                 }.distinctBy { it.first }.fold(java.math.BigDecimal.ZERO) { total, (_, amount) -> total + amount }
-            target.id to Engagement(replies, reactions, zapSats)
+            target.id to Engagement(replies, reactions, zapSats, zappedByAccount)
         }
         val ownReactions = key?.let { author ->
             val recent = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), limit = 256)) }

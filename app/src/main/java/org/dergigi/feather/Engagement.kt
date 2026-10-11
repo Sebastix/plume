@@ -15,7 +15,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /** Counts and zap amounts from locally discovered, verified events, not an authoritative global total. */
-data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zapSats: BigDecimal = BigDecimal.ZERO)
+data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zapSats: BigDecimal = BigDecimal.ZERO,
+    // Store the identity, not a boolean: cached counts can outlive account switches.
+    val zappedByAccount: String? = null)
 
 internal fun replyTarget(event: Event): String? {
     if (event.kind != 1) return null

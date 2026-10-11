@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Color the zap bolt gold for loaded, validated zap receipts sent by the current account from any app, alongside locally confirmed payments.
+
 ## [0.23.3] - 2026-10-11
 
 ### Changed

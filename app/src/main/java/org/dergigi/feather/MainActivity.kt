@@ -751,6 +751,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
             val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
             val zapActions = LocalZapActions.current
+            val zapped = note.id in zapActions.confirmed ||
+                (state.publicKey != null && counts.zappedByAccount == state.publicKey)
             Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
                 .clickable(enabled = !zapActions.disabled && zapActions.pending == null,
                     onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(horizontal = 12.dp),
@@ -758,8 +760,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                     if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     else Icon(painterResource(R.drawable.zap),
-                        if (note.id in zapActions.confirmed) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
-                        Modifier.size(20.dp), tint = if (note.id in zapActions.confirmed) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (zapped) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
+                        Modifier.size(20.dp), tint = if (zapped) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
