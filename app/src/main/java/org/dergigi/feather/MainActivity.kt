@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -246,7 +247,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
-    GalleryHost(state = s, covered = showAccount || showWallet || showSettings, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
+    GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
@@ -519,17 +520,29 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             }
                         }
                         if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
-                            ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
-                                visibleProfileTabs.forEach { tab ->
-                                    Tab(selected = profileTab == tab, onClick = {
-                                        if (profileTab == tab) scrollScope.launch {
-                                            if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
-                                            else activeListState.animateScrollToItem(0)
-                                            topBarVisible = true
-                                        } else selectProfileTab(tab)
-                                    }, icon = {
-                                        FeedCategoryIcon(tab)
-                                    })
+                            // Tab discovery can change the measured positions between frames.
+                            // Recreate only the tab row when its membership changes, and never
+                            // index a previous layout's positions without checking its bounds.
+                            key(visibleProfileTabs) {
+                                val selectedIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0)
+                                ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = selectedIndex,
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    indicator = { positions ->
+                                        positions.getOrNull(selectedIndex)?.let { position ->
+                                            TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(position))
+                                        }
+                                    }) {
+                                    visibleProfileTabs.forEach { tab ->
+                                        Tab(selected = profileTab == tab, onClick = {
+                                            if (profileTab == tab) scrollScope.launch {
+                                                if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
+                                                else activeListState.animateScrollToItem(0)
+                                                topBarVisible = true
+                                            } else selectProfileTab(tab)
+                                        }, icon = {
+                                            FeedCategoryIcon(tab)
+                                        })
+                                    }
                                 }
                             }
                         }

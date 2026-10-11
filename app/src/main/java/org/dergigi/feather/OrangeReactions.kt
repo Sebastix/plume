@@ -39,20 +39,23 @@ internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions()
 internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     iconOnly: Boolean = false,
+    enabled: Boolean = true,
     onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
     val pending = note.id in actions.pending
+    val latestEnabled by rememberUpdatedState(enabled)
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
     var menuChoices by remember(note.id) { mutableStateOf(actions.choices) }
     val pickerCallback by rememberUpdatedState(onPickerVisibilityChanged)
+    LaunchedEffect(enabled) { if (!enabled) { picker = false; fullPicker = false } }
     LaunchedEffect(picker, fullPicker) { pickerCallback(picker || fullPicker) }
     DisposableEffect(Unit) { onDispose { pickerCallback(false) } }
     // Repository snapshots and accepted local reactions are ordered newest first.
     val latestReaction = sent.firstOrNull()
     Box {
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
-            .combinedClickable(enabled = note.id !in actions.pending,
+            .combinedClickable(enabled = enabled && note.id !in actions.pending,
                 onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
                 onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
                 onLongClick = { menuChoices = (sent + actions.choices).distinctBy { it.key }.take(6); picker = true })
@@ -76,11 +79,11 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
             }
             if (!iconOnly && count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
         }
-        DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
+        DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
                     val alreadySent = choice in sent
-                    IconButton(enabled = note.id !in actions.pending && (alreadySent || validReactionChoice(choice)), onClick = {
+                    IconButton(enabled = enabled && note.id !in actions.pending && (alreadySent || validReactionChoice(choice)), onClick = {
                         picker = false
                         if (alreadySent) actions.remove(note, choice) else actions.react(note, choice)
                     }, modifier = Modifier.size(48.dp)) {
@@ -92,7 +95,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                         }
                     }
                 }
-                IconButton(enabled = note.id !in actions.pending, onClick = {
+                IconButton(enabled = enabled && note.id !in actions.pending, onClick = {
                     picker = false
                     fullPicker = true
                 }, modifier = Modifier.size(48.dp)) {
@@ -101,7 +104,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
             }
         }
     }
-    if (fullPicker) {
+    if (fullPicker && enabled) {
         val latestActions by rememberUpdatedState(actions)
         val latestSent by rememberUpdatedState(sent)
         val recent = remember(menuChoices) { menuChoices.filter { it.image == null }.map { it.content } }
@@ -109,7 +112,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
-                if (note.id !in latestActions.pending && validReactionChoice(choice)) {
+                if (latestEnabled && note.id !in latestActions.pending && validReactionChoice(choice)) {
                     fullPicker = false
                     if (choice in latestSent) latestActions.remove(note, choice) else latestActions.react(note, choice)
                 }

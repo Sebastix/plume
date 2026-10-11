@@ -16,13 +16,13 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 /** Shared explicit 21-sat action for notes and their gallery images. */
 @Composable
 internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
-    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, iconOnly: Boolean = false) {
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, iconOnly: Boolean = false, enabled: Boolean = true) {
     val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
     val zapActions = LocalZapActions.current
     val zapped = note.id in zapActions.confirmed ||
         (publicKey != null && counts.zappedByAccount == publicKey)
     Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
-        .clickable(enabled = note.id !in zapActions.pending,
+        .clickable(enabled = enabled && note.id !in zapActions.pending,
             onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {

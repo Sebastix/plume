@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Order gallery floating actions as zap, like, then open note; dim and disable zaps without a connected wallet, and both zap and like when logged out.
+
+### Fixed
+- Guard the profile tab indicator against changing tab counts during layout, preventing an out-of-bounds crash.
+
 ## [0.32.0] - 2026-10-11
 
 ### Added

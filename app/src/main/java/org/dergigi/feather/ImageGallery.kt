@@ -67,7 +67,7 @@ internal class GalleryOpener(private val open: (List<String>, Int, Event?, Boole
 internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _, _ -> } }
 
 @Composable
-internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
+internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
@@ -98,7 +98,7 @@ internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -
         }
     }) {
         content()
-        if (urls.isNotEmpty() && !hiddenSource && !covered) ImageGallery(urls, index, noteIds, state,
+        if (urls.isNotEmpty() && !hiddenSource && !covered) ImageGallery(urls, index, noteIds, state, walletConnected,
             sourceNote = { page ->
                 val id = noteIds.getOrNull(page)
                 sourceNotes.getOrNull(page)?.takeIf { it.id == id }
@@ -123,7 +123,7 @@ internal fun GalleryHost(state: FeedState, covered: Boolean = false, album: () -
 
 // Swipe, double-tap/pinch zoom, background cycling and actions follow Boris.
 @Composable
-private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
+private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, walletConnected: Boolean, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
     val pager = rememberPagerState(initialPage = initialIndex.coerceIn(urls.indices), pageCount = { urls.size })
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -251,16 +251,20 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     currentNote?.let { note -> key(note.id) {
                         val counts = state.engagement[note.id] ?: Engagement()
-                        Surface(shape = androidx.compose.foundation.shape.CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
-                            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true,
-                                onPickerVisibilityChanged = { reactionPicker = it })
-                        }
-                        Surface(shape = androidx.compose.foundation.shape.CircleShape,
+                        val canReact = state.publicKey != null
+                        val canZap = canReact && walletConnected
+                        Surface(modifier = Modifier.graphicsLayer { alpha = if (canZap) 1f else 0.38f },
+                            shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
                             NoteZap(note, counts, state.publicKey,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true)
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canZap)
+                        }
+                        Surface(modifier = Modifier.graphicsLayer { alpha = if (canReact) 1f else 0.38f },
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
+                            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canReact,
+                                onPickerVisibilityChanged = { reactionPicker = it })
                         }
                     } }
                     FloatingActionButton(onClick = { onOpenNote(pager.currentPage) },
