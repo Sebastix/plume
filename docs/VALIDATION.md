@@ -716,3 +716,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - 0.29.0 R8 mapping identifies `sb1.d:240` as FeatherRepository.discoverRelays and `l34.a:17` as Quartz relay normalization. The supplied joined relay address passed the java.net.URI check but failed Quartz normalization during subscription setup.
 - Protocol.relay now requires Quartz acceptance inside its existing failure-to-null boundary, with a 2,048-character input bound. Routing candidates are revalidated before taking the existing eight discovered slots. No routing priority, connection cap, or discovery scheduling changes.
 - Debug build and diff check passed. No automated tests or live device reproduction.
+
+## 2026-10-11 — 0.30.1 release
+
+- Version 0.30.1 (62), source commit `98a65f4946616bc5a120f254ba91319a48adf897`. Reject malformed relay hints, compact article list, and profile identity overlapping the banner fade.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,964,695 bytes; SHA-256 `b0b7a12f114a64afd2ff693f6c56bc1dcd937e3db61b4d1eabe84ef658a7e589`. Mapping archived locally. Website unchanged.
