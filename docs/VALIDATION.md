@@ -592,3 +592,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Account transitions cancel and join wallet setup before switching ownership. Delayed wallet details cannot update another account's UI. Wallet setup is hidden while logged out.
 - Payment journal remains intact to protect uncertain payments after reconnection. Disk and Keystore work stays on IO.
 - Debug build passed; no automated tests or live payments performed. Device checks: reconnect once, restart while signed in, logout, then sign in with a different account.
+
+## 2026-10-11 — 0.25.0 release
+
+- Version 0.25.0 (50), source commit `4a0aefe381ed04672e0e4d8890c409681ab82e0b`.
+- Signed release build passed, including release lint and R8. No automated tests or live payments.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,804,150 bytes; SHA-256 `ef95568d3dbedf81ed9010d5b625e624a9f7c8fe8e459dc27427d6f0cc89b350`. Mapping archived locally. Website unchanged.
