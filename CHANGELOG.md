@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Read NIP-22 kind-1111 comments in reply feeds, profiles, embeds, and threads, with parent navigation and reply counts.
 
 ### Changed
+- Fade profile banners softly into the profile surface in light and dark mode.
 - Hide the Android status bar in Photos feeds/profile tabs and image galleries; restore it when leaving.
 - Prioritize Posts, Highlights, Photos, Videos, Articles, and Replies in that order on home and profiles; keep other categories ordered by observed frequency.
 - Shrink and fade the home avatar to a dot when hiding, reversing the animation when it returns.

@@ -40,6 +40,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
@@ -471,8 +472,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             val openGallery = LocalOpenGallery.current
                             Column(Modifier.fillMaxWidth()) {
                                 p?.banner?.let { banner ->
-                                    RemoteImage(banner, Modifier.fillMaxWidth().height(176.dp)
-                                        .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }, "Profile banner")
+                                    Box(Modifier.fillMaxWidth().height(176.dp)
+                                        .clickable(onClickLabel = "Open profile banner") { openGallery(listOf(banner), 0) }) {
+                                        RemoteImage(banner, Modifier.fillMaxSize(), "Profile banner")
+                                        val surface = MaterialTheme.colorScheme.surface
+                                        Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(56.dp)
+                                            .background(Brush.verticalGradient(listOf(surface.copy(alpha = 0f), surface))))
+                                    }
                                 }
                                 Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
