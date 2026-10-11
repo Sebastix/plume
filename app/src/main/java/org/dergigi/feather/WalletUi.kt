@@ -3,7 +3,7 @@ package org.dergigi.feather
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -27,17 +27,15 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Wallet", style = MaterialTheme.typography.titleLarge)
-            Text("21 sats per zap", style = MaterialTheme.typography.bodyMedium)
             if (connected) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Nostr Wallet Connect · Connected")
-                    IconButton(enabled = !busy && paying == null, onClick = vm::disconnectWallet) { Icon(Icons.Default.Close, "Disconnect wallet") }
+                    IconButton(enabled = !busy && paying == null, onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, "Remove wallet connection") }
                 }
             } else {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(8192) }, singleLine = true,
                     enabled = !busy, label = { Text("Nostr Wallet Connect") },
                     visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-                Text("Paste the connection from your wallet. Tapping a post’s bolt sends 21 sats.", style = MaterialTheme.typography.bodySmall)
                 IconButton(enabled = !busy && input.isNotBlank(), onClick = {
                     vm.connectWallet(input); input = ""
                 }) { Icon(Icons.Default.Check, "Connect wallet") }

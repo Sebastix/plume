@@ -895,13 +895,16 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
     var selectedBudget by remember(budget) { mutableIntStateOf(MediaContent.cacheOptionsMb.indexOf(budget)) }
     val scope = rememberCoroutineScope()
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        IconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
+        if (state.publicKey == null) {
+            IconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
+        }
         state.publicKey?.let { key ->
             val profile = state.profiles[key]
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Avatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
                 Text(profile?.name ?: FeatherRepository.shortKey(key), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
+                FilledTonalIconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
                 FilledTonalIconButton(onClick = onLogout) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Place the wallet button immediately to the left of logout in settings.
+- Use a trash icon to remove the Nostr Wallet Connect connection.
+- Remove explanatory wallet copy and the 21-sat label from the wallet sheet.
+
 ## [0.23.0] - 2026-10-11
 
 ### Added
