@@ -5,6 +5,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Add a logged-in-only Notifications page left of Posts, with compact replies, mentions, reactions, reposts, zaps, and nutzaps from the account’s read relays, cached content, pull-to-refresh, and mute/content filtering.
+- Add a disabled Search placeholder farther left; no search queries or indexing yet.
 - Show a homepage icon left of the Lightning address icon on profiles with a website; tap to open it.
 
 ### Changed

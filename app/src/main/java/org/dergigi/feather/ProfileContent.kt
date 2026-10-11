@@ -10,6 +10,7 @@ internal val readableKinds = listOf(1, 1111, 20, 9802, 30023, 30030) + videoKind
 internal val profileKinds = listOf(1, 1111, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
+    SEARCH(emptyList(), "Search"), NOTIFICATIONS(emptyList(), "Notifications"),
     POSTS(listOf(1), "Posts"), REPLIES(listOf(1, 1111), "Replies"),
     REPOSTS(listOf(6), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
@@ -18,6 +19,8 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs");
     internal val orderPriority: Int
         get() = when (this) {
+            SEARCH -> -2
+            NOTIFICATIONS -> -1
             POSTS -> 0
             HIGHLIGHTS -> 1
             PHOTOS -> 2

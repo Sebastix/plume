@@ -54,19 +54,23 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     var accountRequested by remember { mutableStateOf(false) }
     var tabs by remember(home.key) {
-        mutableStateOf(home.tabs.ifEmpty { listOf(ProfileTab.POSTS, ProfileTab.REPLIES) })
+        mutableStateOf((listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) +
+            home.tabs.ifEmpty { listOf(ProfileTab.POSTS, ProfileTab.REPLIES) }).distinct()
+            .filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }.sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
     var reordering by remember(home.key) { mutableStateOf(false) }
     val currentTabs by rememberUpdatedState(tabs)
     // Keep discovered pages available for the visit. Reorder only at rest and keep the
     // selected category anchored, rather than changing content underneath the user.
-    LaunchedEffect(state.feedTabs) {
+    LaunchedEffect(state.feedTabs, state.publicKey) {
         snapshotFlow { pager.isScrollInProgress }.first { !it }
         run {
-            val next = (state.feedTabs + tabs).distinct().sortedBy { it.orderPriority }
+            val next = (listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) + state.feedTabs + tabs)
+                .distinct().filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }.sortedBy { it.orderPriority }
             if (next != tabs) {
-                val selected = home.tab
+                val selected = home.tab.takeIf { it in next } ?: ProfileTab.POSTS
+                home.tab = selected
                 reordering = true
                 tabs = next
                 home.tabs = next
@@ -81,6 +85,8 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 if (!scrolling && !changingOrder) currentTabs.getOrNull(page)?.let { home.tab = it }
             }
     }
+    LaunchedEffect(home.tab, state.publicKey) { vm.repo.viewNotifications(home.tab == ProfileTab.NOTIFICATIONS && state.publicKey != null) }
+    DisposableEffect(home.key) { onDispose { vm.repo.viewNotifications(false) } }
     Box(Modifier.fillMaxSize()) {
     HorizontalPager(
         state = pager,
@@ -89,7 +95,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         modifier = Modifier.fillMaxSize().semantics { contentDescription = "${home.tab.label} feed" },
     ) { page ->
         val category = tabs[page]
-        FeatherReader(vm, navigation, home.feedPage(category),
+        if (category == ProfileTab.SEARCH) SearchPlaceholder()
+        else if (category == ProfileTab.NOTIFICATIONS) {
+            if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
+        } else FeatherReader(vm, navigation, home.feedPage(category),
             activePage = category == home.tab, homeToolbar = home,
             accountRequested = accountRequested && category == home.tab,
             onAccountHandled = { accountRequested = false })
@@ -153,7 +162,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         exit = scaleOut(tween(180), targetScale = 0.1f) + fadeOut(tween(180))) {
     IconButton(onClick = {
         val key = state.publicKey
-        if (key == null) accountRequested = true
+        if (key == null) {
+            if (home.tab == ProfileTab.SEARCH) scope.launch { pager.animateScrollToPage(tabs.indexOf(ProfileTab.POSTS)) }
+            accountRequested = true
+        }
         else navigation.push(ReaderEntry("profile", key))
     }, modifier = Modifier.size(RoundControlSize).semantics {
             contentDescription = "Account"
@@ -210,6 +222,8 @@ internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifie
     }
     if (resource != null) Icon(painterResource(resource), category.label, modifier)
     else Icon(when (category) {
+        ProfileTab.SEARCH -> Icons.Default.Search
+        ProfileTab.NOTIFICATIONS -> Icons.Default.Notifications
         ProfileTab.REACTIONS -> Icons.Default.FavoriteBorder
         ProfileTab.VIDEOS -> Icons.Default.PlayArrow
         else -> Icons.Default.Menu

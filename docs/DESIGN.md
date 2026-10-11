@@ -175,3 +175,11 @@ Transient messages use a non-blocking, tappable snackbar above the active screen
 Tapping an already selected profile tab or main-feed pill icon scrolls that list to the top and reveals its controls. Selecting a different tab retains the existing scroll-position behavior.
 
 Profiles with a public website show a homepage icon immediately left of the Lightning-address action. Open it through the standard external-link handler; normalize bare domains to HTTPS and show no icon for invalid or non-web addresses.
+
+## Home notifications and search
+
+Home opens on Posts. Search sits to its left, with Notifications between Search and Posts only while signed in. The existing icon pill shows a magnifying glass and bell; these pages never appear as profile tabs. Search is a disabled field with an accessible unavailable description, without queries, indexing, or extra relay work.
+
+Notifications use compact rows inspired by Wisp: activity icon or reaction emoji, actor avatar, author name, two-line content preview, and time. Zaps show sats in gold; nutzaps retain purple and their declared unit. Open the reply/mention itself or the target of a reaction/repost/zap; only the avatar opens the actor’s profile. Keep existing per-visit scrolling, pull-to-refresh, and scroll-to-top behavior.
+
+Read cached public kind 1/1111 replies and mentions, kind 6 reposts, kind 7 reactions, kind 9735 zap receipts, and kind 9321 nutzaps tagged to the signed-in account. Fetch only while Notifications is selected, using at most four available NIP-65 read relays with existing base relays as fallback, 100 events per kind and 400 retained rows. Resolve visible actors and referenced notes through existing bounded metadata/embedded subscriptions. Exclude own actions, deleted reactions, muted actors, and hidden content. Payment amounts use the same activity previews as the existing Zap tab, not payment confirmations. No OS notification service, background polling, new settings, or notification permission is added.
