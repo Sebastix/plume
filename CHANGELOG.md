@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Ignore malformed relay URLs before routing, preventing crashes when relay metadata contains several addresses joined into one.
+
 ### Changed
 - Present articles as a compact reading list with a title, two-line excerpt, optional right-side cover thumbnail, and quiet author/time metadata.
 

@@ -4,6 +4,7 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip19Bech32.Nip19Parser
 import com.vitorpamplona.quartz.nip19Bech32.entities.NPub
 import com.vitorpamplona.quartz.nip19Bech32.entities.NProfile
+import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 import java.net.URI
 
 object Protocol {
@@ -18,10 +19,15 @@ object Protocol {
     }
     fun npub(hex: String): String = NPub.create(hex)
     fun relay(input: String): String? = runCatching {
+        require(input.length <= 2048)
         val uri = URI(input.trim())
         require(uri.scheme == "wss" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.fragment == null)
         require(uri.port == -1 || uri.port in 1..65535)
-        uri.toASCIIString().trimEnd('/')
+        uri.toASCIIString().trimEnd('/').also {
+            // URI accepts some strings Quartz rejects, including concatenated relay URLs.
+            // Reject them at the untrusted-input boundary, not during subscription setup.
+            it.normalizeRelayUrl()
+        }
     }.getOrNull()
     fun follows(event: Event?): Set<String> = event?.tags.orEmpty().filter { it.size >= 2 && it[0] == "p" && hex.matches(it[1]) }.map { it[1] }.toSet()
     fun isReply(event: Event): Boolean = event.kind == 1111 || replyTarget(event) != null

@@ -257,7 +257,7 @@ class FeatherRepository(context: Context) {
         val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + profileAuthors.take(64) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
         val usableLists = relayLists.mapValues { (_, list) -> Outbox.RelayList(list.read.filter(::healthy), list.write.filter(::healthy)) }
         val popular = Outbox.readRoutes(authors, usableLists, s.relays).keys
-        val next = (s.relays + (priority + popular).distinct().filter { it !in s.relays }.take(8)).toSet()
+        val next = (s.relays + (priority + popular).mapNotNull(Protocol::relay).distinct().filter { it !in s.relays }.take(8)).toSet()
         if (next != routingPool) {
             routingPool = next
             historyJob?.cancel()
