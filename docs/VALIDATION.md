@@ -545,3 +545,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests or device checks.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,787,766 bytes; SHA-256 `1932487fa387d49e5f5b7ab0c4e09449380d0c3a283e95787c592a537278333f`. Matching mapping archived locally. Website unchanged.
+
+## 2026-10-11 — Zap activity tab
+
+- Added kind-9735 sent/received activity via p/P participant filters in profile/home discovery, active subscriptions, local snapshots, and paging. Preserves dynamic ordering after Posts/Replies.
+- Cards follow ants-android’s sender/amount/recipient layout, with public comments and linked-note/article previews. Request signature/recipient/target binding parsed and cached on background dispatchers. Invoice amounts are previews; these cards do not create payment confirmations.
+- Participant profiles are resolved through existing metadata subscriptions; muted participants and linked authors stay hidden. Anonymous senders have no profile link.
+- Debug build and diff checks passed; no automated tests or on-device interaction checks.

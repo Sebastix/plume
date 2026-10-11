@@ -291,10 +291,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     value = preparation to withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
-                    "profile" -> latestProfileEvents(s.profileEvents.filter { it.pubKey == profileKey } + retained).filter(profileTab::matches).take(600)
+                    "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
-                        .filter { profileTab.matchesFeed(it) && (s.publicKey == null || it.pubKey == s.publicKey || it.pubKey in s.following) }.take(600)
+                        .filter { profileTab.matchesFeed(it) && (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following))) }.take(600)
                     }
                     // Returning to a paginated profile must not discard its already displayed pages.
                     if (screen == "hashtag" && filtered.size < retained.size)
@@ -686,6 +686,10 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
 @Composable
 private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null) {
     if (LocalContentFilter.current.hides(note)) return
+    if (note.kind == 9735) {
+        ZapActivityCard(note, state, onReference)
+        return
+    }
     val profile = state.profiles[note.pubKey]
     val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
@@ -832,7 +836,7 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
 }
 
 @Composable
-private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
+internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
     val filter = LocalContentFilter.current
     if (filter.hides(reference) || (note != null && filter.hides(note))) return
     Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),

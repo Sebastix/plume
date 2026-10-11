@@ -20,11 +20,11 @@ internal data class ContentFilter(
 
     fun hides(event: Event): Boolean {
         if (event.pubKey in authors) return true
-        if (authors.isEmpty() || event.kind !in listOf(6, 7)) return false
+        if (authors.isEmpty() || event.kind !in listOf(6, 7, 9735)) return false
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.
         val author = event.tags.lastOrNull { it.size >= 2 && it[0] == "p" }?.get(1)
         val id = event.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)
-        return author in authors || embedded[id]?.pubKey in authors
+        return author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.pubKey in authors
     }
 }
 internal val LocalContentFilter = staticCompositionLocalOf { ContentFilter() }

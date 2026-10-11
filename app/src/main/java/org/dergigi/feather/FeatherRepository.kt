@@ -199,10 +199,10 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
     }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
-        val routes = if (authors == null) routingPool.filter { it != "wss://purplepag.es" }
+        val routes = (if (authors == null) routingPool.filter { it != "wss://purplepag.es" }
             .associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
         else Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
-            .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }
+            .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }).mapValues { (_, filters) -> filters.flatMap { it.activityFilters() } }
         return if (32267 in kinds) routes + (ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(authors = authors, kinds = listOf(32267), limit = limit, until = until))) else routes
     }
@@ -265,7 +265,7 @@ class FeatherRepository(context: Context) {
         client.subscribe("feed", authorFilters(authors, selectedFeed.feedKinds(), 80), listener)
         val discovery = authorFilters(authors, profileKinds, 8).mapValues { (_, filters) ->
             filters.flatMap { filter -> filter.kinds.orEmpty().map { kind ->
-                Filter(authors = filter.authors, kinds = listOf(kind), limit = 8)
+                Filter(authors = filter.authors, kinds = listOf(kind), tags = filter.tags, limit = 8)
             } }
         }
         client.subscribe("feed-discovery", discovery, listener)
@@ -334,7 +334,8 @@ class FeatherRepository(context: Context) {
         return true
     }
     private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
-        val matching = (db.query<Event>(filter) + previous + olderEvents).filter(filter::match)
+        val filters = filter.activityFilters()
+        val matching = (db.query<Event>(filters) + previous + olderEvents).filter { event -> filters.any { it.match(event) } }
         // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
         // Keep these anchors when advancing the bounded window.
         val pinned = if (filter.until != null) previous.filter { it.id in visibleIds } else emptyList()
@@ -366,7 +367,7 @@ class FeatherRepository(context: Context) {
         val discoveryNow = android.os.SystemClock.elapsedRealtime()
         if (feedDiscoveryKey != discoveryKey || discoveryNow - feedDiscoveryAt >= 5_000) {
             val discoveredFeed = mutex.withLock {
-                db.query<Event>(profileKinds.map { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80) })
+                db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() })
             }
             val feedFilter = ContentFilter(mutedAuthors, state.value.embedded)
             val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(feedFilter::hides)
@@ -398,11 +399,11 @@ class FeatherRepository(context: Context) {
         }.orEmpty()
         val availableTabs = profile?.let { author ->
             val discovered = mutex.withLock {
-                db.query<Event>(profileKinds.map { kind ->
-                    Filter(kinds = listOf(kind), authors = listOf(author), limit = 600)
+                db.query<Event>(profileKinds.flatMap { kind ->
+                    Filter(kinds = listOf(kind), authors = listOf(author), limit = 600).activityFilters()
                 })
             }
-            val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.pubKey == author })
+            val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.pubKey == author || (it.kind == 9735 && (it.tagValue("p") == author || it.tagValue("P") == author)) })
             val frequencies = ProfileTab.entries.associateWith { candidate -> events.count(candidate::matches) }
             val found = frequencies.filterValues { it > 0 }.keys
             (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
@@ -441,8 +442,8 @@ class FeatherRepository(context: Context) {
         val peopleRefs = if (readingTab == ProfileTab.PEOPLE)
             collections.flatMap(::peopleReferences).filter { it.id in visibleIds }.distinctBy { it.id }.take(32) else emptyList()
         val refs = (peopleRefs + bookmarkRefs + bioRefs + readingContent.filter { it.kind !in listOf(3, 30000) }.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
-        val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap { listOfNotNull(NostrContent.replyReference(it)) + NostrContent.quotes(it) }).map { it.id }.distinct().take(24)
-        val addressRefs = bookmarkRefs.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
+        val quoteIds = (bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap { listOfNotNull(NostrContent.replyReference(it)) + NostrContent.quotes(it) }).map { it.id }.filter { ':' !in it }.distinct().take(24)
+        val addressRefs = (bookmarkRefs + refs).distinctBy { it.id }.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
         val embedded = mutex.withLock {
             val byId = if (quoteIds.isEmpty()) emptyMap() else
                 db.query<Event>(Filter(ids = quoteIds, kinds = readableKinds, limit = 24)).associateBy { it.id }
@@ -661,12 +662,12 @@ class FeatherRepository(context: Context) {
         val routes = authorFilters(listOf(key), listOf(1), 80).keys
         // Separate kind filters keep ordinary notes from starving dedicated media posts.
         client.subscribe("profile", routes.associateWith {
-            profileTab.kinds.map { kind -> Filter(kinds = listOf(kind), authors = listOf(key), limit = 80) }
+            profileTab.kinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = listOf(key), limit = 80).activityFilters() }
         }, listener)
         // Small independent existence probes keep rare kinds from being crowded out by notes.
         client.subscribe("profile-activity", routes.associateWith {
-            profileKinds.filter { it !in profileTab.kinds }.map { kind ->
-                Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else if (kind in listOf(10003, 30000, 30003)) 8 else 1)
+            profileKinds.filter { it !in profileTab.kinds }.flatMap { kind ->
+                Filter(kinds = listOf(kind), authors = listOf(key), limit = if (kind == 1) 80 else if (kind in listOf(10003, 30000, 30003)) 8 else 1).activityFilters()
             }
         }, listener)
     }
@@ -732,11 +733,11 @@ class FeatherRepository(context: Context) {
                 val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
                 val kinds = if (author != null) tab.kinds else if (tag != null) listOf(1) else feed.feedKinds()
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
-                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors) }
+                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
                 val oldest = events.minOfOrNull { it.createdAt } ?: return@launch
                 if (oldest <= 0) return@launch
                 val filter = Filter(kinds = kinds, authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
-                val cached = mutex.withLock { db.query<Event>(filter) }
+                val cached = mutex.withLock { db.query<Event>(filter.activityFilters()) }
                 var found = cached.isNotEmpty()
                 if (!found) {
                     val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
