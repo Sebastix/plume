@@ -14,6 +14,7 @@ import com.vitorpamplona.quartz.nip01Core.relay.client.single.IRelayClient
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
+import com.vitorpamplona.quartz.nip01Core.store.IEventStore
 import com.vitorpamplona.quartz.nip01Core.store.sqlite.EventStore
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -125,6 +126,15 @@ class FeatherRepository(context: Context) {
     @Volatile private var viewedHashtag: String? = null
     @Volatile private var hashtagUntil: Long? = null
     @Volatile private var viewedThread: String? = null
+    private val profileQueries = ProfileRelayQuery()
+    private var profileSweep: Job? = null
+    private var profileSweepKey: Triple<String, ProfileTab, List<String>>? = null
+    @Synchronized
+    private fun stopProfileSweep() { profileSweep?.cancel(); profileSweep = null; profileSweepKey = null }
+    private fun profileReadRelays(author: String, tab: ProfileTab): List<String> =
+        (relayLists[author]?.write.orEmpty().ifEmpty { state.value.relays } +
+            listOfNotNull(ZAPSTORE_RELAY.takeIf { tab == ProfileTab.APPS })).distinct()
+
     private var historyJob: Job? = null
     private var refreshTimeout: Job? = null
     @Volatile private var routingPool: Set<String> = emptySet()
@@ -216,7 +226,7 @@ class FeatherRepository(context: Context) {
             }
         }
     }
-    fun background() { active = false; foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
+    fun background() { active = false; stopProfileSweep(); foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         historyJob?.cancel()
         val profile = viewedProfile.takeIf { viewedThread == null && viewedHashtag == null }
@@ -229,6 +239,7 @@ class FeatherRepository(context: Context) {
                 // Explicit refresh must send a new REQ even when the filters are unchanged.
                 relayLists[profile]?.write.orEmpty().forEach { unavailableUntil.remove(it) }
                 updateRoutingPool()
+                stopProfileSweep()
                 client.unsubscribe("profile")
                 if (profileTab == ProfileTab.APPS) client.unsubscribe("profile-apps")
                 changed.tryEmit(Unit)
@@ -248,10 +259,10 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
     }
 
-    /** A single profile needs all known write routes, not the home feed's two-relay coverage heuristic. */
+    /** Keep a small live subscription; finite profile sweeps cover every advertised write relay. */
     private fun profileFilters(author: String, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
         val writes = relayLists[author]?.write.orEmpty()
-        val routes = (if (writes.isNotEmpty()) writes else state.value.relays).filter { it in routingPool && healthy(it) }
+        val routes = (if (writes.isNotEmpty()) writes else state.value.relays).filter { it in routingPool && healthy(it) }.take(2)
         val filters = kinds.flatMap { kind -> Filter(authors = listOf(author), kinds = listOf(kind), limit = limit, until = until).activityFilters() }
         val result = routes.associate { it.normalizeRelayUrl() to filters }
         return if (32267 in kinds) result + (ZAPSTORE_RELAY.normalizeRelayUrl() to
@@ -288,7 +299,7 @@ class FeatherRepository(context: Context) {
         val publishRoutes = publishingAuthor?.let { author ->
             own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
         }.orEmpty()
-        val priority = (relayLists[viewedProfile]?.write.orEmpty() + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+        val priority = (relayLists[viewedProfile]?.write.orEmpty().take(2) + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
             emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
@@ -425,16 +436,40 @@ class FeatherRepository(context: Context) {
         if (event.kind == 0) accept(event)
     }
 
-    private suspend fun accept(event: Event, history: Boolean = false): Boolean {
+    private suspend fun accept(event: Event, history: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        acceptOnIo(event, history)
+    }
+
+    private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
         if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 30030)) || event.content.length > (if (event.kind in listOf(30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
-            if (verified.containsKey(event.id) && !history) return true
-            if (!verified.containsKey(event.id)) {
+            val cached = verified[event.id]
+            if (cached == false || (cached == true && !history)) return cached
+            if (cached == null) {
                 if (!event.verify()) return false
-                verified[event.id] = true
-                db.insert(event)
-                if (++inserts % 200 == 0) trimCacheLocked()
+                // Quartz rolls back rejected rows and distinguishes normal NIP-01
+                // replacement/duplicate outcomes from actual storage failures.
+                val outcome = try { db.batchInsert(listOf(event)).single() }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    _state.update { it.copy(error = "Could not cache event: ${e.message ?: e.javaClass.simpleName}") }
+                    return false
+                }
+                when (outcome) {
+                    IEventStore.InsertOutcome.Accepted -> verified[event.id] = true
+                    is IEventStore.InsertOutcome.Rejected -> {
+                        val duplicate = outcome.reason.startsWith("duplicate:")
+                        verified[event.id] = duplicate
+                        if (!duplicate) return false
+                    }
+                    is IEventStore.InsertOutcome.Failed -> {
+                        // Do not mark failed writes as cached: a later relay delivery can retry.
+                        _state.update { it.copy(error = "Could not cache event: ${outcome.reason}") }
+                        return false
+                    }
+                }
+                if (outcome == IEventStore.InsertOutcome.Accepted && ++inserts % 200 == 0) trimCacheLocked()
             }
             if (history) olderEvents = (olderEvents + event).distinctBy { it.id }
                 .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).takeLast(600)
@@ -819,7 +854,7 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) subscribeFeed() }
     }
 
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }
+    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
@@ -829,12 +864,30 @@ class FeatherRepository(context: Context) {
         changed.tryEmit(Unit)
         if (active) viewedProfile?.let(::subscribeProfile)
     }
+    @Synchronized
     private fun subscribeProfile(key: String) {
+        if (!active || viewedProfile != key) return
         discoverRelays()
         // Apps are commonly published only to the catalog relay, not personal write relays.
         client.subscribe("profile-apps", mapOf(ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(kinds = listOf(32267), authors = listOf(key), limit = if (profileTab == ProfileTab.APPS) 80 else 8))), listener)
-        val routes = profileFilters(key, profileTab.kinds, 80)
+        val tab = profileTab
+        val allRelays = profileReadRelays(key, tab)
+        val sweepKey = Triple(key, tab, allRelays)
+        if (profileSweepKey != sweepKey) {
+            stopProfileSweep()
+            profileSweepKey = sweepKey
+            profileSweep = scope.launch {
+                ready.await()
+                val filters = profileKinds.flatMap { kind ->
+                    Filter(authors = listOf(key), kinds = listOf(kind), limit = if (kind in tab.kinds) 80 else 1).activityFilters()
+                }
+                profileQueries.fetch(allRelays, filters.map { it.toJson() }) { event ->
+                    active && viewedProfile == key && profileTab == tab && filters.any { it.match(event) } && accept(event)
+                }
+            }
+        }
+        val routes = profileFilters(key, tab.kinds, 80)
         // Separate kind filters keep ordinary notes from starving dedicated media posts.
         client.subscribe("profile", routes, listener)
         // Small independent existence probes keep rare kinds from being crowded out by notes.
@@ -912,7 +965,14 @@ class FeatherRepository(context: Context) {
                 val filter = Filter(kinds = kinds, authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
                 val cached = mutex.withLock { db.query<Event>(filter.activityFilters()) }
                 var found = cached.isNotEmpty()
-                if (!found) {
+                if (author != null) {
+                    // Local history is not evidence that every write relay was queried.
+                    val filters = kinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = listOf(author), limit = 80, until = oldest - 1).activityFilters() }
+                    val received = profileQueries.fetch(profileReadRelays(author, tab), filters.map { it.toJson() }) { event ->
+                        sameScreen() && historySequence.get() == sequence && filters.any { it.match(event) } && accept(event, history = true)
+                    }
+                    found = found || received
+                } else if (!found) {
                     val routes = if (tag != null) hashtagFilters(tag, oldest - 1) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
                     if (routes.isEmpty()) return@launch
                     val complete = CompletableDeferred<Unit>()

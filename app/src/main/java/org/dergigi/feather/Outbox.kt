@@ -9,8 +9,8 @@ object Outbox {
     fun parse(event: Event): RelayList {
         fun urls(marker: String) = event.tags.asSequence()
             .filter { it.size >= 2 && it[0] == "r" && (it.size == 2 || it[2] == marker) }
-            .mapNotNull { Protocol.relay(it[1]) }.distinct().take(4).toList()
-        return RelayList(urls("read"), urls("write"))
+            .mapNotNull { Protocol.relay(it[1]) }.distinct().toList()
+        return RelayList(urls("read").take(4), urls("write"))
     }
 
     fun readRoutes(authors: List<String>, lists: Map<String, RelayList>, fallback: List<String>, maxDiscovered: Int = 8, allowed: Set<String>? = null): Map<String, List<String>> {

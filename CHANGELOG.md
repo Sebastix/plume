@@ -5,7 +5,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
-- Query all bounded known write relays for the viewed profile’s selected kinds and older pages, rather than using the home feed’s two-relay coverage shortcut.
+- Handle duplicate and superseded cache events as normal database outcomes instead of crashing; keep event ingestion on IO and report genuine write failures without marking them cached.
+- Read every advertised write relay for profile tabs and older pages in batches of four, without truncating write-relay lists or expanding the main-feed connection pool.
 - Pull-to-refresh on a profile explicitly restarts its selected-kind request without resetting home-feed pagination.
 
 ## [0.33.0] - 2026-10-11
