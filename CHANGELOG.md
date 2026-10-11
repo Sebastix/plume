@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Report NIP-05 HTTP errors accurately; only redirect responses mention the redirect restriction, and missing endpoints report HTTP 404.
+
 ## [0.33.1] - 2026-10-11
 
 ### Fixed

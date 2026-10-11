@@ -86,7 +86,9 @@ private object IdentityLookup {
                     http.newCall(Request.Builder().url(identity.endpoint).build()).awaitIdentity().use { response ->
                         when {
                             response.code >= 500 || response.code == 429 -> IdentityResult(IdentityStatus.UNAVAILABLE, "Identity server returned HTTP ${response.code}.")
-                            !response.isSuccessful -> IdentityResult(IdentityStatus.INVALID, "Identity endpoint returned HTTP ${response.code}; redirects are not allowed.")
+                            response.code in listOf(301, 302, 303, 307, 308) -> IdentityResult(IdentityStatus.INVALID, "Identity endpoint returned HTTP ${response.code}; NIP-05 does not allow redirects.")
+                            response.code == 404 -> IdentityResult(IdentityStatus.INVALID, "Identity endpoint not found (HTTP 404).")
+                            !response.isSuccessful -> IdentityResult(IdentityStatus.INVALID, "Identity endpoint returned HTTP ${response.code}.")
                             else -> {
                                 val source = response.body.source()
                                 source.request(262_145)
