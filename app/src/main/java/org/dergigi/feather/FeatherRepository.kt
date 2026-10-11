@@ -140,10 +140,6 @@ class FeatherRepository(context: Context) {
 
     private var seedOffset = 0
     private var embeddedSeedOffset = 6
-    private var metadataSeedOffset = 0
-    private fun missingProfiles(): List<String> =
-        (listOfNotNull(viewedProfile, state.value.publicKey) + profileAuthors).distinct()
-            .filter { it !in state.value.profiles }.take(16)
     private val unavailableUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private fun healthy(url: String) = (unavailableUntil[Protocol.relay(url) ?: url] ?: 0) <= android.os.SystemClock.elapsedRealtime()
     private fun unavailable(url: String) {
@@ -200,7 +196,6 @@ class FeatherRepository(context: Context) {
                 if (++ticks % 3 == 0 && (state.value.connected.isEmpty() || (state.value.publicKey != null && relayLists[state.value.publicKey] == null))) {
                     seedOffset = (seedOffset + 4) % RelayDefaults.seeds.size
                 }
-                if (ticks % 3 == 0 && missingProfiles().isNotEmpty()) metadataSeedOffset = (metadataSeedOffset + 2) % RelayDefaults.seeds.size
                 if (ticks % 3 == 0 && embeddedIds.any { it !in state.value.embedded }) embeddedSeedOffset = (embeddedSeedOffset + 2) % RelayDefaults.seeds.size
                 changed.tryEmit(Unit) // Retry deferred optional work without waiting for a new relay event.
                 subscribeFeed()
@@ -243,15 +238,10 @@ class FeatherRepository(context: Context) {
         val fallback = if (embeddedIds.any { it !in s.embedded })
             (RelayDefaults.seeds.drop(embeddedSeedOffset) + RelayDefaults.seeds.take(embeddedSeedOffset)).filter(::healthy).take(2)
             else emptyList()
-        val missingMetadata = missingProfiles()
-        val metadataFallback = if (missingMetadata.isNotEmpty())
-            (RelayDefaults.seeds.drop(metadataSeedOffset) + RelayDefaults.seeds.take(metadataSeedOffset))
-                .filter { it !in base && healthy(it) }.take(2) else emptyList()
-        val metadataOutbox = missingMetadata.flatMap { relayLists[it]?.write.orEmpty().take(2) }.distinct().filter(::healthy).take(2)
         val publishRoutes = publishingAuthor?.let { author ->
             own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
         }.orEmpty()
-        val priority = (publishRoutes + listOf("wss://purplepag.es") + metadataOutbox + metadataFallback + openedReference?.relays.orEmpty() +
+        val priority = (publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
             emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback + relayLists[viewedProfile]?.write.orEmpty().take(2) +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
@@ -312,11 +302,8 @@ class FeatherRepository(context: Context) {
         }, listener)
 
         val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + profileAuthors).distinct().take(160)
-        val urgent = (listOfNotNull(viewedProfile, state.value.publicKey) + missingProfiles()).distinct().take(8)
         val metadata = routingPool.associate { url ->
-            // Individual filters prevent another author's metadata history consuming the shared limit.
-            url.normalizeRelayUrl() to (urgent.map { Filter(authors = listOf(it), kinds = listOf(0), limit = 1) } +
-                (targets - urgent.toSet()).chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) })
+            url.normalizeRelayUrl() to targets.chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) }
         }.filterValues { it.isNotEmpty() }
         if (metadata.isEmpty()) client.unsubscribe("profiles")
         else client.subscribe("profiles", metadata, listener)
@@ -493,10 +480,9 @@ class FeatherRepository(context: Context) {
         val authors = (activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
-        val previouslyMissingProfiles = missingProfiles()
         val profiles = if (authors.isEmpty()) emptyMap() else mutex.withLock {
-            db.query<Event>(authors.map { Filter(kinds = listOf(0), authors = listOf(it), limit = 1) })
-        }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).distinctBy { it.pubKey }.associate { event ->
+            db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
+        }.associate { event ->
             val data = runCatching { JSONObject(event.content) }.getOrNull()
             val about = data?.optString("about").orEmpty().take(2000).withoutObjectMarkers()
             event.pubKey to Profile(
@@ -559,7 +545,7 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.threadNotes.find { it.id == viewedThread }?.pubKey
         _state.update { it.copy(notes = all, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
-        if (active && (previouslyMissingProfiles != missingProfiles() || readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
+        if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.id == viewedThread }?.pubKey)) subscribeFeed()
         else if (active) subscribeReadingData()
     }
 

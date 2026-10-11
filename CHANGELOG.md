@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Revert the profile metadata recovery changes introduced in 0.26.2, restoring the previous relay priorities, subscriptions, and batched local metadata query.
+
 ## [0.27.0] - 2026-10-11
 
 ### Added
