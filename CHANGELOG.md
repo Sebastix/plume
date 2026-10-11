@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Remove the tumbleweed. Show a spinner while preparing an empty view or waiting for content, allow brief relay/cache handoffs to settle, and leave genuinely empty feeds quiet. Keep error and hidden-content details.
+
 ## [0.16.0] - 2026-10-11
 
 ### Added

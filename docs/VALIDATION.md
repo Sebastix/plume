@@ -365,3 +365,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.16.0 (32), 14,075,560 bytes.
 - APK SHA-256: `c35dc1b717ca450f6b1a0ee7ee3f4d3be462d41f1d4c63003e3c123532ab2ba7`.
+
+## 2026-10-11 — Quiet empty states
+
+- Removed the tumbleweed resource. Background note preparation carries an input token so pending work is reflected immediately. Empty pages show a spinner during loading/preparation, including inactive home pages, with a 1.5-second settling interval after loading. Existing notes are never delayed. Settled empty feeds are quiet; hidden/unavailable/error diagnostics remain.
+- GitHub repository homepage updated and read back as https://feather.dergigi.com. README already points there.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device checks.

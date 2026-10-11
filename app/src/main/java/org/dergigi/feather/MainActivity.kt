@@ -268,9 +268,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     ) { padding ->
         when (screen) {
             else -> {
-                val preparedNotes by key(profileTab) { produceState<List<Event>>(entry.notes[profileTab].orEmpty(), entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, contentFilter) {
+                // A new input token is pending immediately, before the background effect starts.
+                val preparation = remember(entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, contentFilter) { Any() }
+                val preparedNotes by key(profileTab) { produceState<Pair<Any?, List<Event>>>(null to entry.notes[profileTab].orEmpty(), preparation) {
                     val retained = entry.notes[profileTab].orEmpty().filterNot(contentFilter::hides)
-                    value = withContext(Dispatchers.Default) {
+                    value = preparation to withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
                     "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.pubKey == profileKey } + retained).filter(profileTab::matches).take(600)
@@ -289,11 +291,26 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     // StateFlow already holds the handoff even if lifecycle collection resumes next frame.
                     val current = vm.repo.state.value
                     (current.threadNotes.takeIf { current.threadId == threadId && it.size >= entry.notes[profileTab].orEmpty().size } ?: entry.notes[profileTab]).orEmpty()
-                } else preparedNotes
+                } else preparedNotes.second
                 // Re-check retained/handoff state synchronously when a list changes. These are
                 // bounded in-memory key checks; no parsing, disk, or network work on main.
                 val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
                 SideEffect { entry.notes[profileTab] = visibleNotes }
+                val preparing = screen != "thread" && preparedNotes.first !== preparation
+                val waitingForPage = screen == "feed" && (!activePage || s.feedTab != profileTab)
+                val pendingContent = preparing || waitingForPage || s.loading
+                // Relay completion can precede the sampled cache snapshot or another relay's
+                // response. Brief gaps keep a spinner; existing content is never delayed.
+                val emptySettled by produceState(false, entry.key, profileTab, pendingContent, visibleNotes.isEmpty()) {
+                    value = false
+                    if (!pendingContent && visibleNotes.isEmpty()) {
+                        kotlinx.coroutines.delay(1_500)
+                        value = true
+                    }
+                }
+                val emptyLoading = visibleNotes.isEmpty() && (pendingContent || !emptySettled)
+                val hiddenContent = visibleNotes.isEmpty() && (notes.isNotEmpty() || profileKey in s.mutedAuthors ||
+                    entry.reference?.let(contentFilter::hides) == true)
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
@@ -482,22 +499,20 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (activePage && s.loading && !refreshing) item("progress") {
+                        if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (activePage && s.loading))) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             }
                         }
-                        if ((activePage && s.error != null) || (visibleNotes.isEmpty() && (!activePage || !s.loading))) item("status") {
+                        if ((activePage && s.error != null) || (visibleNotes.isEmpty() && !emptyLoading && (hiddenContent || screen == "thread"))) item("status") {
                             Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                val hiddenContent = visibleNotes.isEmpty() && (notes.isNotEmpty() || profileKey in s.mutedAuthors ||
-                                    entry.reference?.let(contentFilter::hides) == true)
                                 val title = when {
                                     activePage && s.error != null -> "Could not load notes"
                                     hiddenContent -> "Notes hidden"
                                     screen == "thread" -> "Post unavailable"
                                     else -> "No notes yet"
                                 }
-                                StatusInfo(title, error = activePage && s.error != null, empty = screen != "thread", hidden = hiddenContent) {
+                                StatusInfo(title, error = activePage && s.error != null, hidden = hiddenContent) {
                                     statusTitle = title
                                     statusReport = readerStatusDetails(if (activePage) s else s.copy(error = null), screen, entry.target, profileTab,
                                         hidden = hiddenContent)

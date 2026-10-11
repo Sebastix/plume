@@ -25,11 +25,9 @@ import androidx.compose.ui.unit.dp
 
 /** Capture diagnostics only on tap; opening the dialog never performs network or disk work. */
 @Composable
-internal fun StatusInfo(title: String, error: Boolean = false, empty: Boolean = false, hidden: Boolean = false, onClick: () -> Unit) {
+internal fun StatusInfo(title: String, error: Boolean = false, hidden: Boolean = false, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
         if (hidden && !error) Icon(painterResource(R.drawable.account_hidden), "Show details: $title", Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        else if (empty && !error) Icon(painterResource(R.drawable.tumbleweed), "Show details: $title", Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant)
         else Icon(if (error) Icons.Default.Warning else Icons.Default.Info, "Show details: $title", Modifier.size(32.dp),
             tint = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)

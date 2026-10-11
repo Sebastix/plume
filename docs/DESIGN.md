@@ -96,7 +96,7 @@ Default timestamps to compact relative age (`5h`, `2d`, `1w`). Tapping cycles fr
 
 ## Loading and link previews
 
-Reserve the feather for identity, never a loading or empty-state indicator. Show a small native spinner for pending content. The system launch screen uses a transparent feather drawable on the current light/dark surface.
+Reserve the feather for identity, never a loading or empty-state indicator. Show a small native spinner for pending content, including background preparation and brief cache/relay handoffs. Leave settled empty feeds quiet; retain tappable diagnostics for errors, unavailable posts, and hidden content. The system launch screen uses a transparent feather drawable on the current light/dark surface.
 
 Animate GIFs with Coil's native image decoders. Stop animation outside the visible window, behind fullscreen media, and when backgrounded. Keep image downloads and decoding in the existing bounded cache pipeline.
 
