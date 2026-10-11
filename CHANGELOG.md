@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Update the Zapstore description to describe Feather’s focus on simplicity and discoverability.
 - Refresh the website with a responsive light/dark design, 18 detailed feature descriptions, evergreen download links, and updated privacy information for posting, image uploads, search, and wallet payments.
 
 ## [0.37.1] - 2026-10-12

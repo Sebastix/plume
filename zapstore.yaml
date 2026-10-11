@@ -4,7 +4,7 @@ release_notes: ./CHANGELOG.md
 name: Feather
 summary: a lightweight android client
 description: |
-  A minimal Nostr reader for Android. Sign in with Amber or another Android signer.
+  A minimal nostr client for Android. Opinionated, lightweight, and fast enough. Feather aims to be pleasant to use with a focus on simplicity and discoverability.
 license: MIT
 website: https://feather.dergigi.com/
 icon: ./zapstore-icon.png
