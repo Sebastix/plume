@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,7 +90,6 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
     AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), modifier = Modifier.align(Alignment.BottomCenter),
         enter = expandVertically(tween(180), expandFrom = Alignment.Bottom), exit = shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
-        val buttonSurface = Modifier.size(RoundControlSize).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
                 BoxWithConstraints(Modifier.widthIn(max = 240.dp).fillMaxWidth().height(48.dp)
@@ -127,38 +127,40 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     }
                 }
             },
-            navigationIcon = {
-                if (home.toolbar) IconButton(onClick = {
-                    scope.launch {
-                        val list = home.feedPage(home.tab).list
-                        if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
-                        home.toolbar = true
-                    }
-                }, modifier = buttonSurface) {
-                    Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
-                } else Spacer(Modifier.size(48.dp))
-            },
-            actions = {
-                if (home.toolbar) IconButton(onClick = {
-                    val key = state.publicKey
-                    if (key == null) accountRequested = true
-                    else navigation.push(ReaderEntry("profile", key))
-                }, modifier = (if (state.publicKey != null) Modifier.size(RoundControlSize) else buttonSurface).semantics { contentDescription = "Account" }) {
-                    val account = state.profiles[state.publicKey]
-                    if (state.publicKey != null) {
-                        CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
-                            lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
-                            Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), ROUND_CONTROL_DP, account?.picture)
-                        }
-                    } else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
-                } else Spacer(Modifier.size(48.dp))
-            },
             expandedHeight = 64.dp,
             windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent,
                 titleContentColor = MaterialTheme.colorScheme.primary,
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )
+    }
+    IconButton(onClick = {
+        val key = state.publicKey
+        if (key == null) accountRequested = true
+        else navigation.push(ReaderEntry("profile", key))
+    }, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp)
+        .size(RoundControlSize).semantics { contentDescription = "Account" }) {
+        Box(Modifier.size(40.dp).clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
+            val account = state.profiles[state.publicKey]
+            if (state.publicKey != null) {
+                CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
+                    lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
+                    Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 40, account?.picture)
+                }
+            } else Icon(Icons.Default.Person, "Log in", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+    FloatingActionButton(onClick = {
+        scope.launch {
+            val list = home.feedPage(home.tab).list
+            if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
+            home.toolbar = true
+        }
+    }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 80.dp),
+        shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
     }
     }
 }
