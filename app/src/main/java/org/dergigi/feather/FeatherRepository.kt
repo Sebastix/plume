@@ -335,6 +335,7 @@ class FeatherRepository(context: Context) {
                     Filter(authors = listOf(key), kinds = listOf(5), limit = 256) +
                     Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(10030), limit = 1) +
+                    Filter(authors = listOf(key), kinds = listOf(10063), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1)
             }
             client.subscribe("account", routes, listener)
@@ -442,7 +443,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
-        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 30030)) || event.content.length > (if (event.kind in listOf(30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030)) || event.content.length > (if (event.kind in listOf(30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
             val cached = verified[event.id]
             if (cached == false || (cached == true && !history)) return cached
@@ -701,7 +702,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -770,6 +771,26 @@ class FeatherRepository(context: Context) {
                 if (active) updateRoutingPool()
             }
         }
+    }
+
+    internal suspend fun blossomServers(owner: String): List<String> = withContext(Dispatchers.IO) {
+        ready.await()
+        val filter = Filter(authors = listOf(owner), kinds = listOf(10063), limit = 1)
+        suspend fun cached() = mutex.withLock { db.query<Event>(filter).maxByOrNull { it.createdAt } }
+        var list = cached()
+        if (list == null) {
+            val relays = (relayLists[owner]?.write.orEmpty() + state.value.relays).distinct()
+            profileQueries.fetch(relays, listOf(filter.toJson())) { event ->
+                event.kind == 10063 && event.pubKey == owner && accept(event)
+            }
+            list = cached()
+        }
+        check(state.value.publicKey == owner) { "Account changed" }
+        val servers = list?.tags.orEmpty().filter { it.firstOrNull() == "server" }
+            .mapNotNull { it.getOrNull(1)?.let(::blossomServer) }.distinct()
+        require(servers.size <= 16) { "Blossom server list exceeds 16 servers" }
+        require(servers.isNotEmpty()) { "No HTTPS Blossom servers found on your profile (kind 10063)." }
+        servers
     }
 
     internal suspend fun reply(draft: ReplyDraft, signer: NostrSignerExternal, signerRequests: SignerRequests, store: ReplyStore) = withContext(Dispatchers.IO) {

@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Place the full-screen composer’s send button at the bottom-right floating-action position, above the keyboard, with content padding to prevent overlap.
 
 ### Added
+- Attach images in post/reply composers with Android’s photo picker; upload to the account’s Blossom servers using signer authorization, mirror across configured servers, and retain successful URLs in drafts with thumbnails/removal controls.
 - Show the feather compose button on other profiles and prefill a Nostr mention, preserving any existing post draft and avoiding duplicate mentions.
 
 ## [0.36.1] - 2026-10-11

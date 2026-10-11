@@ -38,7 +38,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
-        replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
+        imageUploadJob?.cancel(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
         zapJobs.clear(); reactionJobs.clear()
@@ -172,9 +172,41 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private var replyLoadJob: Job? = null
     private var replySaveJob: Job? = null
 
+    internal val imageUploading = MutableStateFlow(false)
+    private var imageUploadJob: Job? = null
+    private val blossom = BlossomUpload(application)
+    internal fun uploadImages(uris: List<android.net.Uri>) {
+        val draft = replyDraft.value ?: return
+        val identity = signer.value ?: return
+        if (replyBusy.value || imageUploading.value || uris.isEmpty() || draft.owner != identity.pubKey) return
+        imageUploading.value = true
+        imageUploadJob = viewModelScope.launch {
+            try {
+                val servers = repo.blossomServers(draft.owner)
+                for (uri in uris.distinct().take(4)) {
+                    check(signer.value === identity) { "Account changed" }
+                    val result = blossom.upload(uri, servers, identity, signerRequests) { url ->
+                        withContext(Dispatchers.Main) {
+                            val latest = replyDraft.value
+                            check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
+                            val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n\n") + url
+                            require(text.length <= 8000) { "Draft is full; uploaded image: $url" }
+                            editReply(text)
+                        }
+                        replySaveJob?.join()
+                    }
+                    if (result.failures.isNotEmpty()) message.value = "Image uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
+                }
+            } catch (e: TimeoutCancellationException) { message.value = "Image upload authorization timed out" }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Image upload: ${e.message ?: e.javaClass.simpleName}" }
+            finally { imageUploading.value = false }
+        }
+    }
+
     internal fun openReply(note: Event? = null, mentionProfile: String? = null) {
         val owner = signer.value?.pubKey ?: return
-        if (replyBusy.value) return
+        if (replyBusy.value || imageUploading.value) return
         replyLoadJob?.cancel()
         replyLoadJob = viewModelScope.launch {
             try {
@@ -207,6 +239,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     internal fun closeReply() {
+        imageUploadJob?.cancel()
         val draft = replyDraft.value
         replyDraft.value = null
         if (draft == null || replyBusy.value) return
@@ -220,7 +253,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal fun sendReply() {
         val draft = replyDraft.value ?: return
         val identity = signer.value ?: return
-        if (replyBusy.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
+        if (replyBusy.value || imageUploading.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
         replyBusy.value = true
         replyJob = viewModelScope.launch {
             try {

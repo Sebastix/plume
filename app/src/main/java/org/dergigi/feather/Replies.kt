@@ -1,6 +1,11 @@
 package org.dergigi.feather
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -160,6 +165,7 @@ private fun mentionTransformation(text: String, labels: Map<String, String>): Vi
 internal fun ReplyComposer(vm: FeatherViewModel) {
     val draft by vm.replyDraft.collectAsStateWithLifecycle()
     val busy by vm.replyBusy.collectAsStateWithLifecycle()
+    val uploading by vm.imageUploading.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val current = draft ?: return
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
@@ -169,6 +175,17 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val focus = remember(current.owner, current.target?.id) { FocusRequester() }
     var editor by remember(current.owner, current.target?.id) { mutableStateOf(TextFieldValue(current.text, TextRange(current.text.length))) }
     var chosenNames by remember(current.owner, current.target?.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
+    LaunchedEffect(current.text) {
+        if (editor.text != current.text) editor = TextFieldValue(current.text, TextRange(current.text.length))
+    }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)) { uris -> vm.uploadImages(uris) }
+    val images by produceState<List<String>>(emptyList(), current.text) {
+        value = withContext(Dispatchers.Default) {
+            Regex("https://[^\\s<>]+", RegexOption.IGNORE_CASE).findAll(current.text).map { it.value }
+                .filter { url -> runCatching { java.net.URI(url).path?.substringAfterLast('.')?.lowercase() in listOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif") }.getOrDefault(false) }
+                .distinct().take(8).toList()
+        }
+    }
     val mention = remember(editor) { mentionInput(editor) }
     var suggestions by remember { mutableStateOf<List<SearchProfile>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -200,7 +217,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val sendButton: @Composable (Modifier) -> Unit = { modifier ->
-        FilledIconButton(onClick = vm::sendReply, enabled = !busy && current.text.isNotBlank(),
+        FilledIconButton(onClick = vm::sendReply, enabled = !busy && !uploading && current.text.isNotBlank(),
             modifier = modifier, shape = CircleShape,
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -217,6 +234,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
+                IconButton(enabled = !busy && !uploading, onClick = {
+                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) {
+                    if (uploading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else Icon(painterResource(R.drawable.photos), "Attach images")
+                }
                 if (current.target != null) sendButton(Modifier.size(48.dp))
             }
             current.target?.let { target ->
@@ -231,6 +254,17 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus).semantics { contentDescription = if (current.target == null) "Post text" else "Reply text" },
                 colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface))
+            if (images.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                images.forEach { url ->
+                    Column {
+                        RemoteImage(url, Modifier.size(88.dp), "Attached image")
+                        IconButton(enabled = !busy, onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
+                            Icon(Icons.Default.Close, "Remove image from post")
+                        }
+                    }
+                }
+            }
             if (searching) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             }
