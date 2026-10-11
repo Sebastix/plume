@@ -480,7 +480,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                             .background(Brush.verticalGradient(listOf(surface.copy(alpha = 0f), surface))))
                                     }
                                 }
-                                Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.padding(start = 24.dp, end = 24.dp,
+                                    top = if (p?.banner != null) 8.dp else 24.dp, bottom = 24.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Avatar(p?.name ?: key, 56, p?.picture, openImage = true)
                                         Spacer(Modifier.width(14.dp))

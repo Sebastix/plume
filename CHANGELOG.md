@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Ignore malformed relay URLs before routing, preventing crashes when relay metadata contains several addresses joined into one.
 
 ### Changed
+- Move profile details 16dp closer to the banner fade.
 - Present articles as a compact reading list with a title, two-line excerpt, optional right-side cover thumbnail, and quiet author/time metadata.
 
 ## [0.30.0] - 2026-10-11
