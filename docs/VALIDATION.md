@@ -599,3 +599,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including release lint and R8. No automated tests or live payments.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,804,150 bytes; SHA-256 `ef95568d3dbedf81ed9010d5b625e624a9f7c8fe8e459dc27427d6f0cc89b350`. Mapping archived locally. Website unchanged.
+
+## Sensitive content default (unreleased)
+
+- Persistent opt-in defaults to false. NIP-36 content-warning tags (including reasonless tags), content-warning labels, NSFW labels/tags, and nsfw/porn/pornography hashtags are hidden by the shared content filter.
+- Feed/profile/detail rendering, embedded references, bookmark targets, media prefetch inputs, and cached photo-grid sources use the filter. Galleries close if a known source becomes hidden. Disabling the setting immediately guards retained content while background preparation updates.
+- Preference writes and feed discovery run on IO; existing media preparation remains on background dispatchers. No classification of untagged content.
+- Debug build passed. No automated tests, release, or website changes. Device checks: tagged photo/video, repost and bookmark of tagged content, toggle on/off, then restart.

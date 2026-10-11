@@ -115,7 +115,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
     }
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
-    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions) }
+    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) }
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
     val scrollScope = rememberCoroutineScope()
@@ -370,11 +370,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     }
                     if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = value
                 }
-                val photoGrid = remember(preparedPhotos, s.mutedAuthors) {
-                    if (s.mutedAuthors.isEmpty()) preparedPhotos else {
-                        val photos = preparedPhotos.rows.flatten().filterNot { it.first.pubKey in s.mutedAuthors }
-                        ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
-                    }
+                val photoGrid = remember(preparedPhotos, contentFilter) {
+                    val photos = preparedPhotos.rows.flatten().filterNot { contentFilter.hides(it.first) }
+                    ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
                 }
                 SideEffect { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
                 val photoRows = photoGrid.rows
@@ -922,6 +920,15 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 FilledTonalIconButton(onClick = onLogout) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Show NSFW content", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = state.showSensitive, onCheckedChange = { show ->
+                scope.launch {
+                    runCatching { (context.applicationContext as FeatherApplication).repository.showSensitive(show) }
+                        .onFailure { android.widget.Toast.makeText(context, "Could not save content setting", android.widget.Toast.LENGTH_LONG).show() }
+                }
+            }, modifier = Modifier.semantics { contentDescription = "Show NSFW and content-warning tagged content" })
         }
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

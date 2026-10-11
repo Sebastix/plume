@@ -11,22 +11,36 @@ internal fun mutedPublicKeys(event: Event?): Set<String> = event?.tags.orEmpty()
     .filter { it.size >= 2 && it[0] == "p" }
     .mapNotNull { Protocol.publicKey(it[1]) }.toSet()
 
+private val sensitiveHashtags = setOf("nsfw", "porn", "pornography")
+
+/** NIP-36 and explicit author-supplied labels; no content guessing or remote classifier. */
+internal fun Event.isSensitive(): Boolean = tags.any { tag ->
+    when (tag.firstOrNull()?.lowercase()) {
+        "content-warning", "nsfw" -> true
+        "t" -> tag.getOrNull(1)?.lowercase() in sensitiveHashtags
+        "l" -> tag.getOrNull(2)?.lowercase() == "content-warning" || tag.getOrNull(1)?.lowercase() == "nsfw"
+        else -> false
+    }
+}
+
 internal data class ContentFilter(
     val authors: Set<String> = emptySet(),
     val embedded: Map<String, Event> = emptyMap(),
     val deletedReactions: Set<Pair<String, String>> = emptySet(),
+    val showSensitive: Boolean = false,
 ) {
     fun hides(reference: NostrContent.Reference): Boolean =
-        reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.pubKey in authors
+        reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.let(::hides) == true
 
     fun hides(event: Event): Boolean {
+        if (!showSensitive && event.isSensitive()) return true
         if (event.kind == 7 && (event.pubKey to event.id) in deletedReactions) return true
         if (event.pubKey in authors) return true
-        if (authors.isEmpty() || event.kind !in listOf(6, 7, 9735, 9321)) return false
+        if (event.kind !in listOf(6, 16, 7, 9735, 9321)) return false
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.
         val author = event.tags.lastOrNull { it.size >= 2 && it[0] == "p" }?.get(1)
         val id = event.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)
-        return author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.pubKey in authors
+        return author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.let { it.pubKey in authors || (!showSensitive && it.isSensitive()) } == true
     }
 }
 internal val LocalContentFilter = staticCompositionLocalOf { ContentFilter() }

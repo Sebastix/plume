@@ -61,7 +61,7 @@ internal fun GalleryHost(album: () -> ProfilePhotos = { ProfilePhotos() }, onOpe
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var sourceNotes by remember { mutableStateOf<List<Event?>>(emptyList()) }
     val filter = LocalContentFilter.current
-    val hiddenSource = sourceNotes.any { it != null && filter.hides(it) } || noteIds.any { filter.embedded[it]?.pubKey in filter.authors }
+    val hiddenSource = sourceNotes.any { it != null && filter.hides(it) } || noteIds.any { id -> filter.embedded[id]?.let(filter::hides) == true }
     LaunchedEffect(hiddenSource) {
         if (hiddenSource) { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() }
     }

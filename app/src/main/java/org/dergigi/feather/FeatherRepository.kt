@@ -53,6 +53,7 @@ data class FeedState(
     val reactionChoices: List<ReactionChoice> = defaultReactions,
     val customEmojis: List<ReactionChoice> = emptyList(),
     val mutedAuthors: Set<String> = emptySet(),
+    val showSensitive: Boolean = false,
     val pendingMuteList: Event? = null,
     val publicKey: String? = null,
     val signerPackage: String? = null,
@@ -84,8 +85,15 @@ class FeatherRepository(context: Context) {
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
     @Volatile private var engagementIds: List<String> = emptyList()
     private val _state = MutableStateFlow(FeedState(
+        showSensitive = prefs.getBoolean("show-sensitive", false),
         publicKey = prefs.getString("pubkey", null)?.takeIf { !prefs.getString("signer", null).isNullOrBlank() }, signerPackage = prefs.getString("signer", null)?.takeIf { it.isNotBlank() },
     ))
+    suspend fun showSensitive(show: Boolean) = withContext(Dispatchers.IO) {
+        check(prefs.edit().putBoolean("show-sensitive", show).commit()) { "Could not save content setting" }
+        _state.update { it.copy(showSensitive = show) }
+        feedDiscoveryAt = 0L
+        changed.tryEmit(Unit)
+    }
     val state: StateFlow<FeedState> = _state.asStateFlow()
     private val client = NostrClient(RelayTransport(), scope)
     private val ready = CompletableDeferred<Unit>()
@@ -380,7 +388,7 @@ class FeatherRepository(context: Context) {
             val discoveredFeed = mutex.withLock {
                 db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() })
             }
-            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded)
+            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
             val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(::reactionDeleted).filterNot(feedFilter::hides)
             feedDiscoveryPages = ProfileTab.entries.associateWith { candidate -> discoveryEvents.filter(candidate::matchesFeed) }
             feedDiscoveryKey = discoveryKey
@@ -427,7 +435,7 @@ class FeatherRepository(context: Context) {
         val hashtagNotes = hashtag?.let { tag ->
             timeline(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
         }.orEmpty()
-        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded)
+        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
         val readingPool = (threadNotes + hashtagNotes + profileEvents + all).filterNot(contentFilter::hides).distinctBy { it.id }
         val visible = visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
             if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.filter(feed::matchesFeed).take(12)

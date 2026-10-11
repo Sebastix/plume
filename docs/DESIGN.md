@@ -155,3 +155,7 @@ The full reaction picker automatically reads the connected account’s public ki
 A wallet icon in settings opens a minimal Nostr Wallet Connect sheet. Paste a connection, verify payment permission, and store it encrypted with Android Keystore. The connection is device-scoped and stays connected across identity logout; only Disconnect removes it. The sheet explains that post bolts send 21 sats. A missing wallet opens setup without paying automatically.
 
 An explicit bolt tap signs a public NIP-57 request through the Android signer and pays exactly 21 sats through NWC. No amount editor, balance polling, or automatic payment retries. Serialize signer actions and payments. Verify the invoice amount, checksum, expiry, request-description hash, and payment-preimage hash before reporting success. Persist the invoice before sending; after interruption, check that same invoice with the wallet instead of creating another payment. Keep the network engagement count driven by receipts. Wallet I/O and cryptography run on IO.
+
+### Sensitive content
+
+Hide author-marked sensitive content by default, including media grids, embeds, reposts, and bookmarks. Honor NIP-36 content warnings even without a reason, content-warning labels, and explicit NSFW tags. Settings may offer a clearly labeled “Show NSFW content” switch, off by default; this exceptional preference needs visible text to make its meaning unambiguous. Do not infer safety from missing tags or add a remote classifier.
