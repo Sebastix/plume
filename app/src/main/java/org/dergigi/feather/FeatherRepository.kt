@@ -264,7 +264,15 @@ class FeatherRepository(context: Context) {
         val s = _state.value
         discoverRelays()
         s.publicKey?.let { key ->
-            val routes = authorFilters(listOf(key), listOf(0, 3), 2).mapValues { (_, filters) ->
+            val accountRoutes = authorFilters(listOf(key), listOf(0), 1)
+            // Following is essential to the home feed. Request it independently from metadata,
+            // including existing bootstrap relays that may have it when write relays do not.
+            val contactRelays = (accountRoutes.keys + s.relays.map { it.normalizeRelayUrl() } +
+                routingPool.filter { it == "wss://purplepag.es" }.map { it.normalizeRelayUrl() }).distinct()
+            client.subscribe("contacts", contactRelays.associateWith {
+                listOf(Filter(authors = listOf(key), kinds = listOf(3), limit = 1))
+            }, listener)
+            val routes = accountRoutes.mapValues { (_, filters) ->
                 filters + Filter(authors = listOf(key), kinds = listOf(7), limit = 200) +
                     Filter(authors = listOf(key), kinds = listOf(5), limit = 256) +
                     Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
@@ -273,7 +281,7 @@ class FeatherRepository(context: Context) {
             }
             client.subscribe("account", routes, listener)
         }
-            ?: client.unsubscribe("account")
+            ?: run { client.unsubscribe("account"); client.unsubscribe("contacts") }
         val authors = s.publicKey?.let { (listOf(it) + s.following).take(1000) }
         client.subscribe("feed", authorFilters(authors, selectedFeed.feedKinds(), 80), listener)
         val discovery = authorFilters(authors, profileKinds, 8).mapValues { (_, filters) ->

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Fetch the signed-in account’s follow list independently from profile metadata, using existing account and bootstrap relays so a missing contact list does not leave the main feed showing only the account’s own posts.
+
 ### Changed
 - Standardize round toolbar, login, and settings controls at 48dp, with a matching borderless top-right account avatar.
 
