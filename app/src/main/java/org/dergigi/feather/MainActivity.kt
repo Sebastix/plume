@@ -152,7 +152,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         }
     }
     val transparentToolbar = screen == "feed" || toolbarOverBanner
-    val toolbarButtonSurface = if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier
+    val toolbarButtonSurface = Modifier.size(RoundControlSize).then(if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier)
     fun selectProfileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         profileTab = tab
@@ -269,9 +269,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, actions = {
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
-                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier else toolbarButtonSurface).semantics { contentDescription = "Account" }) {
+                    IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
-                        if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), 36, account?.picture)
+                        if (s.publicKey != null) Avatar(account?.name ?: FeatherRepository.shortKey(s.publicKey!!), ROUND_CONTROL_DP, account?.picture)
                         else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                     }
                 }
@@ -616,18 +616,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     Text(profile?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }) { Icon(Icons.Default.Person, "View your profile") }
+                        FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.Default.Person, "View your profile") }
                         IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account") }
                     }
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
-                        FilledTonalIconButton(onClick = { showAccount = false; showSettings = true }, modifier = Modifier.size(56.dp)) {
+                        FilledTonalIconButton(onClick = { showAccount = false; showSettings = true }, modifier = Modifier.size(RoundControlSize)) {
                             Icon(Icons.Default.Settings, "Settings", Modifier.size(28.dp))
                         }
                         FilledTonalIconButton(onClick = {
                             try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                             catch (_: Exception) { error = "Install an Android signer such as Amber first." }
-                        }, modifier = Modifier.size(56.dp)) {
+                        }, modifier = Modifier.size(RoundControlSize)) {
                             Icon(painterResource(R.drawable.login), "Log in with an Android signer", Modifier.size(28.dp))
                         }
                     }
@@ -920,8 +920,8 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 Avatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
                 Text(profile?.name ?: FeatherRepository.shortKey(key), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                FilledTonalIconButton(onClick = onWallet) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
-                FilledTonalIconButton(onClick = onLogout) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
+                FilledTonalIconButton(onClick = onWallet, modifier = Modifier.size(RoundControlSize)) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
+                FilledTonalIconButton(onClick = onLogout, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }

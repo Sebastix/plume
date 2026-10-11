@@ -88,7 +88,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
     AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
-        val buttonSurface = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
+        val buttonSurface = Modifier.size(RoundControlSize).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
                 BoxWithConstraints(Modifier.widthIn(max = 240.dp).fillMaxWidth().height(48.dp)
@@ -142,12 +142,12 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     val key = state.publicKey
                     if (key == null) accountRequested = true
                     else navigation.push(ReaderEntry("profile", key))
-                }, modifier = (if (state.publicKey != null) Modifier else buttonSurface).semantics { contentDescription = "Account" }) {
+                }, modifier = (if (state.publicKey != null) Modifier.size(RoundControlSize) else buttonSurface).semantics { contentDescription = "Account" }) {
                     val account = state.profiles[state.publicKey]
                     if (state.publicKey != null) {
                         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
                             lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
-                            Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 36, account?.picture)
+                            Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), ROUND_CONTROL_DP, account?.picture)
                         }
                     } else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
                 } else Spacer(Modifier.size(48.dp))
