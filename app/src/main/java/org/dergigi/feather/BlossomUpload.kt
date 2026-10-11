@@ -63,7 +63,8 @@ internal class BlossomUpload(private val context: Context) {
             val auth = requests.run { withTimeout(180_000) { signer.sign<Event>(now, 24242, tags, content) } }
             require(auth.pubKey == signer.pubKey && auth.kind == 24242 && auth.createdAt == now &&
                 auth.content == content && auth.tags.contentDeepEquals(tags) && auth.verify()) { "Invalid Blossom upload authorization" }
-            val token = "Nostr " + Base64.encodeToString(auth.toJson().toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+            // Deployed Blossom servers decode standard padded Base64 (without line breaks).
+            val token = "Nostr " + Base64.encodeToString(auth.toJson().toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
             var first: String? = null
             val failures = mutableListOf<String>()
             for (server in servers) {
@@ -95,8 +96,17 @@ internal class BlossomUpload(private val context: Context) {
         val call = http.newCall(request)
         call.timeout().timeout(if (path == "mirror") 15 else 90, TimeUnit.SECONDS)
         return call.awaitUpload().use { response ->
-            if (!response.isSuccessful) throw BlossomHttpFailure(response.code,
-                "HTTP ${response.code}${response.header("X-Reason")?.let { ": ${walletErrorText(it)}" }.orEmpty()}")
+            if (!response.isSuccessful) {
+                val reason = response.header("X-Reason")?.takeIf { it.isNotBlank() }
+                    ?: response.peekBody(4096).string().let { raw ->
+                        val json = runCatching { JSONObject(raw) }.getOrNull()
+                        json?.optString("message")?.takeIf { it.isNotBlank() }
+                            ?: json?.optString("error")?.takeIf { it.isNotBlank() }
+                            ?: raw.takeUnless { it.trimStart().startsWith("<") }
+                    }
+                val detail = reason?.let(::walletErrorText)?.takeIf { it.isNotBlank() }
+                throw BlossomHttpFailure(response.code, "HTTP ${response.code}${detail?.let { ": $it" }.orEmpty()}")
+            }
             val source = response.body.source()
             source.request(32769)
             require(source.buffer.size <= 32768) { "Upload response too large" }

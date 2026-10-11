@@ -287,6 +287,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 if (detailNote != null) IconButton(onClick = {
                     val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
                         com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
+                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(detailNote.id, detailNote.pubKey, detailNote.kind, relay = null)
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:$pointer"))
+                }, modifier = toolbarButtonSurface) { Icon(painterResource(R.drawable.copy), "Copy Nostr reference", Modifier.size(20.dp)) }
+                if (detailNote != null) IconButton(onClick = {
+                    val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
+                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
                     } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(detailNote.id)
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"

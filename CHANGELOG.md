@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-10-12
+
+### Fixed
+- Encode Blossom upload authorization using standard padded Base64 for compatibility with Haven and Primal; include bounded server error details when uploads fail.
+
+### Added
+- Copy a `nostr:naddr` reference from addressable-event details, or `nostr:nevent` for regular notes, beside the share action.
+
 ## [0.37.0] - 2026-10-11
 
 ### Changed
