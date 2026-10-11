@@ -775,3 +775,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Mention identity icons reuse bounded background verification and its cache; no network work on the UI thread.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 15,028,719 bytes; SHA-256 `7e6dd90a1eb7e4dccca55ae9414892094dea83cdd878fa7566608a7e490cbfad`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.36.0 release
+
+- Version 0.36.0 (69), source commit `fa0bc6117fd798461d726e2406a0f598fefa7a42`. Full-screen kind-1 composition from the feather button, article share/engagement actions, primary send button, reply alignment, and history-only zap choices when available.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or live device/publishing checks.
+- New posts reuse account-scoped drafts, Vertex mentions, client attribution, signature verification, and persisted exact-event retries. Signer activity handling is shared at the app root for all main-feed pages.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 15,028,719 bytes; SHA-256 `a6309cdad5d985dce6cb25f39234a69915fc2ad3513ae79700bea59a207f693e`. Mapping archived locally. Website unchanged.
