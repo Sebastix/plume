@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-10-11
+
 ### Added
 - Subtle settings footer with version and build commit, linking to the GitHub release and commit respectively.
 
