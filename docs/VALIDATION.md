@@ -661,3 +661,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Separate kind-3 contact subscription (one author, one latest event per relay) from kind-0 metadata so metadata cannot consume the shared response limit. Reuse selected account routes, existing base relays, and the metadata relay when already in the pool. No added relay connections or routing-priority changes.
 - Existing cached contact query and following-change handling rebuild the feed when contacts arrive. Empty signed lists remain valid; logout removes the contact subscription.
 - Debug build and diff check passed. No automated tests or live device login checks.
+
+## 2026-10-11 — 0.27.2 release
+
+- Version 0.27.2 (56), source commit `88008ba26ee7d46b651703eaf7fcd7a07133855a`. Dedicated account follow-list requests and consistent round control/avatar sizing.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or device login checks.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,948,311 bytes; SHA-256 `deb1762f0c1a26155aefb0fa9404e406b0e05b5e79b1c6fb5312e5872cae6bf2`. Mapping archived locally. Website unchanged.
