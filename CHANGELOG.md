@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Show NIP-05 instead of the profile username when present, with background verification: green check for a matching identity, double check for a root identity, warning for invalid claims, and copyable verification details.
+
 ## [0.30.1] - 2026-10-11
 
 ### Fixed

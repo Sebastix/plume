@@ -163,3 +163,9 @@ Hide author-marked sensitive content by default, including media grids, embeds, 
 ### NIP-22 comments
 
 Read kind-1111 comments alongside kind-1 replies. Lowercase e/a/i tags identify the immediate parent; uppercase root-scope tags must not be treated as direct replies. Resolve event and article parents through the existing bounded cache and relay pipeline; external HTTPS scopes open in the system handler. Keep comment content as plain text with the existing rich reference/media rendering. Include comments in engagement counts and bound stored comments to 2,000 events. This adds reading support only.
+
+### Profile internet identities
+
+Keep the display name as the profile heading. Prefer NIP-05 over the secondary username when supplied, displaying root `_@domain` claims as just the domain. A matching domain record gets a green check; matching root identities get a double check. Invalid claims get a warning. Pending lookups use a small spinner; network/server unavailability stays neutral and never implies a key mismatch. Tapping opens copyable verification details.
+
+Check only visible foreground profile headers, independently of relay loading. NIP-05 requests use HTTPS, reject redirects and non-public network addresses, and match the names record against the exact profile public key. Bound responses to 256 KiB, calls to eight seconds, concurrent requests to two, and memory to 256 identity/key results; expire valid results after six hours, invalid results after fifteen minutes, and unavailable results after one minute. Cancel requests when the header leaves the viewport. No relay changes, feed-wide verification, new dependencies, or configuration.

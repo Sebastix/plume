@@ -33,7 +33,7 @@ class FeatherApplication : Application() {
     internal val timestamps by lazy { TimestampPreference(this) }
 }
 
-data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null, val aboutTokens: List<NostrContent.Token> = emptyList())
+data class Profile(val name: String, val about: String = "", val picture: String? = null, val username: String? = null, val banner: String? = null, val lightning: String? = null, val aboutTokens: List<NostrContent.Token> = emptyList(), val nip05: String? = null)
 data class FeedState(
     val notes: List<Event> = emptyList(),
     val feedTab: ProfileTab = ProfileTab.POSTS,
@@ -509,6 +509,7 @@ class FeatherRepository(context: Context) {
                 listOf("banner", "cover", "header").firstNotNullOfOrNull { field -> MediaContent.secureUrl(data?.optString(field)?.trim()) },
                 data?.optString("lud16")?.takeIf { it.isNotBlank() } ?: data?.optString("lud06")?.takeIf { it.isNotBlank() },
                 NostrContent.tokens(about, event),
+                (data?.opt("nip05") as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(512),
             )
         }
         val counts = countTargets.associate { target ->

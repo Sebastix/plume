@@ -491,7 +491,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                            p?.username?.takeIf { it != p.name }?.let {
+                                            if (!p?.nip05.isNullOrBlank()) Nip05Identity(p!!.nip05!!, key)
+                                            else p?.username?.takeIf { it != p.name }?.let {
                                                 Text("@$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
