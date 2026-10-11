@@ -16,6 +16,7 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 internal const val DEFAULT_ZAP_SATS = 21L
+internal data class WalletDetails(val name: String? = null, val balanceSats: Long? = null)
 internal fun sha256(value: ByteArray) = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
 
 /** Decode the BOLT11 hash tags after checksum/amount validation. Wallet verifies the invoice signature. */
@@ -62,6 +63,21 @@ internal fun invoiceHash(invoice: String, field: Char): String {
 
 internal class ZapWallet(context: Context) {
     val store = WalletStore(context)
+    suspend fun details(onDetails: (WalletDetails) -> Unit) = withContext(Dispatchers.IO) {
+        val connection = store.connection() ?: return@withContext
+        try {
+            val info = NwcWallet.request(connection, "get_info", JSONObject())
+            val name = info.optString("alias").filterNot { it.isISOControl() }.trim().take(80).takeIf { it.isNotBlank() }
+            val details = WalletDetails(name)
+            onDetails(details)
+            val methods = info.optJSONArray("methods")
+            if (methods != null && (0 until methods.length()).any { methods.optString(it) == "get_balance" }) {
+                val balance = NwcWallet.request(connection, "get_balance", JSONObject()).getLong("balance")
+                require(balance >= 0)
+                onDetails(details.copy(balanceSats = balance / 1000))
+            }
+        } finally { connection.secret.fill(0) }
+    }
     private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
     private fun get(url: String): JSONObject {

@@ -16,6 +16,14 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val wallet = ZapWallet(application)
     val walletBusy = MutableStateFlow(false)
     val walletError = MutableStateFlow<String?>(null)
+    internal val walletDetails = MutableStateFlow(WalletDetails())
+    internal suspend fun refreshWalletDetails() {
+        walletDetails.value = WalletDetails()
+        try { wallet.details { walletDetails.value = it } }
+        catch (_: TimeoutCancellationException) { /* Optional metadata must not interrupt wallet use. */ }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { /* Keep any available name; omit unavailable balances. */ }
+    }
     val zapping = MutableStateFlow<String?>(null)
     private var zapJob: Job? = null
     fun connectWallet(raw: String) {
@@ -31,7 +39,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         if (walletBusy.value || zapping.value != null) return
         walletBusy.value = true
         viewModelScope.launch(Dispatchers.IO) {
-            try { wallet.store.disconnect(); walletError.value = null }
+            try { wallet.store.disconnect(); walletDetails.value = WalletDetails(); walletError.value = null }
             catch (_: Exception) { walletError.value = "Could not disconnect wallet" }
             finally { walletBusy.value = false }
         }

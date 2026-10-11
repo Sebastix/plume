@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Show the connected wallet's name and balance when permitted, loaded in the background when opening its sheet.
 - Confirm successful zaps with a golden zap icon instead of a toast; retain confirmed status per account across restarts.
 
 ### Fixed
