@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-11
+
 ### Fixed
 - Remove the tumbleweed. Show a spinner while preparing an empty view or waiting for content, allow brief relay/cache handoffs to settle, and leave genuinely empty feeds quiet. Keep error and hidden-content details.
 
@@ -305,7 +307,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/dergigi/feather/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/dergigi/feather/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/dergigi/feather/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/dergigi/feather/compare/v0.13.0...v0.14.0
