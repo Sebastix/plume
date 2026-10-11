@@ -1,6 +1,10 @@
 package org.dergigi.feather
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
@@ -137,14 +141,15 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )
     }
-    AnimatedVisibility(home.toolbar, modifier = Modifier.align(Alignment.TopEnd),
-        enter = slideInVertically(tween(220)) { -it }, exit = slideOutVertically(tween(180)) { -it }) {
+    AnimatedVisibility(home.toolbar,
+        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
+        enter = scaleIn(tween(220), initialScale = 0.1f) + fadeIn(tween(220)),
+        exit = scaleOut(tween(180), targetScale = 0.1f) + fadeOut(tween(180))) {
     IconButton(onClick = {
         val key = state.publicKey
         if (key == null) accountRequested = true
         else navigation.push(ReaderEntry("profile", key))
-    }, modifier = Modifier.statusBarsPadding().padding(top = 8.dp, end = 12.dp)
-        .size(RoundControlSize).semantics {
+    }, modifier = Modifier.size(RoundControlSize).semantics {
             contentDescription = "Account"
             stateDescription = if (state.publicKey != null && walletConnected) "Wallet connected" else "Wallet not connected"
         }) {

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Shrink and fade the home avatar to a dot when hiding, reversing the animation when it returns.
+
 ## [0.28.2] - 2026-10-11
 
 ### Changed
