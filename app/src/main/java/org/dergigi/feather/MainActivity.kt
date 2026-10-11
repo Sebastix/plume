@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FeatherTheme { FeatherApp(); PreviousCrashDialog() }
+            FeatherTheme { FeatherApp(window); PreviousCrashDialog() }
         }
     }
     override fun onStart() { super.onStart(); repo.foreground() }
@@ -92,9 +92,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun FeatherApp(vm: FeatherViewModel = viewModel()) {
+fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) {
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
     val entry = navigation.current
+    if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else FeatherReader(vm, navigation, entry)
 }

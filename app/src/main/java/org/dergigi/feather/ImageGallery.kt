@@ -31,6 +31,8 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -151,6 +153,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     }
     LaunchedEffect(pager.currentPage) { zoomed = false; onPage(pager.currentPage) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        HidePhotoStatusBar((LocalView.current.parent as DialogWindowProvider).window)
         Box(Modifier.fillMaxSize().background(colors[background])) {
             HorizontalPager(state = pager, userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(vertical = 56.dp)) { page ->
                 ZoomableGalleryImage(urls[page], page == pager.currentPage) { if (page == pager.currentPage) zoomed = it }
