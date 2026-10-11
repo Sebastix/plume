@@ -191,15 +191,14 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
     FloatingActionButton(onClick = {
-        scope.launch {
-            val list = home.feedPage(home.tab).list
-            if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
-            home.toolbar = true
-        }
+        if (state.publicKey == null) {
+            if (home.tab == ProfileTab.SEARCH) scope.launch { pager.animateScrollToPage(tabs.indexOf(ProfileTab.POSTS)) }
+            accountRequested = true
+        } else vm.openReply()
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
         .graphicsLayer { alpha = featherAlpha.value },
         shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
+        Icon(painterResource(R.drawable.feather), "Create post", Modifier.size(32.dp), tint = Color.Unspecified)
     }
     }
 }

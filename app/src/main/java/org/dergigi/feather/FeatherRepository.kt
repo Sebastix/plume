@@ -777,11 +777,11 @@ class FeatherRepository(context: Context) {
         val author = draft.owner
         val target = draft.target
         require(state.value.publicKey == author && signer.pubKey == author) { "Account changed" }
-        require(target.kind in readableKinds && draft.text.isNotBlank() && draft.text.length <= 8000)
+        require((target == null || target.kind in readableKinds) && draft.text.isNotBlank() && draft.text.length <= 8000)
         val saved = store.signed(draft)
         val signed = saved ?: run {
-            val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy).orEmpty()
-            val (kind, threadTags) = replyTags(target, hint)
+            val hint = target?.let { relayLists[it.pubKey]?.write?.firstOrNull(::healthy) }.orEmpty()
+            val (kind, threadTags) = target?.let { replyTags(it, hint) } ?: (1 to emptyArray<Array<String>>())
             val participants = threadTags.filter { it.firstOrNull() == "p" }.mapNotNull { it.getOrNull(1) }.toSet()
             val mentions = replyMentions(draft.text).filter { it !in participants }.map { arrayOf("p", it) }
             val tags = threadTags + mentions.toTypedArray() + arrayOf(arrayOf("client", "Feather"))
@@ -790,27 +790,27 @@ class FeatherRepository(context: Context) {
                 check(state.value.publicKey == author) { "Account changed" }
                 withTimeout(180_000) { signer.sign<Event>(now, kind, tags, draft.text) }
             }.also {
-                require(it.createdAt == now && it.kind == kind && it.tags.contentDeepEquals(tags)) { "Signer changed the reply" }
+                require(it.createdAt == now && it.kind == kind && it.tags.contentDeepEquals(tags)) { "Signer changed the post" }
             }
         }
-        require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (target.kind == 1) 1 else 1111) &&
-            replyTarget(signed) == target.id && signed.verify()) { "Invalid signed reply" }
+        require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (target == null || target.kind == 1) 1 else 1111) &&
+            replyTarget(signed) == target?.id && signed.verify()) { "Invalid signed post" }
         check(state.value.publicKey == author) { "Account changed" }
         store.saveSigned(draft, signed)
         withTimeout(15_000) { foregroundActive.first { it } }
         check(state.value.publicKey == author) { "Account changed" }
-        publishingAuthor = target.pubKey
+        publishingAuthor = target?.pubKey ?: author
         try {
             updateRoutingPool()
             client.connect()
             val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                relayLists[target.pubKey]?.read.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
+                target?.let { relayLists[it.pubKey]?.read }.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
             check(routes.isNotEmpty()) { "No relay available. Draft saved." }
             check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
-                "No relay confirmed the reply. Draft saved; send again to retry the same event."
+                "No relay confirmed the post. Draft saved; send again to retry the same event."
             }
             accept(signed)
-            _state.update { if (it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
+            _state.update { if (target != null && it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
         } finally {
             publishingAuthor = null
             if (active) updateRoutingPool()

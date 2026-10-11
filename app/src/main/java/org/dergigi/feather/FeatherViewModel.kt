@@ -172,7 +172,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private var replyLoadJob: Job? = null
     private var replySaveJob: Job? = null
 
-    internal fun openReply(note: Event) {
+    internal fun openReply(note: Event? = null) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value) return
         replyLoadJob?.cancel()
@@ -182,7 +182,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val draft = withContext(Dispatchers.IO) { replyStore.load(owner, note) }
                 if (signer.value?.pubKey == owner) replyDraft.value = draft
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Could not open reply: ${e.message}" }
+            catch (e: Exception) { message.value = "Could not open composer: ${e.message}" }
         }
     }
     internal fun editReply(text: String) {
@@ -194,7 +194,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             delay(300)
             try { withContext(Dispatchers.IO) { replyStore.save(draft) } }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Could not save reply draft: ${e.message}" }
+            catch (e: Exception) { message.value = "Could not save draft: ${e.message}" }
         }
     }
     internal fun closeReply() {
@@ -205,7 +205,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         replySaveJob = viewModelScope.launch {
             try { withContext(Dispatchers.IO) { replyStore.save(draft) } }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Could not save reply draft: ${e.message}" }
+            catch (e: Exception) { message.value = "Could not save draft: ${e.message}" }
         }
     }
     internal fun sendReply() {
@@ -219,10 +219,10 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 withContext(Dispatchers.IO) { replyStore.save(draft) }
                 repo.reply(draft, identity, signerRequests, replyStore)
                 withContext(Dispatchers.IO) { replyStore.complete(draft) }
-                if (replyDraft.value?.target?.id == draft.target.id && replyDraft.value?.owner == draft.owner) replyDraft.value = null
-            } catch (_: TimeoutCancellationException) { message.value = "Reply not confirmed. Your draft is saved; send again to retry." }
+                if (replyDraft.value?.target?.id == draft.target?.id && replyDraft.value?.owner == draft.owner) replyDraft.value = null
+            } catch (_: TimeoutCancellationException) { message.value = "Publication not confirmed. Your draft is saved; send again to retry." }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Reply: ${e.message ?: e.javaClass.simpleName}" }
+            catch (e: Exception) { message.value = "Publish: ${e.message ?: e.javaClass.simpleName}" }
             finally { replyBusy.value = false }
         }
     }

@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,14 +39,14 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
 
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
-internal data class ReplyDraft(val owner: String, val target: Event, val text: String = "")
+internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "")
 
 /** Private local drafts and exact signed retries, bounded and accessed only on IO. */
 internal class ReplyStore(context: Context) {
     private val drafts = context.getSharedPreferences("reply-drafts", Context.MODE_PRIVATE)
     private val pending = context.getSharedPreferences("reply-pending", Context.MODE_PRIVATE)
-    private fun key(owner: String, target: Event) = "$owner:${target.id}"
-    @Synchronized fun load(owner: String, target: Event): ReplyDraft = ReplyDraft(owner, target,
+    private fun key(owner: String, target: Event?) = "$owner:${target?.id ?: "post"}"
+    @Synchronized fun load(owner: String, target: Event?): ReplyDraft = ReplyDraft(owner, target,
         drafts.getString(key(owner, target), "").orEmpty().take(8000))
     @Synchronized fun save(draft: ReplyDraft) {
         val key = key(draft.owner, draft.target)
@@ -164,9 +166,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val foreground = lifecycle.isAtLeast(Lifecycle.State.STARTED)
     val media = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
-    val focus = remember(current.owner, current.target.id) { FocusRequester() }
-    var editor by remember(current.owner, current.target.id) { mutableStateOf(TextFieldValue(current.text, TextRange(current.text.length))) }
-    var chosenNames by remember(current.owner, current.target.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val focus = remember(current.owner, current.target?.id) { FocusRequester() }
+    var editor by remember(current.owner, current.target?.id) { mutableStateOf(TextFieldValue(current.text, TextRange(current.text.length))) }
+    var chosenNames by remember(current.owner, current.target?.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
     val mention = remember(editor) { mentionInput(editor) }
     var suggestions by remember { mutableStateOf<List<SearchProfile>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -192,14 +194,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val transform = remember(current.text, labels) { mentionTransformation(current.text, labels) }
-    val preview by produceState("", current.target.id) {
+    val preview by produceState("", current.target?.id) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            current.target.content.withoutObjectMarkers().take(500)
+            current.target?.content?.withoutObjectMarkers()?.take(500).orEmpty()
         }
     }
-    ModalBottomSheet(onDismissRequest = vm::closeReply,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface) {
+    val composer: @Composable () -> Unit = {
         CopyableMessageHost()
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, foreground, null)) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
@@ -213,17 +213,19 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary)) {
                     if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
-                    else Icon(Icons.AutoMirrored.Filled.Send, "Send reply")
+                    else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
                 }
             }
-            val profile = state.profiles[current.target.pubKey]
-            Text(profile?.name ?: FeatherRepository.shortKey(current.target.pubKey), style = MaterialTheme.typography.titleSmall)
-            Text(preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            current.target?.let { target ->
+                val profile = state.profiles[target.pubKey]
+                Text(profile?.name ?: FeatherRepository.shortKey(target.pubKey), style = MaterialTheme.typography.titleSmall)
+                Text(preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
             }, visualTransformation = transform, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus).semantics { contentDescription = "Reply text" },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus).semantics { contentDescription = if (current.target == null) "Post text" else "Reply text" },
                 colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface))
             if (searching) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -264,6 +266,18 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             } }
         }
         }
-        LaunchedEffect(current.owner, current.target.id) { focus.requestFocus() }
+        LaunchedEffect(current.owner, current.target?.id) { focus.requestFocus() }
+    }
+    if (current.target == null) {
+        Dialog(onDismissRequest = vm::closeReply,
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding()) { composer() }
+            }
+        }
+    } else {
+        ModalBottomSheet(onDismissRequest = vm::closeReply,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface) { composer() }
     }
 }

@@ -95,6 +95,29 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) {
+    val connectedSigner by vm.signer.collectAsStateWithLifecycle()
+    val signerScope = rememberCoroutineScope()
+    val message by vm.message.collectAsStateWithLifecycle()
+    LaunchedEffect(message) { message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
+    val reactionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode != android.app.Activity.RESULT_OK || data == null || data.getBooleanExtra("rejected", false))
+            vm.cancelSignerRequest("Signer request cancelled.")
+        else vm.signerResponse(data)
+    }
+    DisposableEffect(connectedSigner, reactionLauncher) {
+        val signer = connectedSigner
+        val launch: (Intent) -> Unit = { intent ->
+            signerScope.launch {
+                if (vm.signer.value === signer && vm.signerRequests.active) {
+                    try { reactionLauncher.launch(intent) }
+                    catch (_: Exception) { vm.cancelSignerRequest("Could not open your signer. Please try again.") }
+                }
+            }
+        }
+        signer?.registerForegroundLauncher(launch)
+        onDispose { signer?.unregisterForegroundLauncher(launch) }
+    }
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
     val entry = navigation.current
     if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
@@ -108,7 +131,6 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
 internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, activePage: Boolean = true, homeToolbar: ReaderEntry? = null,
     accountRequested: Boolean = false, onAccountHandled: () -> Unit = {}) {
     val s by vm.state.collectAsStateWithLifecycle()
-    val message by vm.message.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
     val composingReply by vm.replyDraft.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
@@ -207,25 +229,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         destination.notes[ProfileTab.POSTS] = listOf(note)
         navigation.push(destination); activate(navigation.current, note)
     }
-    val reactionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val data = result.data
-        if (result.resultCode != android.app.Activity.RESULT_OK || data == null || data.getBooleanExtra("rejected", false))
-            vm.cancelSignerRequest("Signer request cancelled.")
-        else vm.signerResponse(data)
-    }
-    DisposableEffect(connectedSigner, reactionLauncher, activePage) {
-        val signer = connectedSigner
-        val launch: (Intent) -> Unit = { intent ->
-            scrollScope.launch {
-                if (vm.signer.value === signer && vm.signerRequests.active) {
-                    try { reactionLauncher.launch(intent) }
-                    catch (_: Exception) { vm.cancelSignerRequest("Could not open your signer. Please try again.") }
-                }
-            }
-        }
-        if (activePage) signer?.registerForegroundLauncher(launch)
-        onDispose { if (activePage) signer?.unregisterForegroundLauncher(launch) }
-    }
     val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         val data = it.data
         if (it.resultCode == RESULT_OK && data != null) {
@@ -238,7 +241,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
         if (activePage) vm.loadMutes(s.pendingMuteList)
     }
-    LaunchedEffect(message, activePage) { if (activePage) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(entry.key, activePage) { if (activePage) activate(entry) }
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
