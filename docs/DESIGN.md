@@ -159,3 +159,7 @@ An explicit bolt tap signs a public NIP-57 request through the Android signer an
 ### Sensitive content
 
 Hide author-marked sensitive content by default, including media grids, embeds, reposts, and bookmarks. Honor NIP-36 content warnings even without a reason, content-warning labels, and explicit NSFW tags. Settings offers an 18+ icon beside the opt-in switch, off by default, with an accessible description explaining that it enables NSFW and content-warning tagged content. Do not infer safety from missing tags or add a remote classifier.
+
+### NIP-22 comments
+
+Read kind-1111 comments alongside kind-1 replies. Lowercase e/a/i tags identify the immediate parent; uppercase root-scope tags must not be treated as direct replies. Resolve event and article parents through the existing bounded cache and relay pipeline; external HTTPS scopes open in the system handler. Keep comment content as plain text with the existing rich reference/media rendering. Include comments in engagement counts and bound stored comments to 2,000 events. This adds reading support only.

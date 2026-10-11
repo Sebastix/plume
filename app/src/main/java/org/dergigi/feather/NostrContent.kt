@@ -64,6 +64,29 @@ object NostrContent {
     }
 
     fun replyReference(event: Event): Reference? {
+        if (event.kind == 1111) {
+            // NIP-22 lowercase tags identify the immediate parent; uppercase tags are root scope.
+            val address = event.tags.firstOrNull { it.size >= 2 && it[0] == "a" }
+            if (address != null) runCatching {
+                val parts = address[1].split(':', limit = 3)
+                require(parts.size == 3)
+                val kind = parts[0].toInt()
+                val author = Protocol.publicKey(parts[1]) ?: return@runCatching null
+                val relay = address.getOrNull(2)?.let(Protocol::relay)
+                Reference(address[1], author = author, kind = kind, relays = listOfNotNull(relay),
+                    external = NAddress.create(kind, author, parts[2], relay = null))
+            }.getOrNull()?.let { return it }
+            val parent = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && hex.matches(it[1]) && it[1] != event.id }
+            if (parent != null) {
+                val kind = event.tagValue("k")?.toIntOrNull()
+                return Reference(parent[1], relays = listOfNotNull(parent.getOrNull(2)?.let(Protocol::relay)),
+                    author = parent.getOrNull(3)?.takeIf(hex::matches) ?: event.tagValue("p")?.takeIf(hex::matches),
+                    kind = kind, external = NNote.create(parent[1]).takeIf { kind != null && kind !in readableKinds })
+            }
+            val scope = event.tags.firstOrNull { it.size >= 2 && it[0] == "i" }
+            val url = scope?.let { MediaContent.secureUrl(it[1]) ?: MediaContent.secureUrl(it.getOrNull(2)) }
+            return url?.let { Reference(it, external = it) }
+        }
         val target = replyTarget(event)?.takeIf { hex.matches(it) && it != event.id } ?: return null
         val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && it[1] == target }
         return Reference(target, relays = listOfNotNull(tag?.getOrNull(2)?.let(Protocol::relay)),

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Read NIP-22 kind-1111 comments in reply feeds, profiles, embeds, and threads, with parent navigation and reply counts.
+
 ### Changed
 - Prioritize Posts, Highlights, Photos, Videos, Articles, and Replies in that order on home and profiles; keep other categories ordered by observed frequency.
 - Shrink and fade the home avatar to a dot when hiding, reversing the animation when it returns.

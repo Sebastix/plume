@@ -318,7 +318,7 @@ class FeatherRepository(context: Context) {
         if (engagementIds.isEmpty()) client.unsubscribe("engagement")
         else client.subscribe("engagement", routingPool.filter { it != "wss://purplepag.es" }.associate { url ->
             url.normalizeRelayUrl() to engagementIds.chunked(6).flatMap { ids ->
-                listOf(1, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
+                listOf(1, 1111, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
             }
         }, listener)
         val ids = embeddedIds.filter { ':' !in it && it !in state.value.embedded }
@@ -411,10 +411,10 @@ class FeatherRepository(context: Context) {
         val threadNotes = thread?.let { id ->
             val cached = mutex.withLock {
                 db.query<Event>(listOf(Filter(kinds = readableKinds, ids = listOf(id)),
-                    Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 100)))
+                    Filter(kinds = listOf(1, 1111), tags = mapOf("e" to listOf(id)), limit = 100)))
             }
             val root = cached.find { it.id == id } ?: state.value.threadNotes.find { it.id == id }
-            listOfNotNull(root) + cached.filter { it.id != id && it.tags.any { tag ->
+            listOfNotNull(root) + cached.filter { it.id != id && if (it.kind == 1111) replyTarget(it) == id else it.tags.any { tag ->
                 tag.size >= 2 && tag[0] == "e" && tag[1] == id && (tag.size < 4 || tag[3] != "mention")
             } }.distinctBy { it.id }.sortedWith(compareBy<Event> { it.createdAt }.thenBy { it.id })
         }.orEmpty()
@@ -481,10 +481,10 @@ class FeatherRepository(context: Context) {
             }.toMap()
             byId + byAddress
         }
-        val countTargets = (visible.filter { it.kind in readableKinds && it.kind != 30023 } + embedded.values.filterNot(contentFilter::hides)).distinctBy { it.id }.take(24)
+        val countTargets = (visible.filter { it.kind in readableKinds } + embedded.values.filterNot(contentFilter::hides)).distinctBy { it.id }.take(24)
         engagementIds = countTargets.map { it.id }
         val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
-            db.query<Event>(Filter(kinds = listOf(1, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000))
+            db.query<Event>(Filter(kinds = listOf(1, 1111, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000))
         }
         val authors = (activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
@@ -560,7 +560,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 30030 to 64)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -764,7 +764,7 @@ class FeatherRepository(context: Context) {
         discoverRelays()
         val author = state.value.threadNotes.find { it.id == id }?.pubKey
         val routes = (state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
-        val filters = listOf(Filter(ids = listOf(id), kinds = readableKinds), Filter(kinds = listOf(1), tags = mapOf("e" to listOf(id)), limit = 80))
+        val filters = listOf(Filter(ids = listOf(id), kinds = readableKinds), Filter(kinds = listOf(1, 1111), tags = mapOf("e" to listOf(id)), limit = 80))
         client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)
     }
     fun viewHashtag(tag: String?) {

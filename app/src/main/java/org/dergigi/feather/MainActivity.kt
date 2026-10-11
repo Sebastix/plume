@@ -186,7 +186,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             navigation.push(destination); activate(navigation.current, resolved)
             return
         }
-        if (ref.external != null) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))); return }
+        if (ref.external != null) {
+            val url = MediaContent.secureUrl(ref.external) ?: "https://njump.to/${ref.external}"
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))); return
+        }
         val destination = ReaderEntry(if (ref.hashtag != null) "hashtag" else if (ref.profile) "profile" else "thread", ref.hashtag ?: ref.id)
         destination.reference = ref.takeIf { ref.hashtag == null }
         navigation.push(destination); activate(navigation.current)
