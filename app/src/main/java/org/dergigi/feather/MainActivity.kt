@@ -954,12 +954,11 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 onValueChangeFinished = { scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[selectedBudget]) } })
             mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
-                Icon(painterResource(R.drawable.github), "Feather on GitHub, source code and feedback", tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.github), "Feather on GitHub, source code and feedback", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.weight(1f))
             Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.clickable {

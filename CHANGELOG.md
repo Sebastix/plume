@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Compact settings footer: smaller GitHub icon at the left, version and commit links at the right.
 - Place settings and login side by side in the logged-out account sheet, right-aligned with matching tonal icon buttons.
 
 ## [0.26.2] - 2026-10-11
