@@ -100,6 +100,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else FeatherReader(vm, navigation, entry)
+    ReplyComposer(vm)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,6 +110,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val s by vm.state.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
+    val composingReply by vm.replyDraft.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
     val zapping by vm.zapping.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
@@ -240,16 +242,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps) { note ->
+    CompositionLocalProvider(LocalReply provides { note ->
+        if (s.publicKey == null) showAccount = true else vm.openReply(note)
+    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps) { note ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note)
     }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
-    GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
+    GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) }) {
-    MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount) {
+    MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount && composingReply == null) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
         topBar = {
@@ -792,10 +796,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         if (note.kind !in listOf(7, 30023, 30030)) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = 12.dp),
+            val reply = LocalReply.current
+            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

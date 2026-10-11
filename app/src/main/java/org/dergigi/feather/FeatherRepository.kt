@@ -772,6 +772,51 @@ class FeatherRepository(context: Context) {
         }
     }
 
+    internal suspend fun reply(draft: ReplyDraft, signer: NostrSignerExternal, signerRequests: SignerRequests, store: ReplyStore) = withContext(Dispatchers.IO) {
+        ready.await()
+        val author = draft.owner
+        val target = draft.target
+        require(state.value.publicKey == author && signer.pubKey == author) { "Account changed" }
+        require(target.kind in readableKinds && draft.text.isNotBlank() && draft.text.length <= 8000)
+        val saved = store.signed(draft)
+        val signed = saved ?: run {
+            val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy).orEmpty()
+            val (kind, threadTags) = replyTags(target, hint)
+            val participants = threadTags.filter { it.firstOrNull() == "p" }.mapNotNull { it.getOrNull(1) }.toSet()
+            val mentions = replyMentions(draft.text).filter { it !in participants }.map { arrayOf("p", it) }
+            val tags = threadTags + mentions.toTypedArray() + arrayOf(arrayOf("client", "Feather"))
+            val now = System.currentTimeMillis() / 1000
+            signerRequests.run {
+                check(state.value.publicKey == author) { "Account changed" }
+                withTimeout(180_000) { signer.sign<Event>(now, kind, tags, draft.text) }
+            }.also {
+                require(it.createdAt == now && it.kind == kind && it.tags.contentDeepEquals(tags)) { "Signer changed the reply" }
+            }
+        }
+        require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (target.kind == 1) 1 else 1111) &&
+            replyTarget(signed) == target.id && signed.verify()) { "Invalid signed reply" }
+        check(state.value.publicKey == author) { "Account changed" }
+        store.saveSigned(draft, signed)
+        withTimeout(15_000) { foregroundActive.first { it } }
+        check(state.value.publicKey == author) { "Account changed" }
+        publishingAuthor = target.pubKey
+        try {
+            updateRoutingPool()
+            client.connect()
+            val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
+                relayLists[target.pubKey]?.read.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
+            check(routes.isNotEmpty()) { "No relay available. Draft saved." }
+            check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
+                "No relay confirmed the reply. Draft saved; send again to retry the same event."
+            }
+            accept(signed)
+            _state.update { if (it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
+        } finally {
+            publishingAuthor = null
+            if (active) updateRoutingPool()
+        }
+    }
+
     internal suspend fun removeReaction(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
         reactionMutex.withLock {
             ready.await()

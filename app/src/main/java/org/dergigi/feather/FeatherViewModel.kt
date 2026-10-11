@@ -38,6 +38,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
+        replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
         zapJobs.clear(); reactionJobs.clear()
@@ -161,6 +162,68 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         walletDetails.value = WalletDetails(); walletError.value = null
         selectWalletAccount(null)
         repo.logout()
+    }
+
+    internal val replyDraft = MutableStateFlow<ReplyDraft?>(null)
+    internal val replyBusy = MutableStateFlow(false)
+    private val replyStore = ReplyStore(application)
+    private var replyJob: Job? = null
+    private var replyLoadJob: Job? = null
+    private var replySaveJob: Job? = null
+
+    internal fun openReply(note: Event) {
+        val owner = signer.value?.pubKey ?: return
+        if (replyBusy.value) return
+        replyLoadJob?.cancel()
+        replyLoadJob = viewModelScope.launch {
+            try {
+                replySaveJob?.join()
+                val draft = withContext(Dispatchers.IO) { replyStore.load(owner, note) }
+                if (signer.value?.pubKey == owner) replyDraft.value = draft
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Could not open reply: ${e.message}" }
+        }
+    }
+    internal fun editReply(text: String) {
+        if (replyBusy.value) return
+        val draft = replyDraft.value?.copy(text = text.take(8000)) ?: return
+        replyDraft.value = draft
+        replySaveJob?.cancel()
+        replySaveJob = viewModelScope.launch {
+            delay(300)
+            try { withContext(Dispatchers.IO) { replyStore.save(draft) } }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Could not save reply draft: ${e.message}" }
+        }
+    }
+    internal fun closeReply() {
+        val draft = replyDraft.value
+        replyDraft.value = null
+        if (draft == null || replyBusy.value) return
+        replySaveJob?.cancel()
+        replySaveJob = viewModelScope.launch {
+            try { withContext(Dispatchers.IO) { replyStore.save(draft) } }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Could not save reply draft: ${e.message}" }
+        }
+    }
+    internal fun sendReply() {
+        val draft = replyDraft.value ?: return
+        val identity = signer.value ?: return
+        if (replyBusy.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
+        replyBusy.value = true
+        replyJob = viewModelScope.launch {
+            try {
+                replySaveJob?.cancelAndJoin()
+                withContext(Dispatchers.IO) { replyStore.save(draft) }
+                repo.reply(draft, identity, signerRequests, replyStore)
+                withContext(Dispatchers.IO) { replyStore.complete(draft) }
+                if (replyDraft.value?.target?.id == draft.target.id && replyDraft.value?.owner == draft.owner) replyDraft.value = null
+            } catch (_: TimeoutCancellationException) { message.value = "Reply not confirmed. Your draft is saved; send again to retry." }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Reply: ${e.message ?: e.javaClass.simpleName}" }
+            finally { replyBusy.value = false }
+        }
     }
 
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
