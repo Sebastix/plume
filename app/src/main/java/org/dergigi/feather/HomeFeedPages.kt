@@ -87,17 +87,17 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         val buttonSurface = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.widthIn(max = 240.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     val selectedPage = pager.currentPage
-                    for (offset in -1..1) {
+                    for (offset in -2..2) {
                         val index = selectedPage + offset
                         val category = tabs.getOrNull(index)
-                        if (category == null) Spacer(Modifier.size(48.dp))
+                        if (category == null) Spacer(Modifier.weight(1f).height(48.dp))
                         else {
-                            val emphasis by animateFloatAsState(if (offset == 0) 1f else 0.32f, tween(180))
+                            val emphasis by animateFloatAsState(when (kotlin.math.abs(offset)) { 0 -> 1f; 1 -> 0.42f; else -> 0.16f }, tween(180))
                             IconButton(onClick = {
                                 if (!reordering) scope.launch { pager.animateScrollToPage(index) }
-                            }, modifier = Modifier.size(48.dp).semantics {
+                            }, modifier = Modifier.weight(1f).height(48.dp).semantics {
                                 contentDescription = "${category.label} feed"
                                 selected = offset == 0
                             }) {
@@ -135,7 +135,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 }
             },
             expandedHeight = 64.dp,
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent,
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
                 titleContentColor = MaterialTheme.colorScheme.primary,
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Give the home toolbar a subtle theme-aware background and show five feed-category slots, with progressively faded neighboring icons.
+
 ## [0.17.0] - 2026-10-11
 
 ### Changed
