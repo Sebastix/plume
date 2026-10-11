@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Render highlighted passages with a yellow background only, without an added underline.
+
 ### Fixed
 - Color the zap bolt gold for loaded, validated zap receipts sent by the current account from any app, alongside locally confirmed payments.
 

@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.*
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -112,7 +111,7 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
                 }
                 val styled = mentions(buildAnnotatedString {
                     append(passage.text)
-                    passage.ranges.forEach { addStyle(SpanStyle(background = highlightGold.copy(alpha = 0.30f), color = textColor, textDecoration = TextDecoration.Underline), it.first, it.last + 1) }
+                    passage.ranges.forEach { addStyle(SpanStyle(background = highlightGold.copy(alpha = 0.30f), color = textColor), it.first, it.last + 1) }
                 })
                 val comment = event.tagValue("comment")?.takeIf { it.isNotBlank() }?.let {
                     val parsed = mentions(markdown(it))
@@ -126,7 +125,7 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
                 Log.w("HighlightContent", "Unable to render highlight ${event.id}", error)
                 val raw = event.content.withoutObjectMarkers().trim().let { if (compact && it.length > 1400) it.take(1400) + "…" else it }
                 AnnotatedString(raw, SpanStyle(background = highlightGold.copy(alpha = 0.30f),
-                    color = textColor, textDecoration = TextDecoration.Underline)) to
+                    color = textColor)) to
                     event.tagValue("comment")?.takeIf(String::isNotBlank)?.let { AnnotatedString((if (compact) it.take(600) else it).withoutObjectMarkers()) }
             }
         }
