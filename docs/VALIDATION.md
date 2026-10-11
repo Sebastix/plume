@@ -723,3 +723,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests or live device checks.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,964,695 bytes; SHA-256 `b0b7a12f114a64afd2ff693f6c56bc1dcd937e3db61b4d1eabe84ef658a7e589`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.31.0 release
+
+- Version 0.31.0 (63), source commit `e8d64e55284dbd0d87b55a0df996f07b761900ce`. NIP-05 profile identity, article avatars/reading time, gallery floating actions and profile-image pairing, tappable error messages, and active-tab scroll-to-top.
+- Signed release build passed, including release lint and R8. No automated tests or live device checks.
+- Supplied seven-attachment note exceeded the previous four-item display cap; ordinary notes now render up to 32 attachments.
+- Inspected the supplied zap recipient’s Primal LNURL endpoint with an already public signed request, without making a payment. Invoice description hash did not match, including with the LNURL callback parameter. This provider issue remains unresolved; request context and diagnostics improved without weakening validation.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,962,591 bytes; SHA-256 `de13153abfc961264758b20ad2607004a88e282ddf72a5baea9205b9f4c3d65f`. Mapping archived locally. Website unchanged.
