@@ -279,20 +279,20 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
-                val article = if (screen == "thread") {
+                val detailNote = if (screen == "thread") {
                     (s.threadNotes.firstOrNull { it.id == threadId }
                         ?: entry.notes[profileTab]?.firstOrNull { it.id == threadId })
-                        ?.takeIf { it.kind == 30023 && !contentFilter.hides(it) }
+                        ?.takeUnless(contentFilter::hides)
                 } else null
-                if (article != null) IconButton(onClick = {
-                    val pointer = article.tagValue("d")?.let {
-                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(30023, article.pubKey, it, relay = null)
-                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(article.id)
+                if (detailNote != null) IconButton(onClick = {
+                    val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
+                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
+                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(detailNote.id)
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
-                    }, "Share article"))
-                }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, "Share article") }
+                    }, "Share note"))
+                }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, "Share note") }
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {
@@ -771,7 +771,6 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), profile?.picture, onProfile, onOpen)
         return
     }
-    val context = LocalContext.current
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var truncated by remember(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
@@ -835,10 +834,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 }
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            Spacer(Modifier.weight(1f))
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
             NoteZap(note, counts, state.publicKey)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://njump.to/${com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(note.id)}") }, "Share note")) }) { Icon(Icons.Default.Share, "Share note", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

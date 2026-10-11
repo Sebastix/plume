@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-11
+
 ### Changed
+- Right-align like and zap actions while keeping reply on the left; show sharing only in the note detail toolbar, not individual post rows.
 - Place the full-screen composer’s send button at the bottom-right floating-action position, above the keyboard, with content padding to prevent overlap.
 
 ### Added
