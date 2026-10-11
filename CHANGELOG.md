@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Align the reply action icon with the note text’s leading edge, with or without counts, while retaining its full tap target.
 - Use a round, filled primary-color send button in the reply composer.
 
 ### Added

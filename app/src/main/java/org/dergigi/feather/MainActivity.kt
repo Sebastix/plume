@@ -814,8 +814,10 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         if (note.kind !in listOf(7, 30030)) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+            // Let the tap target extend into the gutter; keep the glyph aligned with body text,
+            // independent of whether a reply count is present.
+            Row(Modifier.offset(x = (-16).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start)) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                     Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
