@@ -620,3 +620,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,805,450 bytes; SHA-256 `efe8acf6e7fc69492810cfb26f906ace8abcb1720e6bfd3cc392ce33c91b0931`. Mapping archived locally. Website unchanged.
+
+## Missing profile metadata (unreleased)
+
+- Missing metadata now activates two rotating healthy seed fallbacks, within the existing 12-relay routing cap, and prioritizes up to two known write relays. Rotation runs every 30 seconds only in the foreground.
+- Up to eight viewed/account/missing authors get individual kind-0 filters; remaining targets stay batched. The local metadata query also requests one latest event per author. Route selection updates when missing metadata arrives.
+- Read-only relay queries for npub1xq09qwnnzpq073uchkhxr78kdhyyeexhgsdvv7g4r8uswvq0dcysldjz26 returned no kind-0/10002 events from responding bootstrap relays during investigation; some relays were unavailable. This does not prove that profile metadata exists nowhere, and the specific profile remains unverified on device.
+- Debug build passed. No automated tests or website changes.

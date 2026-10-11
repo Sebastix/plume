@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Retry missing profile metadata across rotating fallback relays and prioritize available write relays. Fetch viewed/missing profiles individually so shared response limits cannot starve their name and avatar metadata.
+
 ### Changed
 - Compact zap activity cards: place the timestamp beneath the amount between profiles, remove its separate top row, and reduce vertical padding.
 
