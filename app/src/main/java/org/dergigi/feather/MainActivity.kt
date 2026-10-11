@@ -633,8 +633,11 @@ private fun Avatar(name: String, size: Int = 36, picture: String? = null, openIm
 private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> Unit) {
     Row(Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        IconButton(onClick = onProfile, modifier = Modifier.size(48.dp)) {
-            Icon(painterResource(R.drawable.repost), "View reposting profile", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Compact visual row; Compose expands the touch target to 48 dp. The
+        // 12 dp gap below keeps that expansion clear of the author's avatar.
+        Box(Modifier.width(48.dp).height(24.dp).clickable(onClickLabel = "View reposting profile", onClick = onProfile),
+            contentAlignment = Alignment.CenterStart) {
+            Icon(painterResource(R.drawable.repost), "Repost", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(state.profiles[repost.pubKey]?.name ?: FeatherRepository.shortKey(repost.pubKey),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -674,7 +677,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onProfile, modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" }) {
-                    Avatar(name, picture = profile?.picture)
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                        Avatar(name, picture = profile?.picture)
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
@@ -795,7 +800,11 @@ private fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profil
                     IconButton(
                         onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
                         modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" },
-                    ) { Avatar(name, 28, profile?.picture) }
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                            Avatar(name, 28, profile?.picture)
+                        }
+                    }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (note.kind == 30023) ArticleContent(note, compact, onReference)

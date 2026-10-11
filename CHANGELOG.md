@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Align note and embedded-note avatars with the content’s left edge while retaining 48 dp profile tap targets. Reduce repost attribution height from 48 dp to 24 dp.
+
 ## [0.16.1] - 2026-10-11
 
 ### Fixed
