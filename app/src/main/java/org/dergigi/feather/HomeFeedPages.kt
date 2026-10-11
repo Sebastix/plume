@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.abs
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.first
 @Composable
 internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, home: ReaderEntry) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val mediaStore = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by mediaStore.resources.collectAsStateWithLifecycle()
@@ -139,10 +141,13 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         if (key == null) accountRequested = true
         else navigation.push(ReaderEntry("profile", key))
     }, modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp)
-        .size(RoundControlSize).semantics { contentDescription = "Account" }) {
+        .size(RoundControlSize).semantics {
+            contentDescription = "Account"
+            stateDescription = if (state.publicKey != null && walletConnected) "Wallet connected" else "Wallet not connected"
+        }) {
         Box(Modifier.size(40.dp).clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
+            .border(2.dp, if (state.publicKey != null && walletConnected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
             val account = state.profiles[state.publicKey]
             if (state.publicKey != null) {
                 CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,

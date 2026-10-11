@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Thicken the home avatar border to 2dp and color it gold when the signed-in account has a connected NWC wallet; otherwise keep it neutral.
+
 ## [0.28.1] - 2026-10-11
 
 ### Changed
