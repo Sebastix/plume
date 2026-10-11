@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep the reaction icon still while zapping; only the zap button shows payment progress.
+
 ## [0.23.1] - 2026-10-11
 
 ### Added

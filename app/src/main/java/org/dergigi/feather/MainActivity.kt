@@ -235,7 +235,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note)
-    }, LocalReactionActions provides ReactionActions(if (decryptingMutes) "mute-list" else zapping ?: reacting, s.reactionChoices, s.customEmojis) { note, choice ->
+    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, disabled = decryptingMutes || zapping != null) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
