@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Confirm successful zaps with a golden zap icon instead of a toast; retain confirmed status per account across restarts.
+
 ### Fixed
 - Keep the reaction icon still while zapping; only the zap button shows payment progress.
 

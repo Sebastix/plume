@@ -41,7 +41,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         zapping.value = note.id
         zapJob = viewModelScope.launch {
-            try { message.value = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected) }
+            try { wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected) }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: WalletFailure) { message.value = failure.message }

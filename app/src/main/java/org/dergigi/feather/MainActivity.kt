@@ -110,6 +110,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val reacting by vm.reacting.collectAsStateWithLifecycle()
     val zapping by vm.zapping.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
+    val confirmedPayments by vm.wallet.store.confirmedPayments.collectAsStateWithLifecycle()
+    val confirmedZaps = remember(confirmedPayments, s.publicKey) {
+        confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
+    }
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
     val contentFilter = remember(s.mutedAuthors, s.embedded) { ContentFilter(s.mutedAuthors, s.embedded) }
     val context = LocalContext.current
@@ -231,7 +235,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, reacting != null || decryptingMutes) { note ->
+    CompositionLocalProvider(LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, reacting != null || decryptingMutes, confirmedZaps) { note ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note)
@@ -750,7 +754,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                     onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Icon(painterResource(R.drawable.zap), "Zap 21 sats; $zapAmount sats received", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Icon(painterResource(R.drawable.zap),
+                    if (note.id in zapActions.confirmed) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
+                    Modifier.size(20.dp), tint = if (note.id in zapActions.confirmed) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
                 if (counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))

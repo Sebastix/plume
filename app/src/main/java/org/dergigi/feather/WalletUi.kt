@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
-internal data class ZapActions(val pending: String? = null, val disabled: Boolean = false, val zap: (Event) -> Unit = {})
+internal data class ZapActions(val pending: String? = null, val disabled: Boolean = false, val confirmed: Set<String> = emptySet(), val zap: (Event) -> Unit = {})
 internal val LocalZapActions = staticCompositionLocalOf { ZapActions() }
 
 @OptIn(ExperimentalMaterial3Api::class)

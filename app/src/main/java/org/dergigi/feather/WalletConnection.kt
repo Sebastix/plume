@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import java.net.URI
 import java.net.URLDecoder
 import java.security.KeyStore
@@ -39,6 +40,13 @@ internal class WalletConnection(val pubkey: String, val relays: List<String>, va
 internal class WalletStore(context: Context) {
     private val prefs = context.getSharedPreferences("wallet", Context.MODE_PRIVATE)
     val connected = MutableStateFlow(false)
+    val confirmedPayments = MutableStateFlow<Map<String, Pair<String, String>>>(emptyMap())
+    private fun confirmed(value: org.json.JSONObject): Pair<String, String>? {
+        if (value.optString("status") != "paid") return null
+        val author = Protocol.publicKey(value.optString("author")) ?: return null
+        val note = Protocol.publicKey(value.optString("note")) ?: return null
+        return author to note
+    }
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey("feather-wallet", null) as? SecretKey)?.let { return it }
@@ -56,7 +64,13 @@ internal class WalletStore(context: Context) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, data.copyOfRange(0, 12))) }
         return cipher.doFinal(data.copyOfRange(12, data.size)).toString(Charsets.UTF_8)
     }
-    fun load() { connected.value = runCatching { connection()?.also { it.secret.fill(0) } != null }.getOrDefault(false) }
+    fun load() {
+        connected.value = runCatching { connection()?.also { it.secret.fill(0) } != null }.getOrDefault(false)
+        val saved = prefs.all.keys.filter { it.startsWith("payment:") }.mapNotNull { key ->
+            runCatching { payment(key.removePrefix("payment:"))?.let(::confirmed)?.let { key to it } }.getOrNull()
+        }.toMap()
+        confirmedPayments.update { saved + it }
+    }
     fun connection(): WalletConnection? = prefs.getString("connection", null)?.let { WalletConnection.parse(open(it)) }
     fun save(raw: String) {
         check(prefs.edit().putString("connection", seal(raw.trim())).commit()) { "Could not save wallet" }
@@ -76,9 +90,13 @@ internal class WalletStore(context: Context) {
             val settled = entries.firstOrNull { entry -> runCatching {
                 org.json.JSONObject(open(prefs.getString(entry, null)!!)).optString("status") == "paid"
             }.getOrDefault(false) }
-            if (settled != null) check(prefs.edit().remove(settled).commit())
+            if (settled != null) {
+                check(prefs.edit().remove(settled).commit())
+                confirmedPayments.update { it - settled }
+            }
         }
         require("payment:$id" in entries || prefs.all.keys.count { it.startsWith("payment:") } < 512) { "Wallet payment history is full" }
         check(prefs.edit().putString("payment:$id", seal(value.toString())).commit()) { "Could not save payment status" }
+        confirmed(value)?.let { paid -> confirmedPayments.update { it + ("payment:$id" to paid) } }
     }
 }

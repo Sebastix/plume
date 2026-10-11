@@ -82,19 +82,22 @@ internal class ZapWallet(context: Context) {
             store.save(raw)
         } finally { connection.secret.fill(0) }
     }
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal): String = withContext(Dispatchers.IO) {
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal): Unit = withContext(Dispatchers.IO) {
         val connection = store.connection() ?: error("Connect a wallet in settings")
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
-            if (existing?.optString("status") == "paid") return@withContext "Already zapped $DEFAULT_ZAP_SATS sats"
+            if (existing?.optString("status") == "paid") {
+                store.savePayment(paymentId, existing.put("author", signer.pubKey).put("note", note.id))
+                return@withContext
+            }
             if (existing != null) {
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
                 val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", existing.getString("invoice")))
                 if (status.optString("state") == "settled" || status.optString("preimage").length == 64) {
                     verifyPreimage(status, existing.getString("hash"))
-                    store.savePayment(paymentId, existing.put("status", "paid"))
-                    return@withContext "Zapped $DEFAULT_ZAP_SATS sats"
+                    store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
+                    return@withContext
                 }
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
             }
@@ -122,7 +125,7 @@ internal class ZapWallet(context: Context) {
             require(invoiceHash(invoice, 'h') == sha256(json.toByteArray())) { "Invoice does not match this zap request" }
             val hash = invoiceHash(invoice, 'p')
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
-            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending")
+            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("author", signer.pubKey).put("note", note.id)
             store.savePayment(paymentId, record)
             // Persist before sending: process death or timeout must never cause a duplicate payment.
             val paid = try { NwcWallet.request(connection, "pay_invoice", JSONObject().put("invoice", invoice)) }
@@ -133,7 +136,7 @@ internal class ZapWallet(context: Context) {
             }
             verifyPreimage(paid, hash)
             store.savePayment(paymentId, record.put("status", "paid"))
-            "Zapped $DEFAULT_ZAP_SATS sats"
+
         } finally { connection.secret.fill(0) }
     }
     private fun verifyPreimage(result: JSONObject, hash: String) {
