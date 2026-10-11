@@ -83,10 +83,10 @@ internal class ZapWallet(context: Context) {
     private fun get(url: String): JSONObject {
         require(MediaContent.secureUrl(url) != null) { "A secure Lightning endpoint is required" }
         return http.newCall(Request.Builder().url(url).header("Accept", "application/json").build()).execute().use { response ->
-            require(response.isSuccessful) { "Lightning endpoint unavailable" }
+            require(response.isSuccessful) { "HTTP ${response.code} from ${response.request.url.host}" }
             val bytes = response.body.source().apply { request(131073) }.buffer.clone().readByteArray()
             require(bytes.size <= 131072) { "Lightning response too large" }
-            JSONObject(bytes.toString(Charsets.UTF_8)).also { require(it.optString("status") != "ERROR") { "Lightning endpoint rejected the zap" } }
+            JSONObject(bytes.toString(Charsets.UTF_8)).also { require(it.optString("status") != "ERROR") { "Lightning endpoint: ${walletErrorText(it.optString("reason")).ifBlank { "request rejected" }}" } }
         }
     }
     suspend fun connect(raw: String) = withContext(Dispatchers.IO) {
@@ -100,6 +100,8 @@ internal class ZapWallet(context: Context) {
     }
     suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests): Unit = withContext(Dispatchers.IO) {
         val connection = store.connection() ?: error("Connect a wallet in settings")
+        var step = "Loading payment history"
+        var paymentUncertain = false
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
@@ -108,6 +110,8 @@ internal class ZapWallet(context: Context) {
                 return@withContext
             }
             if (existing != null) {
+                step = "Checking previous payment"
+                paymentUncertain = true
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
                 val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", existing.getString("invoice")))
                 if (status.optString("state") == "settled" || status.optString("preimage").length == 64) {
@@ -117,6 +121,7 @@ internal class ZapWallet(context: Context) {
                 }
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
             }
+            step = "Loading Lightning address"
             val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
             val params = get(endpoint)
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
@@ -131,28 +136,43 @@ internal class ZapWallet(context: Context) {
                 if (note.kind in 30000..39999) note.tagValue("d")?.let { add(arrayOf("a", "${note.kind}:${note.pubKey}:$it")) }
             }.toTypedArray()
             val now = System.currentTimeMillis() / 1000
+            step = "Signing zap request"
             val request = signerRequests.run { withTimeout(180_000) { signer.sign<Event>(now, 9734, tags, "") } }
             require(request.pubKey == signer.pubKey && request.kind == 9734 && request.createdAt == now && request.content.isEmpty() &&
                 request.tags.contentDeepEquals(tags) && request.verify()) { "Invalid signed zap request" }
             val json = request.toJson()
             val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).build()
+            step = "Requesting Lightning invoice"
             val invoice = get(url.toString()).getString("pr")
+            step = "Validating Lightning invoice"
             require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(DEFAULT_ZAP_SATS)) == 0) { "Invoice amount does not match 21 sats" }
             require(invoiceHash(invoice, 'h') == sha256(json.toByteArray())) { "Invoice does not match this zap request" }
             val hash = invoiceHash(invoice, 'p')
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
             val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("author", signer.pubKey).put("note", note.id)
+            step = "Saving payment"
             store.savePayment(paymentId, record)
             // Persist before sending: process death or timeout must never cause a duplicate payment.
+            step = "Paying Lightning invoice"
+            paymentUncertain = true
             val paid = try { NwcWallet.request(connection, "pay_invoice", JSONObject().put("invoice", invoice)) }
             catch (failure: WalletFailure) {
-                if (failure.code in setOf("UNAUTHORIZED", "RESTRICTED", "QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "NOT_IMPLEMENTED", "RATE_LIMITED", "UNSUPPORTED_ENCRYPTION"))
+                if (failure.code in setOf("UNAUTHORIZED", "RESTRICTED", "QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "NOT_IMPLEMENTED", "RATE_LIMITED", "UNSUPPORTED_ENCRYPTION")) {
+                    paymentUncertain = false
                     store.forgetPayment(paymentId)
+                }
                 throw failure
             }
+            step = "Verifying payment confirmation"
             verifyPreimage(paid, hash)
             store.savePayment(paymentId, record.put("status", "paid"))
 
+        } catch (failure: Exception) {
+            if (failure is CancellationException && failure !is TimeoutCancellationException) throw failure
+            currentCoroutineContext().ensureActive()
+            val reason = if (failure is TimeoutCancellationException) "timed out waiting for signer" else walletErrorReason(failure)
+            val uncertainty = if (paymentUncertain) ". Payment may have completed; tap again to check status." else ""
+            throw WalletFailure("$step: $reason$uncertainty", (failure as? WalletFailure)?.code)
         } finally { connection.secret.fill(0) }
     }
     private fun verifyPreimage(result: JSONObject, hash: String) {

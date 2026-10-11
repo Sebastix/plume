@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Show the failing zap step, HTTP status, Lightning endpoint reason, or NWC wallet error instead of a generic failure. Preserve payment uncertainty and redact connection secrets.
+
 ### Added
 - Tap your displayed reaction again to remove it, including custom emojis. Selected picker reactions also toggle off via signed NIP-09 deletion requests.
 

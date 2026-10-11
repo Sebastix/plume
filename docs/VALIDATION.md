@@ -578,3 +578,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Persist signed deletion requests before publishing for explicit retry; apply accepted author/event tombstones to cached reaction choices, counts, and retained reaction cards. Re-adding creates a fresh event rather than reusing a deleted signed reaction. History is bounded to 512 deletion records, with up to 256 event IDs each.
 - Receive the connected account’s kind-5 requests to honor deletions from other apps. Remote relay retention is outside Feather’s control.
 - Debug build and diff checks passed; no automated tests or live signer/device checks.
+
+## Zap error details (unreleased)
+
+- Zap failures identify the active step and retain validation, HTTP, LNURL reason, and NWC code/message details. Relay connection failures and subscription/request rejections are retained for timeout diagnostics.
+- External error text is bounded and redacts connection URIs, URL paths/queries, private keys, long hex values, and invoices.
+- Uncertain payments retain their journal entry and tell the user to check status; no automatic payment retry. Coroutine cancellation still propagates.
+- Debug build passed. No automated tests or live payments performed.

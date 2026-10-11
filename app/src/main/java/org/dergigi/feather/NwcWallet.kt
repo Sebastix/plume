@@ -14,6 +14,22 @@ import java.util.concurrent.TimeUnit
 
 internal class WalletFailure(message: String, val code: String? = null) : Exception(message)
 
+/** Bound and redact external error text before displaying it or copying it into a report. */
+internal fun walletErrorText(raw: String): String = raw.take(8192)
+    .replace(Regex("(?i)(?:nostr\\+walletconnect|nostrwalletconnect|bunker)://[^\\s]+"), "[connection redacted]")
+    .replace(Regex("(?i)nsec1[a-z0-9]+"), "[secret redacted]")
+    .replace(Regex("(?i)(?:https?|wss?)://[^\\s]+")) { match ->
+        runCatching { java.net.URI(match.value).host }.getOrNull() ?: "[endpoint]"
+    }
+    .replace(Regex("(?i)[a-f0-9]{64,}"), "[redacted]")
+    .replace(Regex("(?i)lnbc[a-z0-9]+"), "[invoice]")
+    .map { if (it.isISOControl()) ' ' else it }.joinToString("")
+    .replace(Regex("\\s+"), " ").trim().take(320)
+
+internal fun walletErrorReason(error: Exception): String = walletErrorText(
+    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+)
+
 /** Dedicated bounded NWC sockets. First connected relay handles the request; no automatic payment retry. */
 internal object NwcWallet {
     private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(0, TimeUnit.SECONDS).build()
@@ -23,6 +39,8 @@ internal object NwcWallet {
         val opened = Channel<WebSocket>(3)
         val infoId = UUID.randomUUID().toString()
         val responseId = UUID.randomUUID().toString()
+        val relayErrors = java.util.concurrent.ConcurrentHashMap<WebSocket, String>()
+        val requestId = java.util.concurrent.atomic.AtomicReference<String?>(null)
         val responseSubscription = java.util.concurrent.atomic.AtomicReference<String?>(null)
         val sockets = connection.relays.map { relay ->
             val authSent = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -30,6 +48,13 @@ internal object NwcWallet {
             val infoRequest = JSONArray().put("REQ").put(infoId).put(JSONObject().put("kinds", JSONArray().put(13194))
                 .put("authors", JSONArray().put(connection.pubkey)).put("limit", 1)).toString()
             http.newWebSocket(Request.Builder().url(relay).build(), object : WebSocketListener() {
+                override fun onFailure(socket: WebSocket, error: Throwable, response: Response?) {
+                    val reason = response?.let { "HTTP ${it.code}" } ?: error.message ?: error.javaClass.simpleName
+                    relayErrors[socket] = walletErrorText("Wallet relay $relay: $reason")
+                }
+                override fun onClosed(socket: WebSocket, code: Int, reason: String) {
+                    relayErrors[socket] = walletErrorText("Wallet relay closed ($code): $reason")
+                }
                 override fun onOpen(socket: WebSocket, response: Response) {
                     socket.send(infoRequest)
                     opened.trySend(socket)
@@ -53,6 +78,11 @@ internal object NwcWallet {
                             socket.send(infoRequest)
                             responseSubscription.get()?.let { socket.send(it) }
                         }
+                        if (data.optString(0) == "OK" && !data.optBoolean(2) &&
+                            data.optString(1) in listOfNotNull(requestId.get(), authId.get()))
+                            relayErrors[socket] = "Wallet relay rejected request: ${walletErrorText(data.optString(3))}"
+                        if (data.optString(0) == "CLOSED" && data.optString(1) == responseId)
+                            relayErrors[socket] = "Wallet relay closed subscription: ${walletErrorText(data.optString(2))}"
                         if (data.optString(0) == "EVENT" && data.optString(1) in listOf(infoId, responseId))
                             inbox.trySend(Event.fromJson(data.getJSONObject(2).toString()))
                     }
@@ -60,7 +90,8 @@ internal object NwcWallet {
             })
         }
         try {
-            val socket = withTimeout(12_000) { opened.receive() }
+            val socket = withTimeoutOrNull(12_000) { opened.receive() }
+                ?: throw WalletFailure(relayErrors.values.firstOrNull() ?: "NWC relay connection timed out after 12s")
             val info = withTimeoutOrNull(4_000) {
                 while (true) {
                     val event = inbox.receive()
@@ -79,10 +110,11 @@ internal object NwcWallet {
             val subscription = JSONArray().put("REQ").put(responseId).put(JSONObject().put("kinds", JSONArray().put(23195))
                 .put("authors", JSONArray().put(connection.pubkey)).put("#e", JSONArray().put(event.id))
                 .put("#p", JSONArray().put(signer.pubKey))).toString()
+            requestId.set(event.id)
             responseSubscription.set(subscription)
             socket.send(subscription)
             check(socket.send(JSONArray().put("EVENT").put(JSONObject(event.toJson())).toString())) { "Wallet relay disconnected" }
-            withTimeout(if (method == "pay_invoice") 90_000 else 20_000) {
+            withTimeoutOrNull(if (method == "pay_invoice") 90_000 else 20_000) {
                 while (true) {
                     val response = inbox.receive()
                     if (response.kind != 23195 || response.pubKey != connection.pubkey || response.tagValue("e") != event.id ||
@@ -93,12 +125,13 @@ internal object NwcWallet {
                     if (json.optString("result_type") != method) continue
                     json.optJSONObject("error")?.let {
                         val code = it.optString("code").takeIf { value -> Regex("[A-Z_]{1,40}").matches(value) } ?: "OTHER"
-                        throw WalletFailure("Wallet: $code", code)
+                        val reason = walletErrorText(it.optString("message")).takeIf(String::isNotBlank)
+                        throw WalletFailure("$code${reason?.let { detail -> ": $detail" }.orEmpty()}", code)
                     }
-                    return@withTimeout json.optJSONObject("result") ?: throw WalletFailure("Invalid wallet response")
+                    return@withTimeoutOrNull json.optJSONObject("result") ?: throw WalletFailure("Invalid wallet response")
                 }
                 @Suppress("UNREACHABLE_CODE") JSONObject()
-            }
+            } ?: throw WalletFailure(relayErrors[socket] ?: "NWC $method: wallet did not respond within ${if (method == "pay_invoice") 90 else 20}s")
         } finally {
             sockets.forEach { it.cancel() }; inbox.close(); opened.close()
         }
