@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Tap the Feather icon to return to the top of the current feed; animate short distances and jump immediately when far down the feed.
+
 ### Fixed
 - Give reply, reaction, and zap indicators consistent minimum widths and spacing, including when zero counts are hidden.
 - Hide orphaned U+FFFC object-replacement markers in notes, embedded notes, article text, highlights, and profile biographies without modifying signed events.

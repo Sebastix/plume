@@ -98,6 +98,7 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
     val message by vm.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snack = remember { SnackbarHostState() }
+    val scrollScope = rememberCoroutineScope()
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
     val entry = navigation.current
@@ -194,7 +195,16 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
             TopAppBar(title = {
                 if (screen == "hashtag") Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 if (screen == "feed") {
-                    Icon(painterResource(R.drawable.feather), "Feather", Modifier.size(48.dp).then(toolbarButtonSurface).padding(8.dp), tint = Color.Unspecified)
+                    IconButton(onClick = {
+                        scrollScope.launch {
+                            // Avoid traversing a long feed and loading intermediate media.
+                            if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
+                            else activeListState.animateScrollToItem(0)
+                            entry.toolbar = true
+                        }
+                    }, modifier = Modifier.size(48.dp).then(toolbarButtonSurface)) {
+                        Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
+                    }
                 }
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }

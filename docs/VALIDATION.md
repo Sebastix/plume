@@ -277,3 +277,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Reply, heart, and zap groups now each reserve at least 56 dp width and 48 dp height, with 16 dp trailing padding and 6 dp between icon/count. Empty counts no longer collapse spacing; share remains aligned at the end.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Feather scroll-to-top (unreleased)
+
+- The feed's Feather icon is now a 48 dp accessible button that scrolls its existing list to index 0. Short distances animate; positions beyond 20 items jump immediately to avoid traversing/loading intermediate media. No refresh or navigation reset is triggered.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
