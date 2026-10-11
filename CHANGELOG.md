@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-11
+
 ### Fixed
 - Ignore malformed relay URLs before routing, preventing crashes when relay metadata contains several addresses joined into one.
 
