@@ -7,11 +7,11 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
 internal val readableKinds = listOf(1, 20, 9802, 30023, 30030) + videoKinds
-internal val profileKinds = listOf(1, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735) + videoKinds
+internal val profileKinds = listOf(1, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     POSTS(listOf(1), "Posts"), REPLIES(listOf(1), "Replies"),
-    REPOSTS(listOf(6), "Reposts"), ZAPS(listOf(9735), "Zap activity"),
+    REPOSTS(listOf(6), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
@@ -109,7 +109,7 @@ internal fun activityReferences(event: Event): List<NostrContent.Reference> = wh
     10003, 30003 -> bookmarkReferences(event)
     6 -> listOfNotNull(repostTarget(event))
     7 -> listOfNotNull(reactionTarget(event))
-    9735 -> zapActivityReferences(event)
+    9735, 9321 -> zapActivityReferences(event)
     9802 -> listOfNotNull(highlightAuthor(event)?.let { NostrContent.Reference(it, profile = true) }) +
         listOf("context", "comment").flatMap { NostrContent.tokens(event.tagValue(it).orEmpty(), event).mapNotNull { token -> token.reference } }
     else -> emptyList()
@@ -147,16 +147,17 @@ internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) l
 internal fun ProfileTab.matchesFeed(event: Event): Boolean =
     if (this == ProfileTab.POSTS && event.kind == 6) repostTarget(event) != null else matches(event)
 
-/** Receipts are authored by the wallet service; participants are indexed by p/P. */
+/** Lightning receipts use p/P; nutzaps use the sender author and recipient p tag. */
 internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFilters(): List<com.vitorpamplona.quartz.nip01Core.relay.filters.Filter> {
     val people = authors ?: return listOf(this)
-    if (9735 !in kinds.orEmpty()) return listOf(this)
+    if (kinds.orEmpty().none { it == 9735 || it == 9321 }) return listOf(this)
     return buildList {
         val ordinary = kinds.orEmpty().filter { it != 9735 }
         if (ordinary.isNotEmpty()) add(com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(authors = people, kinds = ordinary, limit = limit, until = until, tags = tags))
-        for (tag in listOf("p", "P")) add(com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(kinds = listOf(9735), tags = mapOf(tag to people), limit = limit, until = until))
+        if (9735 in kinds.orEmpty()) for (tag in listOf("p", "P")) add(com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(kinds = listOf(9735), tags = mapOf(tag to people), limit = limit, until = until))
+        if (9321 in kinds.orEmpty()) add(com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(kinds = listOf(9321), tags = mapOf("p" to people), limit = limit, until = until))
     }
 }
 
 internal fun Event.involves(key: String?): Boolean = key != null &&
-    (pubKey == key || (kind == 9735 && (tagValue("p") == key || tagValue("P") == key)))
+    (pubKey == key || (kind == 9321 && tagValue("p") == key) || (kind == 9735 && (tagValue("p") == key || tagValue("P") == key)))

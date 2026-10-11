@@ -552,3 +552,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Cards follow ants-android’s sender/amount/recipient layout, with public comments and linked-note/article previews. Request signature/recipient/target binding parsed and cached on background dispatchers. Invoice amounts are previews; these cards do not create payment confirmations.
 - Participant profiles are resolved through existing metadata subscriptions; muted participants and linked authors stay hidden. Anonymous senders have no profile link.
 - Debug build and diff checks passed; no automated tests or on-device interaction checks.
+
+## 2026-10-11 — Nutzap activity
+
+- Kind 9321 joins the Zap activity tab, including authored (sent) and p-tagged (received) events in discovery, cached snapshots, subscriptions, and pagination. Adds bounded cache retention for nutzaps.
+- Uses Ants’ purple `#C084FC` for nutzap bolts and amounts; regular Lightning zaps remain gold. Public proof amounts are summed with bounded parsing on background dispatchers and retain their declared unit (default sat). No token redemption, mint interaction, or synthetic confirmed-payment state.
+- Debug build and diff check passed. No automated tests or device checks.

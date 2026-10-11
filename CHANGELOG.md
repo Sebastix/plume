@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
-- Dynamic Zap activity tab on profiles and home feeds, showing sent/received zap receipts with sender, recipient, amount, comment, and linked note.
+- Dynamic Zap activity tab on profiles and home feeds, showing sent/received Lightning zaps and Cashu nutzaps with sender, recipient, amount/unit, comment, and linked note. Nutzaps use purple styling, matching ants-android.
 
 ## [0.23.4] - 2026-10-11
 

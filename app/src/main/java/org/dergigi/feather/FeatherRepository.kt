@@ -403,7 +403,7 @@ class FeatherRepository(context: Context) {
                     Filter(kinds = listOf(kind), authors = listOf(author), limit = 600).activityFilters()
                 })
             }
-            val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.pubKey == author || (it.kind == 9735 && (it.tagValue("p") == author || it.tagValue("P") == author)) })
+            val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.involves(author) })
             val frequencies = ProfileTab.entries.associateWith { candidate -> events.count(candidate::matches) }
             val found = frequencies.filterValues { it > 0 }.keys
             (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
@@ -532,7 +532,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 6 to 1000, 7 to 2000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 30030 to 64)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -733,7 +733,7 @@ class FeatherRepository(context: Context) {
                 val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
                 val kinds = if (author != null) tab.kinds else if (tag != null) listOf(1) else feed.feedKinds()
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
-                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
+                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (it.kind == 9321 && it.tagValue("p") in authors) || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
                 val oldest = events.minOfOrNull { it.createdAt } ?: return@launch
                 if (oldest <= 0) return@launch
                 val filter = Filter(kinds = kinds, authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)

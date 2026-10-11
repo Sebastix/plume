@@ -294,7 +294,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
-                        .filter { profileTab.matchesFeed(it) && (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following))) }.take(600)
+                        .filter { profileTab.matchesFeed(it) && (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following))) }.take(600)
                     }
                     // Returning to a paginated profile must not discard its already displayed pages.
                     if (screen == "hashtag" && filtered.size < retained.size)
@@ -686,7 +686,7 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
 @Composable
 private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null) {
     if (LocalContentFilter.current.hides(note)) return
-    if (note.kind == 9735) {
+    if (note.kind in listOf(9735, 9321)) {
         ZapActivityCard(note, state, onReference)
         return
     }

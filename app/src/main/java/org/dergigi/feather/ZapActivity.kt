@@ -13,11 +13,13 @@ import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip01Core.crypto.verify
 import com.vitorpamplona.quartz.lightning.LnInvoiceUtil
+import org.json.JSONObject
+import java.math.BigDecimal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Display previews, like ants-android: amounts are invoice amounts, not new payment confirmations.
-internal data class ZapActivity(val sender: String?, val recipient: String, val amount: String?, val comment: String)
+// Display previews, like ants-android: amounts are invoice/proof face values, not new payment or redemption confirmations.
+internal data class ZapActivity(val sender: String?, val recipient: String, val amount: String?, val comment: String, val unit: String = "sats")
 private val zapPreviews = object : LinkedHashMap<String, ZapActivity?>(128, .75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ZapActivity?>?) = size > 1024
 }
@@ -26,8 +28,24 @@ private val zapPreviews = object : LinkedHashMap<String, ZapActivity?>(128, .75f
 internal fun zapActivity(event: Event): ZapActivity? = synchronized(zapPreviews) {
     if (zapPreviews.containsKey(event.id)) return@synchronized zapPreviews[event.id]
     val result = runCatching {
-        require(event.kind == 9735)
+        require(event.kind in listOf(9735, 9321))
         val recipient = requireNotNull(event.tagValue("p")?.let(Protocol::publicKey))
+        if (event.kind == 9321) {
+            val proofs = event.tags.filter { it.firstOrNull() == "proof" }
+            require(proofs.isNotEmpty() && proofs.size <= 1000)
+            require(proofs.sumOf { it.getOrNull(1)?.length ?: 0 } <= 262144)
+            val amount = proofs.fold(BigDecimal.ZERO) { total, tag ->
+                val raw = JSONObject(requireNotNull(tag.getOrNull(1))).get("amount").toString()
+                require(raw.length in 1..18 && raw.all { it in '0'..'9' })
+                val value = BigDecimal(raw)
+                require(value.signum() > 0)
+                total + value
+            }.stripTrailingZeros().toPlainString()
+            val unit = event.tagValue("unit")?.trim()?.takeIf { it.isNotEmpty() } ?: "sat"
+            require(unit.length <= 12 && unit.all { it.isLetterOrDigit() })
+            return@runCatching ZapActivity(event.pubKey, recipient, amount,
+                event.content.withoutObjectMarkers().take(2000), if (unit == "sat") "sats" else unit)
+        }
         val description = requireNotNull(event.tagValue("description"))
         require(description.length <= 32768)
         val request = Event.fromJson(description)
@@ -68,14 +86,16 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
         value = withContext(Dispatchers.Default) { zapActivity(event) }
     }
     val zap = payment ?: return
+    val nutzap = event.kind == 9321
+    val paymentColor = if (nutzap) Color(0xFFC084FC) else Color(0xFFFFB300)
     if (zap.sender in state.mutedAuthors || zap.recipient in state.mutedAuthors) return
     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { NoteTimestamp(event) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ZapParty(zap.sender, state.profiles, Modifier.weight(1f), Alignment.Start, onReference)
             Row(Modifier.weight(1.25f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
-                Icon(painterResource(R.drawable.zap), "Zap from sender to recipient", modifier = Modifier.size(24.dp), tint = Color(0xFFFFB300))
-                zap.amount?.let { Text("$it sats", style = MaterialTheme.typography.titleMedium, color = Color(0xFFFFB300), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Icon(painterResource(R.drawable.zap), if (nutzap) "Nutzap from sender to recipient" else "Zap from sender to recipient", modifier = Modifier.size(24.dp), tint = paymentColor)
+                zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
             ZapParty(zap.recipient, state.profiles, Modifier.weight(1f), Alignment.End, onReference)
         }
