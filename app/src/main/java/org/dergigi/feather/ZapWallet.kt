@@ -124,6 +124,7 @@ internal class ZapWallet(context: Context) {
             }
             step = "Loading Lightning address"
             val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
+            val lnurl = LnurlForm.urlToBech32(endpoint)
             val params = get(endpoint)
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
             val msats = DEFAULT_ZAP_SATS * 1000
@@ -133,6 +134,7 @@ internal class ZapWallet(context: Context) {
             val tags = buildList {
                 add(arrayOf("p", note.pubKey)); add(arrayOf("e", note.id)); add(arrayOf("k", note.kind.toString()))
                 add(arrayOf("amount", msats.toString()))
+                add(arrayOf("lnurl", lnurl))
                 add((listOf("relays") + relays.mapNotNull(Protocol::relay).distinct().take(6)).toTypedArray())
                 if (note.kind in 30000..39999) note.tagValue("d")?.let { add(arrayOf("a", "${note.kind}:${note.pubKey}:$it")) }
             }.toTypedArray()
@@ -142,12 +144,19 @@ internal class ZapWallet(context: Context) {
             require(request.pubKey == signer.pubKey && request.kind == 9734 && request.createdAt == now && request.content.isEmpty() &&
                 request.tags.contentDeepEquals(tags) && request.verify()) { "Invalid signed zap request" }
             val json = request.toJson()
-            val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).build()
+            val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).setQueryParameter("lnurl", lnurl).build()
             step = "Requesting Lightning invoice"
             val invoice = get(url.toString()).getString("pr")
             step = "Validating Lightning invoice"
             require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(DEFAULT_ZAP_SATS)) == 0) { "Invoice amount does not match 21 sats" }
-            require(invoiceHash(invoice, 'h') == sha256(json.toByteArray())) { "Invoice does not match this zap request" }
+            val descriptionHash = invoiceHash(invoice, 'h')
+            val requestHash = sha256(json.toByteArray(Charsets.UTF_8))
+            require(descriptionHash == requestHash) {
+                val explanation = if (descriptionHash == sha256(params.optString("metadata").toByteArray(Charsets.UTF_8)))
+                    "returned a regular LNURL invoice instead of a zap invoice"
+                else "returned an invoice whose description hash differs from the signed zap request"
+                "${url.host} $explanation (expected ${requestHash.take(12)}, received ${descriptionHash.take(12)}). No payment sent"
+            }
             val hash = invoiceHash(invoice, 'p')
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
             val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("author", signer.pubKey).put("note", note.id)

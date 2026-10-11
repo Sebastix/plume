@@ -219,9 +219,6 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 4.dp)
                 .background(colors[background].copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close gallery", tint = foreground) }
-                if (!noteIds.getOrNull(pager.currentPage).isNullOrBlank()) IconButton(onClick = { onOpenNote(pager.currentPage) }) {
-                    Icon(painterResource(R.drawable.conversation), "Open image's note", tint = foreground)
-                }
                 Spacer(Modifier.weight(1f))
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = foreground, strokeWidth = 2.dp)
                 IconButton(onClick = { background = (background + 1) % colors.size }) { Icon(painterResource(R.drawable.contrast), "Change gallery background", tint = foreground) }
@@ -245,20 +242,39 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 }
             }
             }
-            AnimatedVisibility(controlsVisible && (urls.size > 1 || currentNote != null), modifier = Modifier.align(Alignment.BottomCenter),
+            AnimatedVisibility(controlsVisible && !noteIds.getOrNull(pager.currentPage).isNullOrBlank(),
+                modifier = Modifier.align(Alignment.BottomEnd),
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it }) {
+                Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(end = 16.dp, bottom = if (urls.size > 1) 72.dp else 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    currentNote?.let { note -> key(note.id) {
+                        val counts = state.engagement[note.id] ?: Engagement()
+                        Surface(shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
+                            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true,
+                                onPickerVisibilityChanged = { reactionPicker = it })
+                        }
+                        Surface(shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
+                            NoteZap(note, counts, state.publicKey,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true)
+                        }
+                    } }
+                    FloatingActionButton(onClick = { onOpenNote(pager.currentPage) },
+                        shape = androidx.compose.foundation.shape.CircleShape) {
+                        Icon(painterResource(R.drawable.conversation), "Open image's note")
+                    }
+                }
+            }
+            AnimatedVisibility(controlsVisible && urls.size > 1, modifier = Modifier.align(Alignment.BottomCenter),
                 enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it },
                 exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it }) {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 8.dp)
                 .background(colors[background].copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                currentNote?.let { note -> key(note.id) {
-                    val counts = state.engagement[note.id] ?: Engagement()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(), tint = foreground,
-                            onPickerVisibilityChanged = { reactionPicker = it })
-                        NoteZap(note, counts, state.publicKey, tint = foreground)
-                    }
-                } }
                 if (urls.size > 1) Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous image", tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
                 Text("${pager.currentPage + 1} / ${urls.size}", color = foreground, modifier = Modifier.padding(horizontal = 16.dp))

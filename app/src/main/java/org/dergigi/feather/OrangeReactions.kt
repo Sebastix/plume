@@ -37,6 +37,7 @@ internal val LocalReactionActions = staticCompositionLocalOf { ReactionActions()
 @Composable
 internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    iconOnly: Boolean = false,
     onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
     val pending = note.id in actions.pending
@@ -49,7 +50,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     // Repository snapshots and accepted local reactions are ordered newest first.
     val latestReaction = sent.firstOrNull()
     Box {
-        Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
+        Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
             .combinedClickable(enabled = note.id !in actions.pending,
                 onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
                 onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
@@ -71,7 +72,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                 } else Icon(Icons.Default.FavoriteBorder, "React; hold to choose an emoji",
                     Modifier.size(20.dp), tint = tint)
             }
-            if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
+            if (!iconOnly && count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
         }
         DropdownMenu(expanded = picker, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {

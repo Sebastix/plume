@@ -751,7 +751,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             else -> {
         val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
         val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), note.id, detectedTypes) {
-            value = withContext(Dispatchers.Default) { MediaContent.attachments(note, if (note.kind == 20) 32 else 4) }
+            value = withContext(Dispatchers.Default) { MediaContent.attachments(note, 32) }
         }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
