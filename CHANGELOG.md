@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Show the feather compose button on other profiles and prefill a Nostr mention, preserving any existing post draft and avoiding duplicate mentions.
+
 ## [0.36.1] - 2026-10-11
 
 ### Changed

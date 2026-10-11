@@ -190,16 +190,21 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         targetValue = if (activeFeedList.isScrollInProgress || pager.isScrollInProgress) 0.4f else 1f,
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
-    FloatingActionButton(onClick = {
+    FeatherComposeButton(onClick = {
         if (state.publicKey == null) {
             if (home.tab == ProfileTab.SEARCH) scope.launch { pager.animateScrollToPage(tabs.indexOf(ProfileTab.POSTS)) }
             accountRequested = true
         } else vm.openReply()
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
-        .graphicsLayer { alpha = featherAlpha.value },
-        shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        Icon(painterResource(R.drawable.feather), "Create post", Modifier.size(32.dp), tint = Color.Unspecified)
+        .graphicsLayer { alpha = featherAlpha.value })
     }
+}
+
+@Composable
+internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Create post") {
+    FloatingActionButton(onClick = onClick, modifier = modifier,
+        shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        Icon(painterResource(R.drawable.feather), description, Modifier.size(32.dp), tint = Color.Unspecified)
     }
 }
 

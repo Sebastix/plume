@@ -172,14 +172,23 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private var replyLoadJob: Job? = null
     private var replySaveJob: Job? = null
 
-    internal fun openReply(note: Event? = null) {
+    internal fun openReply(note: Event? = null, mentionProfile: String? = null) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value) return
         replyLoadJob?.cancel()
         replyLoadJob = viewModelScope.launch {
             try {
                 replySaveJob?.join()
-                val draft = withContext(Dispatchers.IO) { replyStore.load(owner, note) }
+                val draft = withContext(Dispatchers.IO) {
+                    val saved = replyStore.load(owner, note)
+                    val mention = mentionProfile?.let(Protocol::publicKey)?.takeIf { note == null }
+                    if (mention == null || mention in replyMentions(saved.text)) saved
+                    else {
+                        val text = "nostr:${Protocol.npub(mention)} ${saved.text}"
+                        require(text.length <= 8000) { "Saved draft is full. Shorten it before adding a mention." }
+                        saved.copy(text = text).also(replyStore::save)
+                    }
+                }
                 if (signer.value?.pubKey == owner) replyDraft.value = draft
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { message.value = "Could not open composer: ${e.message}" }

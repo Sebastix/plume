@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
@@ -303,6 +304,17 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
+            }
+        },
+        floatingActionButton = {
+            if (screen == "profile" && profileKey != null && profileKey != s.publicKey) {
+                val opacity by androidx.compose.animation.core.animateFloatAsState(
+                    if (activeListState.isScrollInProgress) 0.4f else 1f, tween(180), label = "Profile feather scroll opacity")
+                FeatherComposeButton(onClick = {
+                    if (s.publicKey == null) showAccount = true
+                    else vm.openReply(mentionProfile = profileKey)
+                }, modifier = Modifier.padding(end = 8.dp, bottom = 8.dp).graphicsLayer { alpha = opacity },
+                    description = "Create post mentioning ${s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey)}")
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,
