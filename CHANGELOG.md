@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Show the normal reply, reaction, and zap controls in full article detail views, including long-press pickers and engagement counts.
 - Share articles from an icon in the top-right detail toolbar using the Android share sheet.
 
 ## [0.35.0] - 2026-10-11
