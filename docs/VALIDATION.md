@@ -758,3 +758,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Profile queries retain all valid advertised write relays, process four at a time with per-relay timeouts, close sockets on completion/cancellation, and preserve the bounded main-feed pool. Full article recovery still needs device verification.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,995,951 bytes; SHA-256 `80785ea1778a90a9d7fbcbb2c0d3d040759d657d1bd9052773b18967fc6fb887`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.34.0 release
+
+- Version 0.34.0 (67), source commit `46b3622e52c91a17ac4c02a2a2443e58a2297424`. Text replies with Vertex mentions and client attribution, cache usage on the storage slider, NSFW label, feed selector edge layout, and NIP-05 error clarity.
+- Signed release build passed, including release lint and R8. No automated tests or live device checks.
+- Cache usage reuses existing background size polling; the slider draws usage and budget on a shared byte-proportional scale, keeps the existing limit choices, and supports RTL and accessibility adjustments.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 15,028,719 bytes; SHA-256 `f826d7c74232ffa7af0fea3b2e13d94a98303ecad3f4339ea29bad4597070d07`. Mapping archived locally. Website unchanged.
