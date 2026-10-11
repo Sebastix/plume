@@ -166,6 +166,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
 internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifier.size(24.dp)) {
     val resource = when (category) {
         ProfileTab.REPLIES -> R.drawable.conversation
+        ProfileTab.REPOSTS -> R.drawable.repost
         ProfileTab.HIGHLIGHTS -> R.drawable.highlighter
         ProfileTab.PHOTOS -> R.drawable.photos
         ProfileTab.BOOKMARKS -> R.drawable.bookmark
