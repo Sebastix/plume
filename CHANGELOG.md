@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Keep a shared home toolbar stationary during feed swipes. Show the current category icon between softly faded, tappable previous/next hints, without a conventional tab bar.
+
 ### Fixed
 - Align note and embedded-note avatars with the content’s left edge while retaining 48 dp profile tap targets. Reduce repost attribution height from 48 dp to 24 dp.
 

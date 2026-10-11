@@ -101,7 +101,8 @@ fun FeatherApp(vm: FeatherViewModel = viewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, activePage: Boolean = true) {
+internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, activePage: Boolean = true, homeToolbar: ReaderEntry? = null,
+    accountRequested: Boolean = false, onAccountHandled: () -> Unit = {}) {
     val s by vm.state.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
@@ -118,6 +119,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val threadId = entry.target.takeIf { screen == "thread" }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(accountRequested) {
+        if (accountRequested) { showAccount = true; onAccountHandled() }
+    }
     var statusReport by rememberSaveable { mutableStateOf<String?>(null) }
     var statusTitle by rememberSaveable { mutableStateOf("") }
     var profileTab by entry::tab
@@ -127,7 +131,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, visibleProfileTabs) {
         if (screen == "profile" && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
     }
-    var topBarVisible by entry::toolbar
+    var topBarVisible by (homeToolbar ?: entry)::toolbar
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
     val activeListState = entry.list
     val savedScreens = rememberSaveableStateHolder()
@@ -233,7 +237,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     Scaffold(
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
-            AnimatedVisibility(topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+            AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
                 if (screen == "hashtag") Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 if (screen == "feed") {
@@ -482,19 +486,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface) {
                                 visibleProfileTabs.forEach { tab ->
                                     Tab(selected = profileTab == tab, onClick = { selectProfileTab(tab) }, icon = {
-                                        when (tab) {
-                                            ProfileTab.POSTS -> Icon(Icons.Default.Menu, tab.label)
-                                            ProfileTab.REPLIES -> Icon(painterResource(R.drawable.conversation), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.REACTIONS -> Icon(Icons.Default.FavoriteBorder, tab.label)
-                                            ProfileTab.HIGHLIGHTS -> Icon(painterResource(R.drawable.highlighter), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.PHOTOS -> Icon(painterResource(R.drawable.photos), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.VIDEOS -> Icon(Icons.Default.PlayArrow, tab.label)
-                                            ProfileTab.BOOKMARKS -> Icon(painterResource(R.drawable.bookmark), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.ARTICLES -> Icon(painterResource(R.drawable.article), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.PEOPLE -> Icon(painterResource(R.drawable.people), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.PROJECTS -> Icon(painterResource(R.drawable.project), tab.label, Modifier.size(24.dp))
-                                            ProfileTab.APPS -> Icon(painterResource(R.drawable.apps), tab.label, Modifier.size(24.dp))
-                                        }
+                                        FeedCategoryIcon(tab)
                                     })
                                 }
                             }
@@ -621,7 +613,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
 }
 
 @Composable
-private fun Avatar(name: String, size: Int = 36, picture: String? = null, openImage: Boolean = false) {
+internal fun Avatar(name: String, size: Int = 36, picture: String? = null, openImage: Boolean = false) {
     val openGallery = LocalOpenGallery.current
     Box(Modifier.size(size.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
         Text(name.take(1).uppercase(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)

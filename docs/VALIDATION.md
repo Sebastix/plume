@@ -379,3 +379,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK signature verified against existing certificate SHA-256 `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK metadata: org.dergigi.feather, 0.16.1 (33), 14,074,776 bytes.
 - APK SHA-256: `8c9b0302e2f75573b97bca746339e3e4346e6912bc49029cf2ec22de9e6b5bbe`.
+
+## 2026-10-11 — Shared home toolbar
+
+- Hoisted the home toolbar outside HorizontalPager. Feather tap-to-top targets the settled feed; account opens the signed-in profile or the active reader’s guest sheet. Toolbar avatar uses the existing shared image resources with lifecycle-aware network access and no extra player.
+- Center selector uses existing profile-category icons: current emphasized, adjacent categories at reduced opacity with 48 dp tap targets. Missing neighbors reserve space so the current icon remains centered. Profile tabs share the icon renderer.
+- Vertical toolbar visibility is shared across feed pages; list positions and active-page media ownership remain independent.
+- `./gradlew :app:assembleDebug` and `git diff --check`: passed. No automated tests or device interaction.
