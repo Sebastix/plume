@@ -272,3 +272,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - The reported note `0000e42cb3ac5c90e5c37e7f010388598ecad9e8844a79f89bea174ec92230f5` contains literal U+FFFC before “only”; its tags provide no backing object.
 - Remove only U+FFFC from display copies of note bodies (including embedded notes), article text/titles, highlight passages/context/comments, and profile biographies. Clean before tokenization/Markdown to preserve link offsets; leave original event content, IDs, signatures, and persistence unchanged.
 - `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
+
+## 2026-10-11 — Engagement spacing (unreleased)
+
+- Reply, heart, and zap groups now each reserve at least 56 dp width and 48 dp height, with 16 dp trailing padding and 6 dp between icon/count. Empty counts no longer collapse spacing; share remains aligned at the end.
+- `./gradlew :app:assembleDebug`: passed. `git diff --check`: passed. No automated tests or device checks; no release published.
