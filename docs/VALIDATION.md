@@ -517,3 +517,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK metadata: org.dergigi.feather, 0.23.0 (44), 14,786,878 bytes.
 - APK SHA-256: `f7f77507271ae4a4ba6bf50308a3c8ca8272d4bb81e8c654f3ae00158d452f5f`.
 - Matching R8 mapping archived locally at `output/releases/feather-0.23.0-mapping.txt`. Website unchanged.
+
+## 2026-10-11 — 0.23.1 release
+
+- Version 0.23.1 (45), source commit `f74f3ba7f1a376b425b0f25221a9bbf5da31a8ea` embedded in BuildConfig. Settings layout, wallet controls, GitHub links, and 1 GB default cache.
+- Debug and signed release builds passed, including release lint and R8. No automated tests or device checks.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,787,766 bytes; SHA-256 `9697f2ce6afe5b591bd9da4026c831b5542a3bfeefff3033faf0831d2beffb9e`. Matching mapping archived locally. Website unchanged.
