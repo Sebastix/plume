@@ -648,3 +648,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including release lint and R8. No automated tests or device camera checks.
 - Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
 - APK: 14,948,315 bytes; SHA-256 `dadeab3fa0a3d5657989c67f7de3e023e76bfe3563ee58675ddef4176049150b`. Mapping archived locally. Website unchanged.
+
+## 2026-10-11 — 0.27.1 release
+
+- Version 0.27.1 (55), source commit `ec86303a30520a0cf0c8588f135ed4b2b0ce3b12`. Reverts profile recovery from 0.26.2. FeatherRepository.kt exactly matches the parent of commit 4f1c2e6; no experimental replacement is included.
+- Signed release build passed, including release lint and R8. No automated tests.
+- Certificate SHA-256: `78fadad16ed2625151be59c4ad9b8ab24a96e9e4e454751f40623fa149c278cd`.
+- APK: 14,948,315 bytes; SHA-256 `4bcd0cef5179f829099ef903aca0c85f67712d15630216f7d4d9236e2e64c030`. Mapping archived locally. Website unchanged.
