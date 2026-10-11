@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
-- Reveal the shared top bar during horizontal main-feed swipes and keep it visible after settling or cancelling the swipe.
+- Temporarily reveal only the feed-selector pill during horizontal main-feed swipes when the top bar is hidden. Hide it again once the swipe settles or is cancelled, preserving normal top-bar visibility.
 
 ## [0.21.0] - 2026-10-11
 

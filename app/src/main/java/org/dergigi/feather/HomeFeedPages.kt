@@ -68,19 +68,9 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         }
     }
     LaunchedEffect(pager) {
-        var revealingToolbar = false
         snapshotFlow { Triple(pager.settledPage, pager.isScrollInProgress, reordering) }
             .distinctUntilChanged().collect { (page, scrolling, changingOrder) ->
-                if (scrolling && !changingOrder) {
-                    revealingToolbar = true
-                    home.toolbar = true
-                }
-                if (!scrolling && !changingOrder) {
-                    // Keep it visible after settling, including a cancelled swipe.
-                    if (revealingToolbar) home.toolbar = true
-                    revealingToolbar = false
-                    currentTabs.getOrNull(page)?.let { home.tab = it }
-                }
+                if (!scrolling && !changingOrder) currentTabs.getOrNull(page)?.let { home.tab = it }
             }
     }
     Box(Modifier.fillMaxSize()) {
@@ -96,7 +86,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             accountRequested = accountRequested && category == home.tab,
             onAccountHandled = { accountRequested = false })
     }
-    // One stationary toolbar overlays the pager; only its category hints change.
+    // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
     AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
         val buttonSurface = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape)
         CenterAlignedTopAppBar(
@@ -137,7 +127,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 }
             },
             navigationIcon = {
-                IconButton(onClick = {
+                if (home.toolbar) IconButton(onClick = {
                     scope.launch {
                         val list = home.feedPage(home.tab).list
                         if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
@@ -145,10 +135,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     }
                 }, modifier = buttonSurface) {
                     Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
-                }
+                } else Spacer(Modifier.size(48.dp))
             },
             actions = {
-                IconButton(onClick = {
+                if (home.toolbar) IconButton(onClick = {
                     val key = state.publicKey
                     if (key == null) accountRequested = true
                     else navigation.push(ReaderEntry("profile", key))
@@ -160,7 +150,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                             Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 28, account?.picture)
                         }
                     } else Icon(Icons.Default.Person, null, Modifier.size(22.dp))
-                }
+                } else Spacer(Modifier.size(48.dp))
             },
             expandedHeight = 64.dp,
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent,
