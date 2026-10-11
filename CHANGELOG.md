@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- Tap transient error messages or their copy icon to copy the full message, including zap errors; keep messages accessible above galleries, fullscreen video, and settings.
 - Show author avatars and word-count-based reading time estimates (“5 min read”) in article lists.
 - Show NIP-05 instead of the profile username when present, with background verification: green check for a matching identity, double check for a root identity, warning for invalid claims, and copyable verification details.
 

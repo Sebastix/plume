@@ -1,6 +1,5 @@
 package org.dergigi.feather
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,7 +74,7 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
                 height = try { blocktime.height(note.createdAt) }
                     catch (e: CancellationException) { throw e }
                     catch (_: Exception) { null }
-                if (height == null) Toast.makeText(context, "Couldn't load block height.", Toast.LENGTH_SHORT).show()
+                if (height == null) AppMessages.show("Couldn't load block height.")
             } finally { loading = false }
         }
     }

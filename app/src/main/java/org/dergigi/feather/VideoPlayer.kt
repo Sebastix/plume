@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.media.AudioManager
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -204,6 +203,7 @@ internal fun VideoGestureFeedback(value: VideoFeedback?, modifier: Modifier = Mo
 internal fun FullscreenVideo(playback: VisibleVideoPlayer) {
     val engine = playback.player ?: return
     Dialog(onDismissRequest = playback::exitFullscreen, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        CopyableMessageHost()
         val window = (LocalView.current.parent as DialogWindowProvider).window
         val context = LocalContext.current
         val systemBrightness by produceState(.5f, context) {
@@ -261,7 +261,7 @@ private fun VideoActions(playback: VisibleVideoPlayer, modifier: Modifier, visib
     val scope = rememberCoroutineScope()
     val url = playback.player?.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
     var busy by remember { mutableStateOf(false) }
-    fun toast(message: String) { Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
+    fun toast(message: String) { AppMessages.show(message) }
     fun export(share: Boolean) {
         if (busy) return
         busy = true

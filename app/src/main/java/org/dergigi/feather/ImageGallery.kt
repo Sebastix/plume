@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -151,7 +150,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     var pendingSave by remember { mutableStateOf<List<String>?>(null) }
     val colors = listOf(Color.Black, Color.White, Color(0xFF666666))
     val foreground = if (background == 1) Color.Black else Color.White
-    fun toast(message: String) { Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
+    fun toast(message: String) { AppMessages.show(message) }
     fun save(images: List<String>) {
         if (busy) return
         busy = true
@@ -198,6 +197,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
         }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        CopyableMessageHost()
         HidePhotoStatusBar((LocalView.current.parent as DialogWindowProvider).window, hideNavigationBar = true)
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, lifecycle.isAtLeast(Lifecycle.State.STARTED), null)) {
         Box(Modifier.fillMaxSize().background(colors[background]).pointerInput(Unit) {

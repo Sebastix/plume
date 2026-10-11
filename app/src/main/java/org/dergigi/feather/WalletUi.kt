@@ -69,6 +69,7 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
         },
     )
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        CopyableMessageHost()
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Wallet", style = MaterialTheme.typography.titleLarge)
             if (connected) {

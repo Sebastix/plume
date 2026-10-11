@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.widget.Toast
 import java.util.Locale
 
 /** Explicit app routing also works when Android has not verified NewPipe's web links. */
@@ -33,5 +32,5 @@ internal fun Context.openWebLink(url: String) {
         if (launch("org.schabi.newpipe") || launch("com.google.android.youtube")) return
         if (Build.VERSION.SDK_INT >= 30 && launch(nonBrowser = true)) return
     }
-    if (!launch()) Toast.makeText(this, "No app can open this link.", Toast.LENGTH_SHORT).show()
+    if (!launch()) AppMessages.show("No app can open this link.")
 }

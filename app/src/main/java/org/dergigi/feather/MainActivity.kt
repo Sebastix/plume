@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FeatherTheme { FeatherApp(window); PreviousCrashDialog() }
+            FeatherTheme { CopyableMessageHost(); FeatherApp(window); PreviousCrashDialog() }
         }
     }
     override fun onStart() { super.onStart(); repo.foreground() }
@@ -118,7 +118,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
     val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) }
     val context = LocalContext.current
-    val snack = remember { SnackbarHostState() }
     val scrollScope = rememberCoroutineScope()
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val screen = entry.screen
@@ -235,7 +234,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
         if (activePage) vm.loadMutes(s.pendingMuteList)
     }
-    LaunchedEffect(message, activePage) { if (activePage) message?.let { snack.showSnackbar(it); vm.message.value = null } }
+    LaunchedEffect(message, activePage) { if (activePage) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(entry.key, activePage) { if (activePage) activate(entry) }
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
@@ -252,7 +251,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(
-        snackbarHost = { SnackbarHost(snack, Modifier.padding(bottom = if (homeToolbar != null) 144.dp else 0.dp)) },
         topBar = {
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
@@ -616,6 +614,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            CopyableMessageHost()
             Settings(s, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
@@ -624,6 +623,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         var error by remember { mutableStateOf<String?>(null) }
         ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            CopyableMessageHost()
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 val key = s.publicKey
@@ -936,7 +936,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             Switch(checked = state.showSensitive, onCheckedChange = { show ->
                 scope.launch {
                     runCatching { (context.applicationContext as FeatherApplication).repository.showSensitive(show) }
-                        .onFailure { android.widget.Toast.makeText(context, "Could not save content setting", android.widget.Toast.LENGTH_LONG).show() }
+                        .onFailure { AppMessages.show("Could not save content setting") }
                 }
             }, modifier = Modifier.semantics { contentDescription = "Show NSFW and content-warning tagged content" })
         }
