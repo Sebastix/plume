@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Center note actions within rounded touch targets and keep icons, reactions, and loading spinners in fixed-size slots to prevent shifts on tap.
 - Align the wallet balance to the right of its name on the same row.
 
 ## [0.23.2] - 2026-10-11

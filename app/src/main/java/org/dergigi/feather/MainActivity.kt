@@ -741,22 +741,26 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         if (note.kind !in listOf(7, 30023, 30030)) Row(verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.conversation), "${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
             val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
             val zapActions = LocalZapActions.current
-            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)
+            Row(Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape)
                 .clickable(enabled = !zapActions.disabled && zapActions.pending == null,
-                    onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Icon(painterResource(R.drawable.zap),
-                    if (note.id in zapActions.confirmed) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
-                    Modifier.size(20.dp), tint = if (note.id in zapActions.confirmed) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    onClickLabel = "Zap 21 sats") { zapActions.zap(note) }.padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    if (zapActions.pending == note.id) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else Icon(painterResource(R.drawable.zap),
+                        if (note.id in zapActions.confirmed) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
+                        Modifier.size(20.dp), tint = if (note.id in zapActions.confirmed) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))
