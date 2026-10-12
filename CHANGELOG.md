@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-12
+
 ### Changed
+- Prioritize Posts → Photos → Videos → Highlights → Articles → Replies across main feeds and profile tabs, with remaining kinds following their existing dynamic order.
 - Restore the bell for clearing notification filters, with a distinct outlined circular surface and blue all-notifications state. Preserve filter spacing and multi-selection.
 
 ### Added

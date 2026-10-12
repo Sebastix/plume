@@ -22,9 +22,9 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
             SEARCH -> -2
             NOTIFICATIONS -> -1
             POSTS -> 0
-            HIGHLIGHTS -> 1
-            PHOTOS -> 2
-            VIDEOS -> 3
+            PHOTOS -> 1
+            VIDEOS -> 2
+            HIGHLIGHTS -> 3
             ARTICLES -> 4
             REPLIES -> 5
             else -> 6
