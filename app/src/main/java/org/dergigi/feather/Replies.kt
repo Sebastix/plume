@@ -192,12 +192,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     LaunchedEffect(current.text) {
         if (editor.text != current.text) editor = TextFieldValue(current.text, TextRange(current.text.length))
     }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)) { uris -> vm.uploadImages(uris) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> vm.uploadImages(uris) }
     val images by produceState<List<String>>(emptyList(), current.text) {
         value = withContext(Dispatchers.Default) {
             Regex("https://[^\\s<>]+", RegexOption.IGNORE_CASE).findAll(current.text).map { it.value }
                 .filter { url -> runCatching { java.net.URI(url).path?.substringAfterLast('.')?.lowercase() in listOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif") }.getOrDefault(false) }
-                .distinct().take(8).toList()
+                .distinct().toList()
         }
     }
     val mention = remember(editor) { mentionInput(editor) }
@@ -273,6 +273,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val composer: @Composable () -> Unit = {
         CopyableMessageHost()
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, foreground, null)) {
+        GalleryHost(state, walletConnected = false, onOpenNote = { _, _ -> }, onOpenProfile = {}) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = if (current.target == null) 152.dp else 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -296,14 +297,18 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
                     disabledIndicatorColor = Color.Transparent))
-            if (images.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                images.forEach { url ->
-                    // Reserve the entire touch target outside the image so the scroll row cannot clip it.
-                    Box(Modifier.size(112.dp)) {
-                        RemoteImage(url, Modifier.align(Alignment.BottomStart).size(88.dp).clip(RoundedCornerShape(16.dp)), "Attached image")
+            val openGallery = LocalOpenGallery.current
+            if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
+                Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
+                    images.forEachIndexed { index, url ->
+                        RemoteImage(url, Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(onClickLabel = "Preview attached image") { openGallery(images, index, expandAlbum = false) }, "Attached image")
+                    }
+                    images.forEachIndexed { index, url ->
                         IconButton(enabled = !busy,
-                            modifier = Modifier.align(Alignment.TopEnd).size(48.dp),
+                            modifier = Modifier.offset(x = (index * 96 + 64).dp).size(48.dp),
                             onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
                             Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
                                 contentAlignment = Alignment.Center) {
@@ -338,6 +343,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     ProfileStatusIcons(profile, profile.event.pubKey in state.following)
                 }
             } }
+        }
         }
         }
         LaunchedEffect(current.owner, current.target?.id) { focus.requestFocus() }

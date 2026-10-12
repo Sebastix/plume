@@ -4,6 +4,16 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-10-12
+
+### Added
+- Strip embedded metadata before image upload, including EXIF/GPS, XMP, IPTC, comments and embedded thumbnails. Hash and authorize only sanitized files; preserve image orientation and supported animations.
+- Open composer attachment thumbnails in the full-screen gallery, with swiping between attachments.
+
+### Changed
+- Remove the four-image picker/queue cap and eight-thumbnail cap; use Android’s picker limit and upload sequentially within the existing draft length limit.
+- Tighten attachment thumbnail spacing while preserving corner-centered removal buttons and full touch targets.
+
 ### Fixed
 - Publish lowercase, deduplicated hashtag tags on new posts and replies so relay hashtag queries can find them; preserve the original text and exclude URL fragments.
 

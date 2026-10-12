@@ -49,15 +49,15 @@ internal class BlossomUpload(private val context: Context) {
         onProgress(ImageUploadProgress(stage = "Clearing temporary files"))
         context.cacheDir.listFiles()?.filter { it.name.startsWith("blossom-") && it.name.endsWith(".image") }?.forEach { it.delete() }
         onProgress(ImageUploadProgress(stage = "Creating temporary file"))
+        val original = File.createTempFile("blossom-", ".image", context.cacheDir)
         val file = File.createTempFile("blossom-", ".image", context.cacheDir)
         try {
-            val digest = MessageDigest.getInstance("SHA-256")
             var size = 0L
             onProgress(ImageUploadProgress(stage = "Opening image"))
             context.contentResolver.openInputStream(uri)?.use { input ->
                 onProgress(ImageUploadProgress(stage = "Reading image"))
                 var reportedSize = 0L
-                file.outputStream().use { output ->
+                original.outputStream().use { output ->
                     val buffer = ByteArray(65536)
                     while (true) {
                         currentCoroutineContext().ensureActive()
@@ -65,7 +65,7 @@ internal class BlossomUpload(private val context: Context) {
                         if (read < 0) break
                         size += read
                         require(size <= 20L * 1024 * 1024) { "Image exceeds 20 MB" }
-                        digest.update(buffer, 0, read); output.write(buffer, 0, read)
+                        output.write(buffer, 0, read)
                         if (size - reportedSize >= 256 * 1024) {
                             onProgress(ImageUploadProgress(size, stage = "Reading image"))
                             reportedSize = size
@@ -76,9 +76,25 @@ internal class BlossomUpload(private val context: Context) {
             require(size > 0) { "Selected image is empty" }
             onProgress(ImageUploadProgress(size, stage = "Checking image format"))
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            BitmapFactory.decodeFile(original.absolutePath, bounds)
             require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
-            val mime = bounds.outMimeType!!
+            onProgress(ImageUploadProgress(size, stage = "Removing metadata"))
+            val mime = ImagePrivacy.clean(original, file, bounds.outMimeType!!)
+            original.delete()
+            currentCoroutineContext().ensureActive()
+            size = file.length()
+            require(size in 1..20L * 1024 * 1024) { "Sanitized image exceeds 20 MB" }
+            onProgress(ImageUploadProgress(size, stage = "Hashing image"))
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(65536)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
             val hash = digest.digest().joinToString("") { "%02x".format(it) }
             val now = System.currentTimeMillis() / 1000 - 1
             val tags = (listOf(arrayOf("t", "upload"), arrayOf("x", hash), arrayOf("expiration", (now + 1800).toString())) +
@@ -114,7 +130,7 @@ internal class BlossomUpload(private val context: Context) {
                 if (first == null) { first = url; onUploaded(url) }
             }
             Result(first ?: error("Image upload failed: ${failures.joinToString("; ")}"), failures)
-        } finally { file.delete() }
+        } finally { original.delete(); file.delete() }
     }
 
     private suspend fun put(server: String, path: String, body: RequestBody, token: String, hash: String, size: Long): String {

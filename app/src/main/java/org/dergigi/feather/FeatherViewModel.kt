@@ -192,7 +192,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val size = blossom.selectedSize(uris.first())
                 imageUploadProgress.value = ImageUploadProgress(size, stage = "Finding Blossom servers")
                 val servers = withTimeout(30_000) { repo.blossomServers(draft.owner) }
-                for (uri in uris.distinct().take(4)) {
+                for (uri in uris.distinct()) {
                     check(signer.value === identity) { "Account changed" }
                     imageUploadProgress.value = ImageUploadProgress(stage = "Reading file size")
                     val selectedSize = blossom.selectedSize(uri)

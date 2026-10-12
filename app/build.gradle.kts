@@ -25,8 +25,8 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 85
-        versionName = "0.44.2"
+        versionCode = 86
+        versionName = "0.45.0"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -60,6 +60,7 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.vitorpamplona.quartz:quartz:1.17.0")
     implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.emoji2:emoji2-emojipicker:1.7.0")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
