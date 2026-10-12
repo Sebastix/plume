@@ -829,3 +829,5 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including lint and R8. No automated tests or live device checks.
 - Signed reposts persist before publication for exact-event retries; account-scoped pending state and bounded journal. Protected reposts omit embedded content.
 - APK: 15,061,487 bytes; SHA-256 `a866f5d3555f6ca9f02310681dcafac81838cc1e3265fa7dae296a6a948b5127`. Mapping archived locally. Signing certificate matches previous releases. Website unchanged by this release.
+
+- Zapstore publication completed after the remote signer returned online. Version event references asset `0e9d944f18c16c65afce29295d003d1fab08e7af58a6e4d97ed0581a180ffb57`, versionCode 73, matching APK SHA-256 and signing certificate; CDN returned HTTP 200.
