@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.40.2] - 2026-10-12
+
 ### Changed
 - Give the full emoji picker its own most-recent-first reaction history, filling up to three rows instead of reusing six shortcut suggestions. Keep the small picker unchanged.
 
