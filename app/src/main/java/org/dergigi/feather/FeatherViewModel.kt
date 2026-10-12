@@ -40,7 +40,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
-        imageUploadJob?.cancel(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
+        imageUploadJob?.cancel(); imageUploadProgress.value = null; replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
         repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptySet()
@@ -183,14 +183,18 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val draft = replyDraft.value ?: return
         val identity = signer.value ?: return
         if (replyBusy.value || imageUploading.value || uris.isEmpty() || draft.owner != identity.pubKey) return
+        imageUploadProgress.value = ImageUploadProgress(stage = "Reading image")
         imageUploading.value = true
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val uploadJob = currentCoroutineContext().job
+            var completed = false
             try {
-                val servers = repo.blossomServers(draft.owner)
+                val size = blossom.selectedSize(uris.first())
+                imageUploadProgress.value = ImageUploadProgress(size, stage = "Finding Blossom servers")
+                val servers = withTimeout(30_000) { repo.blossomServers(draft.owner) }
                 for (uri in uris.distinct().take(4)) {
                     check(signer.value === identity) { "Account changed" }
-                    imageUploadProgress.value = null
+                    imageUploadProgress.value = ImageUploadProgress(blossom.selectedSize(uri))
                     val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
                         if (uploadJob.isActive && imageUploadJob === uploadJob) imageUploadProgress.value = progress
                     }) { url ->
@@ -205,18 +209,30 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                     }
                     if (result.failures.isNotEmpty()) message.value = "Image uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
                 }
-            } catch (e: TimeoutCancellationException) { message.value = "Image upload authorization timed out" }
+                completed = true
+            } catch (e: TimeoutCancellationException) { message.value = "Image upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { message.value = "Image upload: ${e.message ?: e.javaClass.simpleName}" }
-            finally { if (imageUploadJob === uploadJob) { imageUploading.value = false; imageUploadProgress.value = null } }
+            finally {
+                if (imageUploadJob === uploadJob) {
+                    imageUploadProgress.value = if (completed && uploadJob.isActive && replyDraft.value != null)
+                        imageUploadProgress.value?.copy(percent = 100) else null
+                    imageUploading.value = false
+                }
+            }
         }
         imageUploadJob = job
         job.start()
     }
 
+    internal fun clearImageUploadProgress(expected: ImageUploadProgress) {
+        if (!imageUploading.value) imageUploadProgress.compareAndSet(expected, null)
+    }
+
     internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value || imageUploading.value) return
+        imageUploadProgress.value = null
         replyLoadJob?.cancel()
         replyLoadJob = viewModelScope.launch {
             try {
@@ -257,6 +273,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     internal fun closeReply() {
+        imageUploadProgress.value = null
         imageUploadJob?.cancel()
         val draft = replyDraft.value
         replyDraft.value = null

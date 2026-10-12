@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-10-12
+
+### Fixed
+- Show upload stages while discovering servers, waiting for the signer, connecting and mirroring; read file size before discovery. Bound discovery and include the signer queue in the authorization timeout.
+- Make composer upload percentages and file sizes easier to read, and keep completed upload details visible for four seconds while the composer is in the foreground.
+
 ## [0.44.0] - 2026-10-12
 
 ### Fixed

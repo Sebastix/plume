@@ -28,13 +28,21 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
     it.isHttps && it.username.isEmpty() && it.password.isEmpty() && it.query == null && it.fragment == null
 }?.toString()?.trimEnd('/')
 
-internal data class ImageUploadProgress(val size: Long, val percent: Int? = null)
+internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Preparing image")
 
 /** One bounded image at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
     private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
     data class Result(val url: String, val failures: List<String>)
+
+    suspend fun selectedSize(uri: Uri): Long? = withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use {
+                if (it.moveToFirst() && !it.isNull(0)) it.getLong(0).takeIf { size -> size > 0 } else null
+            }
+        }.getOrNull()
+    }
 
     suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
@@ -67,7 +75,8 @@ internal class BlossomUpload(private val context: Context) {
             val tags = (listOf(arrayOf("t", "upload"), arrayOf("x", hash), arrayOf("expiration", (now + 1800).toString())) +
                 servers.map { arrayOf("server", it.toHttpUrlOrNull()!!.host) }.distinctBy { it[1] }).toTypedArray()
             val content = "Upload image to your Blossom servers"
-            val auth = requests.run { withTimeout(180_000) { signer.sign<Event>(now, 24242, tags, content) } }
+            onProgress(ImageUploadProgress(size, stage = "Waiting for signer"))
+            val auth = withTimeout(180_000) { requests.run { signer.sign<Event>(now, 24242, tags, content) } }
             require(auth.pubKey == signer.pubKey && auth.kind == 24242 && auth.createdAt == now &&
                 auth.content == content && auth.tags.contentDeepEquals(tags) && auth.verify()) { "Invalid Blossom upload authorization" }
             // Deployed Blossom servers decode standard padded Base64 (without line breaks).
@@ -76,16 +85,16 @@ internal class BlossomUpload(private val context: Context) {
             val failures = mutableListOf<String>()
             for (server in servers) {
                 currentCoroutineContext().ensureActive()
-                onProgress(ImageUploadProgress(size))
+                onProgress(ImageUploadProgress(size, stage = if (first == null) "Connecting" else "Mirroring"))
                 val url = try {
                     val source = first
-                    if (source == null) put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent)) }, token, hash, size)
+                    if (source == null) put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent, if (percent == 99) "Waiting for server" else "Uploading")) }, token, hash, size)
                     else try {
                         put(server, "mirror", JSONObject().put("url", source).toString().toRequestBody("application/json".toMediaType()), token, hash, size)
                     } catch (e: CancellationException) { throw e }
                     catch (e: BlossomHttpFailure) {
                         if (e.code !in listOf(404, 405, 501)) throw e
-                        put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent)) }, token, hash, size)
+                        put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent, if (percent == 99) "Waiting for server" else "Uploading")) }, token, hash, size)
                     }
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) {

@@ -177,6 +177,13 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val current = draft ?: return
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val foreground = lifecycle.isAtLeast(Lifecycle.State.STARTED)
+    LaunchedEffect(uploading, uploadProgress, foreground) {
+        val completed = uploadProgress
+        if (foreground && !uploading && completed?.percent == 100) {
+            delay(4000)
+            vm.clearImageUploadProgress(completed)
+        }
+    }
     val media = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
     val focus = remember(current.owner, current.target?.id) { FocusRequester() }
@@ -230,21 +237,26 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     }
     val imageButton: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
-                if (uploading) {
-                    uploadProgress?.let { progress ->
-                        Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, progress.size),
-                            fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp))
+                uploadProgress?.let { progress ->
+                    Column(Modifier.padding(end = 6.dp), horizontalAlignment = Alignment.End) {
+                        progress.size?.let { size ->
+                            Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, size),
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(if (!uploading && progress.percent == 100) "100%" else progress.stage,
+                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                if (uploading) {
                     Box(Modifier.size(if (current.target == null) 56.dp else 48.dp)
                         .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape).semantics {
-                        contentDescription = uploadProgress?.percent?.let { "Image upload $it percent" } ?: "Preparing image or waiting for Blossom server"
+                        contentDescription = uploadProgress?.percent?.let { "Image upload $it percent" } ?: uploadProgress?.stage ?: "Preparing image"
                     }, contentAlignment = Alignment.Center) {
                         val percent = uploadProgress?.percent
                         if (percent == null) CircularProgressIndicator(Modifier.size(34.dp), strokeWidth = 2.dp)
                         else {
                             CircularProgressIndicator(progress = { percent / 100f }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp)
-                            Text("$percent%", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
+                            Text("$percent%", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else FilledIconButton(enabled = !busy,
