@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Recognize NWC lookup settlement timestamps when the optional state field is absent. Require an exact payment hash and millisatoshi amount match, reject contradictory states, and keep uncertain payments on the lookup-only path. Copied errors now distinguish valid settlement timestamps from missing or invalid values.
+
 ## [0.42.0] - 2026-10-12
 
 ### Added

@@ -139,7 +139,7 @@ internal class ZapWallet(context: Context) {
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
                 val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", existing.getString("invoice")))
                 diagnostics["Wallet lookup response"] = paymentResponseShape(status)
-                if (confirmedPayment(status, existing.getString("hash"), existing.optLong("sats", DEFAULT_ZAP_SATS))) {
+                if (confirmedPayment(status, existing.getString("hash"), existing.optLong("sats", DEFAULT_ZAP_SATS), lookup = true)) {
                     store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
                     paymentUncertain = false
                     if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats)
@@ -214,7 +214,7 @@ internal class ZapWallet(context: Context) {
                 step = "Checking payment confirmation"
                 val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
                 diagnostics["Wallet lookup response"] = paymentResponseShape(status)
-                require(confirmedPayment(status, hash, amountSats)) {
+                require(confirmedPayment(status, hash, amountSats, lookup = true)) {
                     "Wallet response has no verifiable payment confirmation (${paymentResponseShape(status)})"
                 }
             }
@@ -250,10 +250,19 @@ internal class ZapWallet(context: Context) {
             else -> "non-string"
         }
         val state = result.optString("state").takeIf { it in setOf("pending", "settled", "accepted", "expired", "failed") } ?: "absent/unknown"
-        return "preimage=$preimage; state=$state; payment_hash=${result.has("payment_hash")}; amount=${result.has("amount")}; settled_at=${result.has("settled_at")}"
+        val settlement = when {
+            !result.has("settled_at") || result.isNull("settled_at") -> "absent"
+            settlementTime(result) != null -> "valid"
+            else -> "invalid/zero/future"
+        }
+        val amount = result.opt("amount")?.toString()?.takeIf { it.length <= 64 }?.toBigDecimalOrNull()?.toString()?.take(24) ?: "absent/invalid"
+        return "preimage=$preimage; state=$state; payment_hash=${result.has("payment_hash")}; amount_msats=$amount; settled_at=$settlement"
     }
 
-    private fun confirmedPayment(result: JSONObject, hash: String, sats: Long): Boolean {
+    private fun settlementTime(result: JSONObject): Long? = result.opt("settled_at")?.toString()?.toLongOrNull()
+        ?.takeIf { it > 0 && it <= System.currentTimeMillis() / 1000 + 300 }
+
+    private fun confirmedPayment(result: JSONObject, hash: String, sats: Long, lookup: Boolean = false): Boolean {
         val value = (result.opt("preimage") as? String)?.trim().orEmpty()
         if (Regex("[a-fA-F0-9]{64}").matches(value)) {
             require(sha256(value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) == hash) { "Invalid payment confirmation: preimage does not match invoice payment hash" }
@@ -261,8 +270,13 @@ internal class ZapWallet(context: Context) {
         }
         // A signed, correlated lookup response can establish settlement without a
         // preimage, provided it identifies this exact payment and amount.
-        return result.optString("state") == "settled" &&
-            result.optString("payment_hash").equals(hash, ignoreCase = true) &&
-            result.optLong("amount", -1) == sats * 1000
+        val state = (result.opt("state") as? String)?.trim()
+        // NIP-47 state is optional. Legacy wallets report settlement with settled_at.
+        // Do not let that timestamp override an explicit pending/failed/unknown state.
+        val settled = state == "settled" ||
+            ((result.isNull("state") || state == "") && settlementTime(result) != null)
+        val amount = result.opt("amount")?.toString()?.takeIf { it.length <= 64 }?.toBigDecimalOrNull()
+        return lookup && settled && result.optString("payment_hash").equals(hash, ignoreCase = true) &&
+            amount?.compareTo(BigDecimal.valueOf(sats).multiply(BigDecimal.valueOf(1000))) == 0
     }
 }
