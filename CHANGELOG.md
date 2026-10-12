@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Require playable audio tags for podcast episodes instead of classifying all kind-54 events as podcasts; unrelated recipe events no longer appear in podcast tabs or use the audio renderer.
+
 ### Changed
 - Move the profile search field to the top beside the account avatar, reserving space on the right.
 

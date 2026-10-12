@@ -34,6 +34,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
+        PODCASTS -> isPodcast(event)
         ZAPS -> zapActivity(event) != null
         REPOSTS -> repostTarget(event) != null
         EMOJI_PACKS -> !event.tagValue("d").isNullOrBlank() && collectionEmojis(event).isNotEmpty()

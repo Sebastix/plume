@@ -28,6 +28,13 @@ import kotlinx.coroutines.withContext
 internal val voiceKinds = listOf(1222, 1244)
 internal val podcastKinds = listOf(54, 10154)
 
+/** Kind 54 is also used by non-podcast apps; require the NIP-F4 audio payload. */
+internal fun isPodcast(event: Event): Boolean = when (event.kind) {
+    54 -> event.tags.any { it.firstOrNull() == "audio" && MediaContent.secureUrl(it.getOrNull(1)) != null }
+    10154 -> !event.tagValue("title").isNullOrBlank()
+    else -> false
+}
+
 internal data class AudioInfo(val url: String?, val mime: String?, val title: String?, val description: String,
     val image: String?, val duration: Long, val waveform: List<Float>)
 

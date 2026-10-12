@@ -819,12 +819,12 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
-        when (note.kind) {
-            1222, 1244, 54, 10154 -> AudioContent(note, compact, name)
-            30030 -> EmojiPackContent(note)
-            30023 -> ArticleContent(note, compact, onReference)
-            9802 -> HighlightContent(note, state.profiles, compact, onReference)
-            7 -> {
+        when {
+            note.kind in voiceKinds || isPodcast(note) -> AudioContent(note, compact, name)
+            note.kind == 30030 -> EmojiPackContent(note)
+            note.kind == 30023 -> ArticleContent(note, compact, onReference)
+            note.kind == 9802 -> HighlightContent(note, state.profiles, compact, onReference)
+            note.kind == 7 -> {
                 ReactionContent(note)
                 reactionTarget(note)?.let { reference ->
                     Spacer(Modifier.height(12.dp))
@@ -959,7 +959,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                     }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (note.kind in voiceKinds || note.kind in podcastKinds) AudioContent(note, compact, name)
+                if (note.kind in voiceKinds || isPodcast(note)) AudioContent(note, compact, name)
                 else if (note.kind == 30030) EmojiPackContent(note)
                 else if (note.kind == 30023) ArticleContent(note, compact, onReference)
                 else if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)
