@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Retry wallet payment-status lookups up to twice after connection failures or timeouts, with bounded delays and per-attempt copied diagnostics. Never retry the payment itself.
 - Require playable audio tags for podcast episodes instead of classifying all kind-54 events as podcasts; unrelated recipe events no longer appear in podcast tabs or use the audio renderer.
 
 ### Changed

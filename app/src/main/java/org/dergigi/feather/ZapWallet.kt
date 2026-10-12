@@ -122,6 +122,21 @@ internal class ZapWallet(context: Context) {
         var step = "Loading payment history"
         var paymentUncertain = false
         val diagnostics = linkedMapOf("Amount" to "$amountSats sats", "Note" to note.id.take(12), "Recipient" to note.pubKey.take(12))
+        // Retry only read-only status requests, never pay_invoice or invoice creation.
+        suspend fun lookupPayment(invoice: String): JSONObject {
+            for (attempt in 1..3) {
+                currentCoroutineContext().ensureActive()
+                diagnostics["Wallet lookup attempts"] = attempt.toString()
+                try {
+                    return NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
+                } catch (failure: WalletFailure) {
+                    diagnostics["Wallet lookup error $attempt"] = walletErrorReason(failure)
+                    if (!failure.retryable || attempt == 3) throw failure
+                    delay(if (attempt == 1) 1_000 else 3_000)
+                }
+            }
+            error("Unreachable lookup attempt")
+        }
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
@@ -137,7 +152,7 @@ internal class ZapWallet(context: Context) {
                 step = "Checking previous payment"
                 paymentUncertain = true
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
-                val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", existing.getString("invoice")))
+                val status = lookupPayment(existing.getString("invoice"))
                 diagnostics["Wallet lookup response"] = paymentResponseShape(status)
                 if (confirmedPayment(status, existing.getString("hash"), existing.optLong("sats", DEFAULT_ZAP_SATS), lookup = true)) {
                     store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
@@ -209,7 +224,7 @@ internal class ZapWallet(context: Context) {
                 diagnostics["Wallet payment error"] = walletErrorReason(failure)
                 step = "Checking payment after timeout"
                 recoveredByLookup = true
-                NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
+                lookupPayment(invoice)
             }
             step = "Verifying payment confirmation"
             diagnostics[if (recoveredByLookup) "Wallet lookup response" else "Wallet payment response"] = paymentResponseShape(paid)
@@ -220,7 +235,7 @@ internal class ZapWallet(context: Context) {
                 // Some wallets acknowledge before returning the preimage. Query only;
                 // never submit a second payment to recover a missing confirmation.
                 step = "Checking payment confirmation"
-                val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
+                val status = lookupPayment(invoice)
                 diagnostics["Wallet lookup response"] = paymentResponseShape(status)
                 require(confirmedPayment(status, hash, amountSats, lookup = true)) {
                     "Wallet response has no verifiable payment confirmation (${paymentResponseShape(status)})"

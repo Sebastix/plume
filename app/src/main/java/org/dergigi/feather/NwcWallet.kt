@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-internal class WalletFailure(message: String, val code: String? = null, val report: String? = null) : Exception(message)
+internal class WalletFailure(message: String, val code: String? = null, val report: String? = null, val retryable: Boolean = false) : Exception(message)
 
 /** Bound and redact external error text before displaying it or copying it into a report. */
 internal fun walletErrorText(raw: String): String = raw.take(8192)
@@ -91,7 +91,7 @@ internal object NwcWallet {
         }
         try {
             val socket = withTimeoutOrNull(12_000) { opened.receive() }
-                ?: throw WalletFailure(relayErrors.values.firstOrNull() ?: "NWC relay connection timed out after 12s")
+                ?: throw WalletFailure(relayErrors.values.firstOrNull() ?: "NWC relay connection timed out after 12s", retryable = true)
             val info = withTimeoutOrNull(4_000) {
                 while (true) {
                     val event = inbox.receive()
@@ -113,7 +113,8 @@ internal object NwcWallet {
             requestId.set(event.id)
             responseSubscription.set(subscription)
             socket.send(subscription)
-            check(socket.send(JSONArray().put("EVENT").put(JSONObject(event.toJson())).toString())) { "Wallet relay disconnected" }
+            if (!socket.send(JSONArray().put("EVENT").put(JSONObject(event.toJson())).toString()))
+                throw WalletFailure("Wallet relay disconnected", retryable = true)
             withTimeoutOrNull(if (method == "pay_invoice") 90_000 else 20_000) {
                 while (true) {
                     val response = inbox.receive()
@@ -131,7 +132,7 @@ internal object NwcWallet {
                     return@withTimeoutOrNull json.optJSONObject("result") ?: throw WalletFailure("Invalid wallet response")
                 }
                 @Suppress("UNREACHABLE_CODE") JSONObject()
-            } ?: throw WalletFailure(relayErrors[socket] ?: "NWC $method: wallet did not respond within ${if (method == "pay_invoice") 90 else 20}s", "NWC_TIMEOUT")
+            } ?: throw WalletFailure(relayErrors[socket] ?: "NWC $method: wallet did not respond within ${if (method == "pay_invoice") 90 else 20}s", "NWC_TIMEOUT", retryable = true)
         } finally {
             sockets.forEach { it.cancel() }; inbox.close(); opened.close()
         }
