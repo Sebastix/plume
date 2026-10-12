@@ -862,18 +862,7 @@ private fun ReplyContext(note: Event, embedded: Map<String, Event>, profiles: Ma
     if (filter.hides(reference) || (parent != null && filter.hides(parent))) return
     val author = parent?.pubKey ?: reference.author
     val name = profiles[author]?.name ?: FeatherRepository.shortKey(author ?: reference.id)
-    val preview = remember(parent?.id) {
-        parent?.content?.take(240)?.withoutObjectMarkers()?.replace('\n', ' ')?.trim().orEmpty()
-    }
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        .clickable(onClickLabel = "Open parent note") { onReference(reference) },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(painterResource(R.drawable.reply), "Reply to $name", Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.primary)
-        Text(if (preview.isEmpty()) name else "$name · $preview", maxLines = 1,
-            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    ReplyContextRow(parent, name, parent?.kind ?: reference.kind) { onReference(reference) }
 }
 
 /** Text and links stay selectable; mention labels update when metadata arrives. */

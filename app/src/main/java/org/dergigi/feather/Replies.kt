@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
@@ -217,11 +218,6 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val transform = remember(current.text, labels) { mentionTransformation(current.text, labels) }
-    val preview by produceState("", current.target?.id) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            current.target?.content?.withoutObjectMarkers()?.take(500).orEmpty()
-        }
-    }
     val sendButton: @Composable (Modifier) -> Unit = { modifier ->
         FilledIconButton(onClick = vm::sendReply, enabled = !busy && !uploading && current.text.isNotBlank(),
             modifier = modifier, shape = CircleShape,
@@ -270,9 +266,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             }
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]
-                Text(profile?.name ?: FeatherRepository.shortKey(target.pubKey), style = MaterialTheme.typography.titleSmall)
-                Text(preview, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ReplyContextRow(target, profile?.name ?: FeatherRepository.shortKey(target.pubKey))
             }
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
@@ -344,5 +338,44 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         ModalBottomSheet(onDismissRequest = vm::closeReply,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface) { composer() }
+    }
+}
+
+/** Shared, single-line parent summary for displayed replies and the composer. */
+@Composable
+internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.kind, onClick: (() -> Unit)? = null) {
+    val summary by produceState("" to kind, parent?.id, kind) {
+        value = withContext(Dispatchers.Default) {
+            val media = parent?.let { MediaContent.attachments(it, 8) }.orEmpty()
+            val type = when {
+                kind in videoKinds || media.any { it.kind == MediaContent.Kind.VIDEO } -> 21
+                kind == 30023 || kind == 9802 -> kind
+                kind == 20 || media.any { it.kind == MediaContent.Kind.IMAGE } -> 20
+                else -> kind
+            }
+            val text = parent?.tagValue("title")?.takeIf { it.isNotBlank() } ?: parent?.content.orEmpty()
+            text.take(240).withoutObjectMarkers().replace('\n', ' ').trim() to type
+        }
+    }
+    val description = when (summary.second) {
+        in videoKinds -> "Reply to video by $name"
+        20 -> "Reply to image by $name"
+        30023 -> "Reply to article by $name"
+        9802 -> "Reply to highlight by $name"
+        else -> "Reply to $name"
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).then(
+        if (onClick == null) Modifier else Modifier.clickable(onClickLabel = "Open parent note", onClick = onClick)),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (summary.second in videoKinds) Icon(Icons.Default.PlayArrow, description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        else Icon(painterResource(when (summary.second) {
+            20 -> R.drawable.photos
+            30023 -> R.drawable.article
+            9802 -> R.drawable.highlighter
+            else -> R.drawable.reply
+        }), description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(if (summary.first.isEmpty()) name else "$name · ${summary.first}", maxLines = 1,
+            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
