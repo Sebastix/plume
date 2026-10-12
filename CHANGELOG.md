@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.44.2] - 2026-10-12
+
 ### Fixed
 - Insert uploaded image URLs on the next line without an extra blank line.
 - Center attachment removal buttons on the thumbnail’s top-right corner, with room for the full touch target outside the image.
