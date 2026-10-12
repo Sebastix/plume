@@ -842,14 +842,14 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Spacer(Modifier.height(12.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
         }
-        if (expanded || truncated) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, if (expanded) "Show less" else "Read more") }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
         LinkPreviews(body)
             }
         }
-        if (note.kind !in listOf(7, 30030)) Row(verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30030)) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             // Keep a little breathing room inside the text edge, independent of reply counts.
             Row(Modifier.offset(x = (-12).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start)) {
@@ -859,9 +859,15 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             RepostButton(note, note.id in state.sentReposts)
-            Spacer(Modifier.weight(1f))
-            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
-            NoteZap(note, counts, state.publicKey)
+            }
+            if (compact && (expanded || truncated)) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {
+                Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    if (expanded) "Show less" else "Read more", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+                OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
+                NoteZap(note, counts, state.publicKey)
+            }
         }
     }
 }
