@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-10-12
+
 ### Changed
 - Use the feather’s blue for active reposts, inset Reply slightly from the text edge, and reduce active reaction emoji size to match nearby action icons.
 
