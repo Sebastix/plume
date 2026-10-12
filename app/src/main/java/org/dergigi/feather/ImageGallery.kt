@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -67,7 +68,7 @@ internal class GalleryOpener(private val open: (List<String>, Int, Event?, Boole
 internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _, _ -> } }
 
 @Composable
-internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, content: @Composable () -> Unit) {
+internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, onOpenProfile: (String) -> Unit, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
@@ -108,6 +109,10 @@ internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Bo
                     ?: state.profileEvents.find { it.id == id }
                     ?: state.threadNotes.find { it.id == id }
             },
+            onOpenProfile = { pubkey ->
+                urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList()
+                onOpenProfile(pubkey)
+            },
             onPage = { index = it },
             onDismiss = { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() },
             onOpenNote = { page ->
@@ -123,7 +128,7 @@ internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Bo
 
 // Swipe, double-tap/pinch zoom, background cycling and actions follow Boris.
 @Composable
-private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, walletConnected: Boolean, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit) {
+private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, walletConnected: Boolean, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit, onOpenProfile: (String) -> Unit) {
     val pager = rememberPagerState(initialPage = initialIndex.coerceIn(urls.indices), pageCount = { urls.size })
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -220,6 +225,14 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 4.dp)
                 .background(colors[background].copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close gallery", tint = foreground) }
+                currentNote?.let { note ->
+                    val author = state.profiles[note.pubKey]
+                    val name = author?.name ?: FeatherRepository.shortKey(note.pubKey)
+                    IconButton(onClick = { onOpenProfile(note.pubKey) },
+                        modifier = Modifier.semantics { contentDescription = "Open $name’s profile" }) {
+                        Avatar(name, size = 36, picture = author?.picture)
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = foreground, strokeWidth = 2.dp)
                 IconButton(onClick = { background = (background + 1) % colors.size }) { Icon(painterResource(R.drawable.contrast), "Change gallery background", tint = foreground) }
