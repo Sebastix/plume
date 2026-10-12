@@ -299,8 +299,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             if (images.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 images.forEach { url ->
-                    Box(Modifier.size(88.dp)) {
-                        RemoteImage(url, Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)), "Attached image")
+                    // Reserve the entire touch target outside the image so the scroll row cannot clip it.
+                    Box(Modifier.size(112.dp)) {
+                        RemoteImage(url, Modifier.align(Alignment.BottomStart).size(88.dp).clip(RoundedCornerShape(16.dp)), "Attached image")
                         IconButton(enabled = !busy,
                             modifier = Modifier.align(Alignment.TopEnd).size(48.dp),
                             onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
