@@ -47,7 +47,7 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
     fun images(event: Event): List<PrefetchImage> {
         val note = if (event.kind in listOf(6, 16)) input.embedded[repostTarget(event)?.id] ?: return emptyList() else event
         if (note.kind in listOf(3, 30000, 30617)) return emptyList()
-        if (note.kind == 30023 || note.kind in podcastKinds) return listOfNotNull(MediaContent.secureUrl(note.tagValue("image"))?.let { PrefetchImage(it, false) })
+        if (note.kind == 30023) return listOfNotNull(MediaContent.secureUrl(note.tagValue("image"))?.let { PrefetchImage(it, false) })
         if (note.kind == 32267) return listOfNotNull(MediaContent.secureUrl(note.tagValue("icon"))?.let { PrefetchImage(it, false, small = true) })
         return listOfNotNull(input.profiles[note.pubKey]?.picture?.let { PrefetchImage(it, true) },
             customReactionUrl(note)?.let { PrefetchImage(it, false, small = true) }) +

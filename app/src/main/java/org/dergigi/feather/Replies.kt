@@ -349,7 +349,7 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
         value = withContext(Dispatchers.Default) {
             val media = parent?.let { MediaContent.attachments(it, 32) }.orEmpty()
             val type = when {
-                kind in voiceKinds || kind in podcastKinds -> kind
+                kind in voiceKinds -> kind
                 kind in videoKinds || media.any { it.kind == MediaContent.Kind.VIDEO } -> 21
                 kind == 30023 || kind == 9802 -> kind
                 kind == 20 || media.any { it.kind == MediaContent.Kind.IMAGE } -> 20
@@ -362,7 +362,6 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
     }
     val description = when (summary.second) {
         in voiceKinds -> "Reply to voice note by $name"
-        in podcastKinds -> "Reply to podcast by $name"
         in videoKinds -> "Reply to video by $name"
         20 -> "Reply to image by $name"
         30023 -> "Reply to article by $name"
@@ -375,7 +374,6 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
         if (summary.second in videoKinds) Icon(Icons.Default.PlayArrow, description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         else Icon(painterResource(when (summary.second) {
             in voiceKinds -> R.drawable.voice
-            in podcastKinds -> R.drawable.podcast
             20 -> R.drawable.photos
             30023 -> R.drawable.article
             9802 -> R.drawable.highlighter

@@ -1,6 +1,8 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,8 +52,10 @@ internal fun LinkPreviews(content: String, limit: Int = 2) {
     } }
 }
 
-private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?, val mediaType: String? = null) {
-    fun json() = JSONObject().put("title", title).put("description", description).put("image", image).put("site", site).put("mediaType", mediaType).toString()
+private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?,
+    val mediaType: String? = null, val audio: String? = null, val duration: Long = 0) {
+    fun json() = JSONObject().put("title", title).put("description", description).put("image", image).put("site", site)
+        .put("mediaType", mediaType).put("audio", audio).put("duration", duration).toString()
 }
 
 /** Preview requests never run scripts, store cookies, or share the visible-image dispatcher. */
@@ -79,8 +83,8 @@ private object OpenGraph {
         .callTimeout(8, TimeUnit.SECONDS).connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).build()
 
     suspend fun get(raw: String, disk: DiskCache): LinkMetadata? = withContext(Dispatchers.IO) {
-        val url = raw.toHttpUrlOrNull()?.newBuilder()?.scheme("https")?.fragment(null)?.build() ?: return@withContext null
-        val key = "opengraph-v1:$url"
+        val url = (FountainLinks.canonical(raw) ?: raw).toHttpUrlOrNull()?.newBuilder()?.scheme("https")?.fragment(null)?.build() ?: return@withContext null
+        val key = "opengraph-v2:$url"
         synchronized(cache) { cache[key]?.takeIf { it.expires > System.currentTimeMillis() } }?.let { return@withContext it.metadata }
         locks[(key.hashCode() and Int.MAX_VALUE) % locks.size].withLock {
             val now = System.currentTimeMillis()
@@ -91,7 +95,7 @@ private object OpenGraph {
                     if (expires <= now || snapshot.data.toFile().length() > 16_384) null else {
                         val json = JSONObject(snapshot.data.toFile().readText())
                         fun field(name: String) = json.optString(name).takeIf { it.isNotBlank() && it != "null" }
-                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site"), field("mediaType")), expires)
+                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site"), field("mediaType"), field("audio"), json.optLong("duration")), expires)
                     }
                 }
             }.getOrNull()
@@ -116,6 +120,7 @@ private object OpenGraph {
 
     private suspend fun fetch(initial: HttpUrl): LinkMetadata? {
         var url = initial
+        val fountain = FountainLinks.canonical(initial.toString())
         repeat(4) { hop ->
             if (url.scheme != "https" || url.port != 443 || url.username.isNotEmpty() || url.password.isNotEmpty()) return null
             val request = Request.Builder().url(url).header("Accept", "text/html,application/xhtml+xml,image/*,video/*,*/*;q=0.8")
@@ -133,17 +138,24 @@ private object OpenGraph {
                     val buffer = Buffer()
                     val source = response.body.source()
                     var tail = ""
-                    while (buffer.size < 262_144L) {
+                    val maxBytes = if (fountain != null) 1_048_576L else 262_144L
+                    while (buffer.size < maxBytes) {
                         currentCoroutineContext().ensureActive()
                         val oldSize = buffer.size
-                        if (source.read(buffer, minOf(8_192L, 262_144L - oldSize)) == -1L) break
+                        if (source.read(buffer, minOf(8_192L, maxBytes - oldSize)) == -1L) break
                         val chunk = Buffer()
                         buffer.copyTo(chunk, oldSize, buffer.size - oldSize)
                         val ending = tail + chunk.readString(Charsets.ISO_8859_1).lowercase()
-                        if ("</head>" in ending) break
+                        if (fountain == null && "</head>" in ending) break
                         tail = ending.takeLast(16)
                     }
                     val document = Jsoup.parse(buffer.inputStream(), type?.charset()?.name(), url.toString())
+                    if (fountain != null) {
+                        FountainLinks.episode(document, fountain)?.let { episode ->
+                            return LinkMetadata(episode.title, null, episode.image, episode.show ?: "Fountain",
+                                audio = episode.audio, duration = episode.duration)
+                        }
+                    }
                     val head = document.head()
                     fun meta(vararg names: String): String? = names.firstNotNullOfOrNull { name ->
                         head.select("meta[property=$name],meta[name=$name]").firstOrNull { it.attr("content").isNotBlank() }
@@ -187,6 +199,30 @@ private fun OpenGraphCard(link: PreviewLink) {
             value = OpenGraph.get(link.url, resources.imageDisk)
             value?.mediaType?.let { DetectedMedia.put(link.url, it) }
         }
+    }
+    val episode = metadata?.takeIf { it.audio != null }
+    if (episode != null) {
+        Spacer(Modifier.height(12.dp))
+        Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth().onGloballyPositioned {
+                val bounds = it.boundsInWindow()
+                visible = bounds.bottom > 0 && bounds.top < view.height
+            }) {
+            Column(Modifier.padding(12.dp)) {
+                AudioPlayerContent(FountainLinks.canonical(link.url) ?: link.url,
+                    AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
+                    compact = true, author = episode.site ?: "Fountain")
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(episode.site ?: "Fountain", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { context.openWebLink(link.url) }) {
+                        Icon(painterResource(R.drawable.open_external), "Open episode in Fountain", Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+        return
     }
     // The small host-only card remains useful offline or when a server blocks preview requests.
     Spacer(Modifier.height(12.dp))

@@ -311,9 +311,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         reacting.update { it + note.id }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try { if (remove) repo.removeReaction(note, choice, connected, signerRequests) else repo.react(note, choice, connected, signerRequests) }
-            catch (_: TimeoutCancellationException) { message.value = if (remove) "Removal timed out. Tap the reaction to retry." else "Reaction timed out. Choose the same reaction to retry." }
+            catch (_: TimeoutCancellationException) { /* Reactions fail quietly. */ }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { message.value = if (remove) "Reaction removal was not confirmed. Tap it to retry." else "Reaction wasn't sent. Choose the same reaction to retry." }
+            catch (_: Exception) { /* Keep the last confirmed reaction state without a toast. */ }
             finally {
                 if (reactionJobs[note.id] === currentCoroutineContext().job) {
                     reactionJobs.remove(note.id); reacting.update { it - note.id }

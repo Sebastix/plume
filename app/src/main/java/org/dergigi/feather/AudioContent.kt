@@ -26,31 +26,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 internal val voiceKinds = listOf(1222, 1244)
-internal val podcastKinds = listOf(54, 10154)
-
-/** Kind 54 is also used by non-podcast apps; require the NIP-F4 audio payload. */
-internal fun isPodcast(event: Event): Boolean = when (event.kind) {
-    54 -> event.tags.any { it.firstOrNull() == "audio" && MediaContent.secureUrl(it.getOrNull(1)) != null }
-    10154 -> !event.tagValue("title").isNullOrBlank()
-    else -> false
-}
-
 internal data class AudioInfo(val url: String?, val mime: String?, val title: String?, val description: String,
     val image: String?, val duration: Long, val waveform: List<Float>)
 
 /** Called off the display thread; never retrieve audio just to discover its duration. */
 internal fun audioInfo(event: Event): AudioInfo {
-    val voice = event.kind in voiceKinds
-    val audio = event.tags.firstOrNull { it.firstOrNull() == "audio" && MediaContent.secureUrl(it.getOrNull(1)) != null }
-    val url = if (voice) MediaContent.secureUrl(event.content.trim()) else audio?.getOrNull(1)
+    val url = MediaContent.secureUrl(event.content.trim())
     val imeta = event.tags.firstOrNull { it.firstOrNull() == "imeta" && it.contains("url $url") }
         ?.drop(1)?.mapNotNull { val split = it.indexOf(' '); if (split > 0) it.take(split) to it.substring(split + 1) else null }?.toMap().orEmpty()
     val duration = (imeta["duration"] ?: event.tagValue("duration"))?.toDoubleOrNull()
         ?.takeIf { it.isFinite() && it > 0 && it <= 604800 }?.let { (it * 1000).toLong() } ?: 0L
     val waveform = imeta["waveform"].orEmpty().splitToSequence(' ').take(100).mapNotNull(String::toFloatOrNull)
         .filter { it.isFinite() && it >= 0 }.toList()
-    return AudioInfo(url, audio?.getOrNull(2)?.takeIf { it.startsWith("audio/") } ?: imeta["m"]?.takeIf { it.startsWith("audio/") },
-        event.tagValue("title")?.take(300), if (voice) "" else (event.tagValue("description") ?: event.content).take(32768),
+    return AudioInfo(url, imeta["m"]?.takeIf { it.startsWith("audio/") },
+        event.tagValue("title")?.take(300), "",
         MediaContent.secureUrl(event.tagValue("image")), duration, waveform)
 }
 
@@ -121,13 +110,18 @@ class AudioPlayback internal constructor(private val context: Context) {
 internal fun AudioContent(note: Event, compact: Boolean, author: String = FeatherRepository.shortKey(note.pubKey)) {
     val info by produceState<AudioInfo?>(null, note.id) { value = withContext(Dispatchers.Default) { audioInfo(note) } }
     val data = info ?: return
+    AudioPlayerContent(note.id, data, compact, author)
+}
+
+@Composable
+internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, author: String) {
     val media = LocalMedia.current
     val audio = media.audio
-    val player = audio?.player?.takeIf { audio.activeId == note.id }
-    var position by remember(note.id) { mutableLongStateOf(0) }
-    var duration by remember(note.id, data.duration) { mutableLongStateOf(data.duration) }
-    var buffering by remember(note.id) { mutableStateOf(false) }
-    var dragging by remember(note.id) { mutableStateOf<Float?>(null) }
+    val player = audio?.player?.takeIf { audio.activeId == id }
+    var position by remember(id) { mutableLongStateOf(0) }
+    var duration by remember(id, data.duration) { mutableLongStateOf(data.duration) }
+    var buffering by remember(id) { mutableStateOf(false) }
+    var dragging by remember(id) { mutableStateOf<Float?>(null) }
     LaunchedEffect(player, media.active) {
         if (player == null) { position = 0; buffering = false; return@LaunchedEffect }
         while (media.active) {
@@ -157,7 +151,7 @@ internal fun AudioContent(note: Event, compact: Boolean, author: String = Feathe
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(note.id, if (data.title == null && note.kind in podcastKinds) data.copy(title = "Podcast episode") else data, author) }) {
+                    IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(id, data, author) }) {
                         if (audio?.connecting == true || (buffering && audio?.requested == true)) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         else if (player != null && audio?.requested == true) Icon(painterResource(R.drawable.pause), "Pause audio")
                         else Icon(Icons.Default.PlayArrow, "Play audio")

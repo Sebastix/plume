@@ -712,7 +712,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(1222 to 300, 1244 to 300, 54 to 300, 10154 to 100, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -785,6 +785,27 @@ class FeatherRepository(context: Context) {
         }
     }
 
+    /** A retry republishes the same signed ID, so a lost acknowledgement cannot create duplicates. */
+    private suspend fun publishReactionEvent(event: Event, author: String, recipient: String): Boolean {
+        repeat(3) { attempt ->
+            if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
+            currentCoroutineContext().ensureActive()
+            check(state.value.publicKey == author) { "Account changed" }
+            updateRoutingPool()
+            client.connect()
+            val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
+                relayLists[recipient]?.read.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
+                state.value.relays.filter(::healthy)).distinct().take(4)
+            val accepted = try {
+                routes.isNotEmpty() && client.publishAndConfirm(event, routes.map { it.normalizeRelayUrl() }.toSet(),
+                    timeoutInSeconds = 15, untilFirstAccept = true)
+            } catch (_: TimeoutCancellationException) { false }
+            catch (_: java.io.IOException) { false }
+            if (accepted) return true
+        }
+        return false
+    }
+
     internal suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
         reactionMutex.withLock {
             ready.await()
@@ -822,16 +843,7 @@ class FeatherRepository(context: Context) {
             check(state.value.publicKey == author) { "Account changed." }
             publishingAuthor = target.pubKey
             try {
-                updateRoutingPool()
-                client.connect()
-                val own = relayLists[author]?.write.orEmpty()
-                val inbox = relayLists[target.pubKey]?.read.orEmpty()
-                val routes = (own.filter { it in routingPool && healthy(it) }.take(2) +
-                    inbox.filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
-                check(routes.isNotEmpty()) { "No relay available." }
-                check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
-                    "No relay confirmed the reaction. Choose the same reaction to retry."
-                }
+                check(publishReactionEvent(signed, author, target.pubKey)) { "Reaction not confirmed" }
                 reactionStore.put(target.id, signed, accepted = true)
                 accept(signed)
                 recordReaction(author, target.id, choice)
@@ -936,11 +948,7 @@ class FeatherRepository(context: Context) {
             check(state.value.publicKey == author)
             publishingAuthor = target.pubKey
             try {
-                updateRoutingPool(); client.connect()
-                val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                    relayLists[target.pubKey]?.read.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
-                check(routes.isNotEmpty())
-                check(client.publishAndConfirm(deletion, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) { "Deletion not confirmed" }
+                check(publishReactionEvent(deletion, author, target.pubKey)) { "Deletion not confirmed" }
                 reactionDeletions.put(deletion, accepted = true)
                 deletedReactions = reactionDeletions.deleted()
                 _state.update { current -> current.copy(deletedReactions = deletedReactions,

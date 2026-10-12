@@ -820,7 +820,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when {
-            note.kind in voiceKinds || isPodcast(note) -> AudioContent(note, compact, name)
+            note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
             note.kind == 30023 -> ArticleContent(note, compact, onReference)
             note.kind == 9802 -> HighlightContent(note, state.profiles, compact, onReference)
@@ -848,7 +848,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        if (note.kind !in listOf(7, 30030, 10154)) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30030)) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
@@ -959,7 +959,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                     }
                     Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (note.kind in voiceKinds || isPodcast(note)) AudioContent(note, compact, name)
+                if (note.kind in voiceKinds) AudioContent(note, compact, name)
                 else if (note.kind == 30030) EmojiPackContent(note)
                 else if (note.kind == 30023) ArticleContent(note, compact, onReference)
                 else if (note.kind == 9802) HighlightContent(note, profiles, compact, onReference)

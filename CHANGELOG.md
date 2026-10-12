@@ -4,11 +4,17 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-10-12
+
 ### Fixed
 - Retry wallet payment-status lookups up to twice after connection failures or timeouts, with bounded delays and per-attempt copied diagnostics. Never retry the payment itself.
-- Require playable audio tags for podcast episodes instead of classifying all kind-54 events as podcasts; unrelated recipe events no longer appear in podcast tabs or use the audio renderer.
+- Retry reaction and reaction-removal publishing up to twice using the same signed event; leave the last confirmed state and fail silently without a toast.
+
+### Added
+- Play shared Fountain episode links inline with episode artwork, title, duration, background audio and lock-screen controls. Cache public episode metadata within the media budget and retain ordinary link previews when an episode is unavailable.
 
 ### Changed
+- Replace kind-54/10154 podcast support with a Podcasts tab for Fountain episode links shared in posts and replies by the profile or followed accounts.
 - Move the profile search field to the top beside the account avatar, reserving space on the right.
 
 ## [0.43.0] - 2026-10-12
