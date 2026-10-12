@@ -28,6 +28,7 @@ internal const val ORANGE_HEART = "🧡"
 internal data class ReactionActions(
     val pending: Set<String> = emptySet(),
     val choices: List<ReactionChoice> = defaultReactions,
+    val recentEmojis: List<String> = emptyList(),
     val customEmojis: List<ReactionChoice> = emptyList(),
     val remove: (Event, ReactionChoice) -> Unit = { _, _ -> },
     val react: (Event, ReactionChoice) -> Unit = { _, _ -> },
@@ -107,7 +108,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     if (fullPicker && enabled) {
         val latestActions by rememberUpdatedState(actions)
         val latestSent by rememberUpdatedState(sent)
-        val recent = remember(menuChoices) { menuChoices.filter { it.image == null }.map { it.content } }
+        val recent = actions.recentEmojis
         val height = (LocalConfiguration.current.screenHeightDp * 0.6f).coerceAtMost(480f).dp
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {

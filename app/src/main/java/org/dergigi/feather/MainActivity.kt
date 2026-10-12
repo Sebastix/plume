@@ -255,7 +255,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note, amount)
-    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
+    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, recentEmojis = s.recentEmojis, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },

@@ -99,6 +99,7 @@ internal fun SearchableEmojiPicker(recent: List<String>, custom: List<ReactionCh
             }
         }
     }
+    val latestRecent by rememberUpdatedState(recent)
     Column(modifier) {
         OutlinedTextField(value = query, onValueChange = { query = it.take(100) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
@@ -127,7 +128,7 @@ internal fun SearchableEmojiPicker(recent: List<String>, custom: List<ReactionCh
                         }
                         // Only signed reactions populate recents; browsing is not a selection history.
                         setRecentEmojiProvider(object : RecentEmojiProvider {
-                            override suspend fun getRecentEmojiList() = recent
+                            override suspend fun getRecentEmojiList() = latestRecent
                             override fun recordSelection(emoji: String) = Unit
                         })
                         setOnEmojiPickedListener { latestPick(ReactionChoice(it.emoji)) }
