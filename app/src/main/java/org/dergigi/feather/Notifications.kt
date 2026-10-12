@@ -1,5 +1,6 @@
 package org.dergigi.feather
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -157,9 +158,16 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             horizontalArrangement = Arrangement.SpaceEvenly) {
                             NotificationType.entries.forEach { type ->
                                 if (type == NotificationType.ALL) {
-                                    IconButton(onClick = { selectedTypes = 0 }, enabled = selectedTypes != 0,
-                                        modifier = Modifier.size(48.dp)) {
-                                        Icon(painterResource(R.drawable.filter_clear), type.label, Modifier.size(24.dp))
+                                    OutlinedIconButton(onClick = { selectedTypes = 0 }, enabled = selectedTypes != 0,
+                                        modifier = Modifier.size(48.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                        colors = IconButtonDefaults.outlinedIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            disabledContentColor = MaterialTheme.colorScheme.primary)) {
+                                        Icon(Icons.Default.Notifications,
+                                            if (selectedTypes == 0) "All notifications" else type.label, Modifier.size(24.dp))
                                     }
                                     return@forEach
                                 }

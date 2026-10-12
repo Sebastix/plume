@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Restore the bell for clearing notification filters, with a distinct outlined circular surface and blue all-notifications state. Preserve filter spacing and multi-selection.
+
 ### Added
 - Show the current image author’s avatar beside the close control in the full-screen gallery. Tap it to open their profile; it updates when swiping and fades with the gallery controls.
 
