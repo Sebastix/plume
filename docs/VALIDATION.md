@@ -893,3 +893,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK: 15,079,535 bytes; SHA-256 `2b4a902f7b122380861e8c5a5602b113a17d28eee34e67345abc0f1d5629ea52`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
 
 - GitHub and Zapstore publication verified. Zapstore asset `d555a7bb3209c53fadbd380f506c2f394edd8e2af7cf7125b85a4aad532471e6` matches versionCode 81 and the APK hash; CDN returned HTTP 200.
+
+## 2026-10-12 — 0.43.0 release
+
+- Version 0.43.0 (82), source commit `5510439ca1572f2c05a39438e500e6c377d0c23c`. Background voice/podcast playback with Android media controls; legacy NWC settlement confirmation and lookup after payment timeouts.
+- Signed release build passed, including lint and R8. No automated tests or live device/payment checks.
+- APK: 15,474,273 bytes; SHA-256 `7ff5251422154c33d4876a3faa5607d72e1f58a26b8facd6f9791dfa39afd2b2`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
