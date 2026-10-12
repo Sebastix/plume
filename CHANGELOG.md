@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Always show passive relative timestamps in notifications: timestamp taps open the notification, while avatar taps still open the actor’s profile.
+- Replace the notification-filter bell with a dedicated clear-filter action, disabled without a selection. Align the filter row beside the account avatar with reserved space and horizontal scrolling on narrow screens.
+
 ## [0.40.0] - 2026-10-12
 
 ### Changed

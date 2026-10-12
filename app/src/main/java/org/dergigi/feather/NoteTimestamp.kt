@@ -99,3 +99,25 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
             color = if (mode == 1 && height != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+/** Passive relative age for notification rows; taps belong to the parent row. */
+@Composable
+internal fun NotificationTimestamp(note: Event) {
+    val view = LocalView.current
+    var visible by remember(note.id) { mutableStateOf(false) }
+    var relative by remember(note.createdAt) { mutableStateOf(relativeTime(note.createdAt)) }
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val active = visible && lifecycle.isAtLeast(Lifecycle.State.STARTED)
+    LaunchedEffect(active, note.createdAt) {
+        if (active) while (true) {
+            relative = relativeTime(note.createdAt)
+            delay(relative.nextUpdateMs)
+        }
+    }
+    Text(relative.label, style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.onGloballyPositioned {
+            val bounds = it.boundsInWindow()
+            visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
+        }.semantics { contentDescription = relative.spoken })
+}

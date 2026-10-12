@@ -1,6 +1,8 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,7 +43,7 @@ internal fun notificationTarget(event: Event): NostrContent.Reference? = when (e
     else -> NostrContent.Reference(event.id, author = event.pubKey, kind = event.kind)
 }
 private enum class NotificationType(val label: String) {
-    ALL("All notifications"), REPLIES("Replies"), REACTIONS("Reactions"),
+    ALL("Clear notification filters"), REPLIES("Replies"), REACTIONS("Reactions"),
     ZAPS("Zaps and nutzaps"), REPOSTS("Reposts"), MENTIONS("Mentions");
 
     fun includes(event: Event): Boolean = when (this) {
@@ -147,15 +149,23 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         PullToRefreshBox(isRefreshing = active && state.notificationsLoading,
             onRefresh = vm.repo::refreshNotifications, modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             LazyColumn(state = entry.list, modifier = Modifier.fillMaxSize().nestedScroll(toolbarScroll),
-                contentPadding = PaddingValues(top = 96.dp, bottom = 144.dp)) {
+                contentPadding = PaddingValues(bottom = 144.dp)) {
                 stickyHeader("notification-filters") {
                     Surface(color = MaterialTheme.colorScheme.background) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 72.dp, top = 8.dp, bottom = 8.dp)
+                            .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.SpaceEvenly) {
                             NotificationType.entries.forEach { type ->
-                                IconToggleButton(checked = if (type == NotificationType.ALL) selectedTypes == 0 else type in includedTypes,
+                                if (type == NotificationType.ALL) {
+                                    IconButton(onClick = { selectedTypes = 0 }, enabled = selectedTypes != 0,
+                                        modifier = Modifier.size(48.dp)) {
+                                        Icon(painterResource(R.drawable.filter_clear), type.label, Modifier.size(24.dp))
+                                    }
+                                    return@forEach
+                                }
+                                IconToggleButton(checked = type in includedTypes,
                                     onCheckedChange = {
-                                        selectedTypes = if (type == NotificationType.ALL) 0 else selectedTypes xor (1 shl type.ordinal)
+                                        selectedTypes = selectedTypes xor (1 shl type.ordinal)
                                     },
                                     modifier = Modifier.size(48.dp).semantics { contentDescription = type.label },
                                     colors = IconButtonDefaults.iconToggleButtonColors(
@@ -163,7 +173,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                         checkedContentColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
                                     when (type) {
-                                        NotificationType.ALL -> Icon(Icons.Default.Notifications, null)
+                                        NotificationType.ALL -> Unit
                                         NotificationType.REACTIONS -> Icon(Icons.Default.FavoriteBorder, null)
                                         NotificationType.MENTIONS -> Text("@", style = MaterialTheme.typography.titleLarge)
                                         else -> Icon(painterResource(when(type) {
@@ -212,7 +222,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             if (item.text.isNotBlank()) Text(item.text, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        NoteTimestamp(item.event)
+                        NotificationTimestamp(item.event)
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }
