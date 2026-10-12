@@ -50,7 +50,7 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.*
 
 
-data class MediaEnvironment(val resources: MediaStore.Resources?, val active: Boolean, val playback: VisibleVideoPlayer?)
+data class MediaEnvironment(val resources: MediaStore.Resources?, val active: Boolean, val playback: VisibleVideoPlayer?, internal val audio: AudioPlayback? = null)
 val LocalMedia = staticCompositionLocalOf { MediaEnvironment(null, false, null) }
 
 /** One decoder/player for the entire reading screen; all geometry is reported on the main thread. */
@@ -181,17 +181,20 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     val active = reading && lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible
     val context = LocalContext.current
     val playback = remember(resources, reading) { resources?.takeIf { reading }?.let { VisibleVideoPlayer(context, it) } }
-    DisposableEffect(playback, lifecycle, galleryVisible) {
+    val audio = remember(resources, reading) { resources?.takeIf { reading }?.let { AudioPlayback(context, it) } }
+    DisposableEffect(playback, audio, lifecycle, galleryVisible) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) { playback?.enabled(false); store.background() }
-            if (event == Lifecycle.Event.ON_START) playback?.enabled(!galleryVisible)
+            if (event == Lifecycle.Event.ON_STOP) { playback?.enabled(false); audio?.pause(); store.background() }
+            if (event == Lifecycle.Event.ON_START) playback?.enabled(!galleryVisible && audio?.requested != true)
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
     DisposableEffect(playback) { onDispose { playback?.close() } }
-    SideEffect { playback?.enabled(active) }
-    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback)) {
+    DisposableEffect(audio) { onDispose { audio?.close() } }
+    val audioRequested = audio?.requested == true
+    SideEffect { if (!active) audio?.pause(); playback?.enabled(active && !audioRequested) }
+    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback, audio)) {
         content()
         if (playback?.fullscreen == true) FullscreenVideo(playback)
     }

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Add dynamic Voice and Podcasts tabs to profiles and main feeds. Render NIP-A0 voice notes/replies and NIP-F4 podcast episodes/show metadata with cached, tap-to-play audio, seeking, duration, optional waveform, and episode artwork. Audio pauses when leaving the reading screen or backgrounding the app and suppresses automatic video playback.
+
 ## [0.41.0] - 2026-10-12
 
 ### Changed

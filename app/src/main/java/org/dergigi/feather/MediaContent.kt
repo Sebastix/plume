@@ -19,6 +19,7 @@ object MediaContent {
     }.getOrNull() }
 
     fun attachments(event: Event, limit: Int = 4): List<Attachment> {
+        if (event.kind in voiceKinds || event.kind in podcastKinds) return emptyList()
         val metadata = event.tags.filter { it.firstOrNull() == "imeta" }.take(32).mapNotNull { tag ->
             val fields = tag.drop(1).mapNotNull { entry ->
                 val split = entry.indexOf(' ')

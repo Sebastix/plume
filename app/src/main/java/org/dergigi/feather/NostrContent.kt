@@ -64,7 +64,7 @@ object NostrContent {
     }
 
     fun replyReference(event: Event): Reference? {
-        if (event.kind == 1111) {
+        if (event.kind in listOf(1111, 1244)) {
             // NIP-22 lowercase tags identify the immediate parent; uppercase tags are root scope.
             val address = event.tags.firstOrNull { it.size >= 2 && it[0] == "a" }
             if (address != null) runCatching {

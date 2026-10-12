@@ -217,6 +217,8 @@ internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modi
 @Composable
 internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifier.size(24.dp)) {
     val resource = when (category) {
+        ProfileTab.VOICE -> R.drawable.voice
+        ProfileTab.PODCASTS -> R.drawable.podcast
         ProfileTab.REPLIES -> R.drawable.conversation
         ProfileTab.ZAPS -> R.drawable.zap
         ProfileTab.REPOSTS -> R.drawable.repost

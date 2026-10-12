@@ -36,7 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
-internal val notificationKinds = listOf(1, 1111, 6, 16, 7, 9735, 9321)
+internal val notificationKinds = listOf(1, 1111, 1244, 6, 16, 7, 9735, 9321)
 internal fun notificationTarget(event: Event): NostrContent.Reference? = when (event.kind) {
     6, 16 -> repostTarget(event)
     7 -> reactionTarget(event)
@@ -49,11 +49,11 @@ private enum class NotificationType(val label: String) {
 
     fun includes(event: Event): Boolean = when (this) {
         ALL -> true
-        REPLIES -> event.kind in listOf(1, 1111) && Protocol.isReply(event)
+        REPLIES -> event.kind in listOf(1, 1111, 1244) && Protocol.isReply(event)
         REACTIONS -> event.kind == 7
         ZAPS -> event.kind in listOf(9735, 9321)
         REPOSTS -> event.kind in listOf(6, 16)
-        MENTIONS -> event.kind in listOf(1, 1111) && !Protocol.isReply(event)
+        MENTIONS -> event.kind in listOf(1, 1111, 1244) && !Protocol.isReply(event)
     }
 }
 
@@ -82,7 +82,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 val payment = if (event.kind in listOf(9735, 9321)) zapActivity(event) ?: return@mapNotNull null else null
                 val actor = if (payment != null) payment.sender else event.pubKey
                 if (actor in state.mutedAuthors) return@mapNotNull null
-                val source = if (event.kind in listOf(1, 1111)) event else state.embedded[target?.id]
+                val source = if (event.kind in listOf(1, 1111, 1244)) event else state.embedded[target?.id]
                 val text = payment?.comment?.takeIf { it.isNotBlank() }
                     ?: source?.let { it.tagValue("title") ?: MediaContent.text(it, MediaContent.attachments(it, 32)) }.orEmpty()
                 NotificationPreview(event, actor, text.withoutObjectMarkers().take(400), when(event.kind) {

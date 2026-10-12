@@ -98,7 +98,7 @@ internal fun replyTags(target: Event, relay: String): Pair<Int, Array<Array<Stri
             .distinct().take(64).forEach { tags += arrayOf("p", it) }
         return 1 to tags.toTypedArray()
     }
-    if (target.kind == 1111) {
+    if (target.kind in listOf(1111, 1244)) {
         val root = target.tags.firstOrNull { it.size >= 2 && it[0] in listOf("E", "A", "I") }
             ?: error("The parent comment has no root scope")
         val kind = target.tagValue("K") ?: error("The parent comment has no root kind")
@@ -349,17 +349,20 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
         value = withContext(Dispatchers.Default) {
             val media = parent?.let { MediaContent.attachments(it, 32) }.orEmpty()
             val type = when {
+                kind in voiceKinds || kind in podcastKinds -> kind
                 kind in videoKinds || media.any { it.kind == MediaContent.Kind.VIDEO } -> 21
                 kind == 30023 || kind == 9802 -> kind
                 kind == 20 || media.any { it.kind == MediaContent.Kind.IMAGE } -> 20
                 else -> kind
             }
             val text = parent?.tagValue("title")?.takeIf { it.isNotBlank() }
-                ?: parent?.let { MediaContent.text(it, media) }.orEmpty()
+                ?: parent?.let { if (it.kind in voiceKinds) "" else MediaContent.text(it, media) }.orEmpty()
             text.withoutObjectMarkers().replace(Regex("\\s+"), " ").trim().take(240) to type
         }
     }
     val description = when (summary.second) {
+        in voiceKinds -> "Reply to voice note by $name"
+        in podcastKinds -> "Reply to podcast by $name"
         in videoKinds -> "Reply to video by $name"
         20 -> "Reply to image by $name"
         30023 -> "Reply to article by $name"
@@ -371,6 +374,8 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         if (summary.second in videoKinds) Icon(Icons.Default.PlayArrow, description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         else Icon(painterResource(when (summary.second) {
+            in voiceKinds -> R.drawable.voice
+            in podcastKinds -> R.drawable.podcast
             20 -> R.drawable.photos
             30023 -> R.drawable.article
             9802 -> R.drawable.highlighter
