@@ -83,7 +83,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: WalletFailure) { message.value = failure.message }
+            catch (failure: WalletFailure) { AppMessages.show(failure.message ?: "Zap failed", failure.report ?: failure.message ?: "Zap failed") }
             catch (failure: Exception) { message.value = "Zap: ${walletErrorReason(failure)}" }
             finally {
                 if (zapJobs[note.id] === currentCoroutineContext().job) {

@@ -24,15 +24,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /** One transient message, never an unbounded queue of stale errors. */
 internal object AppMessages {
-    data class Message(val id: Long, val text: String)
+    data class Message(val id: Long, val text: String, val details: String)
     val current = MutableStateFlow<Message?>(null)
     val topHost = MutableStateFlow<Any?>(null)
     private val hosts = mutableListOf<Any>()
     private var sequence = 0L
 
-    @Synchronized fun show(text: String) {
-        if (text.isBlank() || current.value?.text == text) return
-        current.value = Message(++sequence, text)
+    @Synchronized fun show(text: String, details: String = text) {
+        if (text.isBlank() || (current.value?.text == text && current.value?.details == details)) return
+        current.value = Message(++sequence, text, details)
     }
     @Synchronized fun dismiss(id: Long) {
         if (current.value?.id == id) current.value = null
@@ -66,7 +66,7 @@ internal fun CopyableMessageHost() {
     val context = LocalContext.current
     fun copy() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Feather message", shown.text))
+        clipboard.setPrimaryClip(ClipData.newPlainText("Feather message", shown.details))
         AppMessages.dismiss(shown.id)
     }
     Popup(alignment = Alignment.BottomCenter,

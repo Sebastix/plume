@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-10-12
+
 ### Changed
+- Allow invoices from zap providers that omit or use a different description hash, matching established clients; retain amount, checksum, expiry, payment-hash and payment confirmation checks.
+- Copying a zap error includes the failed step, sanitized stack trace, version, provider hosts and invoice hash diagnostics without wallet credentials or payable invoices.
 - Always show passive relative timestamps in notifications: timestamp taps open the notification, while avatar taps still open the actor’s profile.
 - Replace the notification-filter bell with a dedicated clear-filter action, disabled without a selection. Align the filter row beside the account avatar with reserved space and horizontal scrolling on narrow screens.
 

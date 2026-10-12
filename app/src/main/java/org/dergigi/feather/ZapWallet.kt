@@ -22,7 +22,7 @@ internal data class WalletDetails(val name: String? = null, val balanceSats: Lon
 internal fun sha256(value: ByteArray) = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
 
 /** Decode the BOLT11 hash tags after checksum/amount validation. Wallet verifies the invoice signature. */
-internal fun invoiceHash(invoice: String, field: Char): String {
+internal fun invoiceHash(invoice: String, field: Char): String? {
     val alphabet = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
     require(invoice == invoice.lowercase() || invoice == invoice.uppercase()) { "Invalid invoice" }
     val text = invoice.lowercase()
@@ -60,7 +60,7 @@ internal fun invoiceHash(invoice: String, field: Char): String {
         }
         position += length
     }
-    return result ?: error("Missing invoice hash")
+    return result
 }
 
 internal class ZapWallet(context: Context) {
@@ -106,6 +106,7 @@ internal class ZapWallet(context: Context) {
         val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
         var paymentUncertain = false
+        val diagnostics = linkedMapOf("Amount" to "$amountSats sats", "Note" to note.id.take(12), "Recipient" to note.pubKey.take(12))
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
@@ -135,6 +136,7 @@ internal class ZapWallet(context: Context) {
             step = "Loading Lightning address"
             val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
             val lnurl = LnurlForm.urlToBech32(endpoint)
+            diagnostics["Provider"] = endpoint.toHttpUrl().host
             val params = get(endpoint)
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
             val msats = amountSats * 1000
@@ -156,18 +158,24 @@ internal class ZapWallet(context: Context) {
             val json = request.toJson()
             val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).setQueryParameter("lnurl", lnurl).build()
             step = "Requesting Lightning invoice"
+            diagnostics["Callback host"] = url.host
             val invoice = get(url.toString()).getString("pr")
             step = "Validating Lightning invoice"
             require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(amountSats)) == 0) { "Invoice amount does not match $amountSats sats" }
             val descriptionHash = invoiceHash(invoice, 'h')
             val requestHash = sha256(json.toByteArray(Charsets.UTF_8))
-            require(descriptionHash == requestHash) {
-                val explanation = if (descriptionHash == sha256(params.optString("metadata").toByteArray(Charsets.UTF_8)))
-                    "returned a regular LNURL invoice instead of a zap invoice"
-                else "returned an invoice whose description hash differs from the signed zap request"
-                "${url.host} $explanation (expected ${requestHash.take(12)}, received ${descriptionHash.take(12)}). No payment sent"
+            // Match established clients: the endpoint's invoice is payable even when its
+            // description does not commit to the zap request. Receipt validation is separate.
+            diagnostics["Description hash"] = when {
+                descriptionHash == null -> "absent"
+                descriptionHash == requestHash -> "matches zap request"
+                descriptionHash == sha256(params.optString("metadata").toByteArray(Charsets.UTF_8)) -> "matches LNURL metadata instead of zap request"
+                else -> "differs from zap request"
             }
-            val hash = invoiceHash(invoice, 'p')
+            diagnostics["Expected description hash prefix"] = requestHash.take(12)
+            diagnostics["Received description hash prefix"] = descriptionHash?.take(12) ?: "absent"
+            val hash = invoiceHash(invoice, 'p') ?: error("Invoice is missing its payment hash (BOLT11 p tag). No payment sent")
+            diagnostics["Payment hash prefix"] = hash.take(12)
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
             val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("sats", amountSats).put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
             step = "Saving payment"
@@ -192,7 +200,19 @@ internal class ZapWallet(context: Context) {
             currentCoroutineContext().ensureActive()
             val reason = if (failure is TimeoutCancellationException) "timed out waiting for signer" else walletErrorReason(failure)
             val uncertainty = if (paymentUncertain) ". Payment may have completed; tap again to check status." else ""
-            throw WalletFailure("$step: $reason$uncertainty", (failure as? WalletFailure)?.code)
+            val report = buildString {
+                appendLine("Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${BuildConfig.GIT_COMMIT}")
+                appendLine("Time: ${java.time.Instant.now()}")
+                appendLine("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+                appendLine("Step: $step")
+                diagnostics.forEach { (key, value) -> appendLine("$key: $value") }
+                appendLine("Payment outcome uncertain: $paymentUncertain")
+                appendLine("$reason$uncertainty")
+                appendLine()
+                // Sanitize each line, retaining stack layout without wallet secrets or invoices.
+                failure.stackTraceToString().take(24000).lineSequence().forEach { appendLine(walletErrorText(it)) }
+            }
+            throw WalletFailure("$step: $reason$uncertainty", (failure as? WalletFailure)?.code, report)
         } finally { connection.secret.fill(0) }
     }
     private fun verifyPreimage(result: JSONObject, hash: String) {

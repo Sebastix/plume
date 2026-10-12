@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-internal class WalletFailure(message: String, val code: String? = null) : Exception(message)
+internal class WalletFailure(message: String, val code: String? = null, val report: String? = null) : Exception(message)
 
 /** Bound and redact external error text before displaying it or copying it into a report. */
 internal fun walletErrorText(raw: String): String = raw.take(8192)
