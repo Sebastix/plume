@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-10-12
+
 ### Fixed
 - Closing the composer immediately clears upload busy state so it can reopen while cancellation cleans up; canceled uploads cannot modify reopened drafts or overwrite their progress. Keep upload file work serialized.
 
