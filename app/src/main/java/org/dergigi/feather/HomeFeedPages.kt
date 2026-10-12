@@ -23,6 +23,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.selected
@@ -186,8 +187,9 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     }
     val activeFeedList = home.feedPage(home.tab).list
+    val scrolling = activeFeedList.isScrollInProgress || pager.isScrollInProgress
     val featherAlpha = animateFloatAsState(
-        targetValue = if (activeFeedList.isScrollInProgress || pager.isScrollInProgress) 0.4f else 1f,
+        targetValue = if (scrolling) 0.4f else 1f,
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
     FeatherComposeButton(onClick = {
@@ -196,13 +198,16 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             accountRequested = true
         } else vm.openReply()
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
-        .graphicsLayer { alpha = featherAlpha.value })
+        .graphicsLayer { alpha = featherAlpha.value; compositingStrategy = CompositingStrategy.ModulateAlpha },
+        showShadow = !scrolling && featherAlpha.value == 1f)
     }
 }
 
 @Composable
-internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Create post") {
+internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Create post", showShadow: Boolean = true) {
     FloatingActionButton(onClick = onClick, modifier = modifier,
+        elevation = if (showShadow) FloatingActionButtonDefaults.elevation() else FloatingActionButtonDefaults.elevation(
+            defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
         shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         Icon(painterResource(R.drawable.feather), description, Modifier.size(32.dp), tint = Color.Unspecified)
     }

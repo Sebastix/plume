@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Remove the compose button’s elevation while scrolling and fading; restore its shadow at full opacity, without clipping the fade layer.
 - Hide the reaction count when the sole reaction is your own; keep the active emoji visible.
 
 ## [0.39.1] - 2026-10-12

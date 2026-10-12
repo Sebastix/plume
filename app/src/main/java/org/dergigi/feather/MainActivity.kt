@@ -323,7 +323,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 FeatherComposeButton(onClick = {
                     if (s.publicKey == null) showAccount = true
                     else vm.openReply(mentionProfile = profileKey)
-                }, modifier = Modifier.padding(end = 8.dp, bottom = 8.dp).graphicsLayer { alpha = opacity },
+                }, modifier = Modifier.padding(end = 8.dp, bottom = 8.dp).graphicsLayer {
+                    alpha = opacity
+                    compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                }, showShadow = !activeListState.isScrollInProgress && opacity == 1f,
                     description = "Create post mentioning ${s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey)}")
             }
         },
