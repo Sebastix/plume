@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -26,7 +27,7 @@ internal fun RepostButton(note: Event, sent: Boolean) {
         onClick = { if (!sent) actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
         if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         else Icon(painterResource(R.drawable.repost), if (sent) "Reposted; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
-            tint = if (sent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            tint = if (sent) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

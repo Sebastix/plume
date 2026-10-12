@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Use the feather’s blue for active reposts, inset Reply slightly from the text edge, and reduce active reaction emoji size to match nearby action icons.
+
 ### Fixed
 - Strip rendered image/video URLs from shared one-line reply previews using the same media text cleanup as notes.
 - Load settings/account avatars through the shared image cache with the sheet’s own active lifecycle, independently of paused feed media.

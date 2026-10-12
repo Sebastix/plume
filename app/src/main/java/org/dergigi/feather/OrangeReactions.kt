@@ -67,10 +67,10 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                         contentDescription = "Your reaction: ${latestReaction.description}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {
                         if (latestReaction.content in listOf("", "+")) Icon(Icons.Default.Favorite, null, Modifier.size(20.dp), tint = Color(0xFFFF8A00))
-                        else if (latestReaction.image == null) Text(latestReaction.display, fontSize = 20.sp)
+                        else if (latestReaction.image == null) Text(latestReaction.display, fontSize = 18.sp)
                         else {
                             Text("◌", fontSize = 20.sp, color = tint)
-                            RemoteImage(latestReaction.image, Modifier.size(22.dp),
+                            RemoteImage(latestReaction.image, Modifier.size(20.dp),
                                 "Your reaction: ${latestReaction.content}", crop = false)
                         }
                     }
