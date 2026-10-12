@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-10-12
+
 ### Changed
 - Center long-post expand/collapse controls in the existing action bar instead of a separate row.
 - Remove the compose button’s elevation while scrolling and fading; restore its shadow at full opacity, without clipping the fade layer.
