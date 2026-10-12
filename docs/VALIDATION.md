@@ -948,3 +948,5 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.46.0 (88), source commit `0e9b3d4`. Android image sharing into the active composer and encrypted per-account NWC restoration after login.
 - Signed release build passed, including lint and R8. No automated tests or live device checks. Reviewed logout deactivation, account-specific wallet access/deletion, and migration of existing owned credentials.
 - APK SHA-256: `ed336bc6500e5a1275648b33718bf5865652e0bcc033d8261f47b47000e3fdd3`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
+
+- GitHub and Zapstore publication verified. Zapstore asset `d474a8aa461b23f5305b424bf833dd8cadef0f9fb8eeb25058cd3f0208450f84` matches versionCode 88 and the APK hash; CDN returned HTTP 200.
