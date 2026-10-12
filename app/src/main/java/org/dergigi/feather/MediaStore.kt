@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 
 class MediaStore(private val context: Context) {
     class Resources(val images: ImageLoader, val imageDisk: DiskCache, val videos: SimpleCache, val videoSource: CacheDataSource.Factory, val thumbnails: AvatarThumbnails, val prefetchImages: ImageLoader, val prefetchVideoSource: CacheDataSource.Factory)
+    @Volatile internal var audioActive = false
     private val prefs = context.getSharedPreferences("feather-media", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -64,6 +65,7 @@ class MediaStore(private val context: Context) {
     private suspend fun rebuild(mb: Int) = withContext(Dispatchers.IO) {
         mutex.withLock {
             _error.value = null
+            withContext(Dispatchers.Main.immediate) { AudioPlaybackService.beforeCacheChange() }
             val previous = _resources.value
             _resources.value = null
             http.dispatcher.cancelAll()
@@ -108,5 +110,5 @@ class MediaStore(private val context: Context) {
             }
         }
     }
-    fun background() { http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll(); videoPrefetchHttp.dispatcher.cancelAll() }
+    fun background() { if (!audioActive) http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll(); videoPrefetchHttp.dispatcher.cancelAll() }
 }

@@ -18,14 +18,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -53,36 +47,57 @@ internal fun audioInfo(event: Event): AudioInfo {
         MediaContent.secureUrl(event.tagValue("image")), duration, waveform)
 }
 
-/** One explicit, cached audio player per active reading screen; never autoplay. */
-class AudioPlayback internal constructor(private val context: Context, private val resources: MediaStore.Resources) {
-    var player by mutableStateOf<ExoPlayer?>(null)
+/** One application-scoped controller; the service owns the player and notification. */
+class AudioPlayback internal constructor(private val context: Context) {
+    var player by mutableStateOf<androidx.media3.session.MediaController?>(null)
         private set
     var activeId by mutableStateOf<String?>(null)
         private set
     var requested by mutableStateOf(false)
         private set
-    internal fun toggle(id: String, info: AudioInfo) {
-        val url = info.url ?: return
-        val current = player ?: ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resources.videoSource))
-            .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(10000, 30000, 1000, 2000).setTargetBufferBytes(4 * 1024 * 1024).build())
-            .build().also { created ->
-                created.setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
-                created.setHandleAudioBecomingNoisy(true)
-                created.trackSelectionParameters = created.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
-                created.addListener(object : Player.Listener {
-                    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { requested = playWhenReady }
-                    override fun onPlaybackStateChanged(playbackState: Int) { if (playbackState == Player.STATE_ENDED) { created.pause(); requested = false } }
-                    override fun onPlayerError(error: PlaybackException) {
-                        created.pause(); requested = false
-                        AppMessages.show("Audio: ${walletErrorText(error.message ?: error.errorCodeName)}")
+    var connecting by mutableStateOf(false)
+        private set
+    private var connection: com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.MediaController>? = null
+
+    internal fun toggle(id: String, info: AudioInfo, author: String) {
+        if (info.url == null || connecting) return
+        val current = player
+        if (current != null) { toggleConnected(current, id, info, author); return }
+        connecting = true
+        val future = androidx.media3.session.MediaController.Builder(context,
+            androidx.media3.session.SessionToken(context, android.content.ComponentName(context, AudioPlaybackService::class.java)))
+            .setListener(object : androidx.media3.session.MediaController.Listener {
+                override fun onDisconnected(controller: androidx.media3.session.MediaController) {
+                    if (player === controller) { player = null; activeId = null; requested = false; connection = null }
+                }
+            }).buildAsync()
+        connection = future
+        future.addListener({
+            connecting = false
+            try {
+                val controller = future.get()
+                player = controller
+                controller.addListener(object : Player.Listener {
+                    override fun onEvents(player: Player, events: Player.Events) {
+                        requested = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+                        activeId = player.currentMediaItem?.mediaId
                     }
                 })
-                player = created
+                toggleConnected(controller, id, info, author)
+            } catch (error: Exception) {
+                androidx.media3.session.MediaController.releaseFuture(future)
+                connection = null; player = null; requested = false
+                AppMessages.show("Audio: ${walletErrorText(error.cause?.message ?: error.message ?: "Could not connect to player")}")
             }
-        if (activeId != id) {
-            activeId = id
-            current.setMediaItem(MediaItem.Builder().setUri(url).setMimeType(info.mime).build())
+        }, androidx.core.content.ContextCompat.getMainExecutor(context))
+    }
+
+    private fun toggleConnected(current: Player, id: String, info: AudioInfo, author: String) {
+        if (current.currentMediaItem?.mediaId != id) {
+            val metadata = androidx.media3.common.MediaMetadata.Builder()
+                .setTitle(info.title ?: "Voice note").setArtist(author)
+                .setArtworkUri(info.image?.let(android.net.Uri::parse)).build()
+            current.setMediaItem(MediaItem.Builder().setMediaId(id).setUri(info.url!!).setMimeType(info.mime).setMediaMetadata(metadata).build())
             current.prepare(); current.play()
         } else if (current.playWhenReady) current.pause()
         else {
@@ -90,14 +105,13 @@ class AudioPlayback internal constructor(private val context: Context, private v
             if (current.playbackState == Player.STATE_IDLE) current.prepare()
             current.play()
         }
+        activeId = id
         requested = current.playWhenReady
     }
-    fun pause() { player?.pause(); requested = false }
-    fun close() { player?.release(); player = null; activeId = null; requested = false }
 }
 
 @Composable
-internal fun AudioContent(note: Event, compact: Boolean) {
+internal fun AudioContent(note: Event, compact: Boolean, author: String = FeatherRepository.shortKey(note.pubKey)) {
     val info by produceState<AudioInfo?>(null, note.id) { value = withContext(Dispatchers.Default) { audioInfo(note) } }
     val data = info ?: return
     val media = LocalMedia.current
@@ -136,8 +150,8 @@ internal fun AudioContent(note: Event, compact: Boolean) {
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(enabled = media.active && audio != null, onClick = { audio?.toggle(note.id, data) }) {
-                        if (buffering && audio?.requested == true) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(note.id, if (data.title == null && note.kind in podcastKinds) data.copy(title = "Podcast episode") else data, author) }) {
+                        if (audio?.connecting == true || (buffering && audio?.requested == true)) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         else if (player != null && audio?.requested == true) Icon(painterResource(R.drawable.pause), "Pause audio")
                         else Icon(Icons.Default.PlayArrow, "Play audio")
                     }

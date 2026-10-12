@@ -198,17 +198,25 @@ internal class ZapWallet(context: Context) {
             // Persist before sending: process death or timeout must never cause a duplicate payment.
             step = "Paying Lightning invoice"
             paymentUncertain = true
+            var recoveredByLookup = false
             val paid = try { NwcWallet.request(connection, "pay_invoice", JSONObject().put("invoice", invoice)) }
             catch (failure: WalletFailure) {
                 if (failure.code in setOf("UNAUTHORIZED", "RESTRICTED", "QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "NOT_IMPLEMENTED", "RATE_LIMITED", "UNSUPPORTED_ENCRYPTION")) {
                     paymentUncertain = false
                     store.forgetPayment(paymentId)
                 }
-                throw failure
+                if (failure.code != "NWC_TIMEOUT") throw failure
+                diagnostics["Wallet payment error"] = walletErrorReason(failure)
+                step = "Checking payment after timeout"
+                recoveredByLookup = true
+                NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
             }
             step = "Verifying payment confirmation"
-            diagnostics["Wallet payment response"] = paymentResponseShape(paid)
-            if (!confirmedPayment(paid, hash, amountSats)) {
+            diagnostics[if (recoveredByLookup) "Wallet lookup response" else "Wallet payment response"] = paymentResponseShape(paid)
+            if (!confirmedPayment(paid, hash, amountSats, lookup = recoveredByLookup)) {
+                require(!recoveredByLookup) {
+                    "Wallet payment timed out and its lookup has no verifiable confirmation (${paymentResponseShape(paid)})"
+                }
                 // Some wallets acknowledge before returning the preimage. Query only;
                 // never submit a second payment to recover a missing confirmation.
                 step = "Checking payment confirmation"

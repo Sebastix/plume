@@ -4,7 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-10-12
+
+### Added
+- Keep voice notes and podcasts playing across navigation and while locked/backgrounded, using an Android media session service with system playback controls and author/title/artwork metadata.
+
 ### Fixed
+- Query payment status once after an NWC payment timeout, without resending payment. Preserve the original timeout in copied diagnostics if confirmation still fails.
 - Recognize NWC lookup settlement timestamps when the optional state field is absent. Require an exact payment hash and millisatoshi amount match, reject contradictory states, and keep uncertain payments on the lookup-only path. Copied errors now distinguish valid settlement timestamps from missing or invalid values.
 
 ## [0.42.0] - 2026-10-12

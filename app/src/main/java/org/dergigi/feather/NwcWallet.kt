@@ -131,7 +131,7 @@ internal object NwcWallet {
                     return@withTimeoutOrNull json.optJSONObject("result") ?: throw WalletFailure("Invalid wallet response")
                 }
                 @Suppress("UNREACHABLE_CODE") JSONObject()
-            } ?: throw WalletFailure(relayErrors[socket] ?: "NWC $method: wallet did not respond within ${if (method == "pay_invoice") 90 else 20}s")
+            } ?: throw WalletFailure(relayErrors[socket] ?: "NWC $method: wallet did not respond within ${if (method == "pay_invoice") 90 else 20}s", "NWC_TIMEOUT")
         } finally {
             sockets.forEach { it.cancel() }; inbox.close(); opened.close()
         }

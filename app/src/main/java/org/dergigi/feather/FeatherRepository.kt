@@ -31,6 +31,7 @@ class FeatherApplication : Application() {
     internal val crashes by lazy { CrashReports(this) }
     val repository by lazy { FeatherRepository(this) }
     val media by lazy { MediaStore(this) }
+    internal val audio by lazy { AudioPlayback(this) }
     internal val timestamps by lazy { TimestampPreference(this) }
 }
 
