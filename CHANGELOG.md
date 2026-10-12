@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Move the profile search field to the top beside the account avatar, reserving space on the right.
+
 ## [0.43.0] - 2026-10-12
 
 ### Added

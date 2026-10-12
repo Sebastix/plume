@@ -115,11 +115,11 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val resources by media.resources.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface,
         LocalMedia provides MediaEnvironment(resources, running, null)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(top = 80.dp)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(top = 8.dp)) {
             OutlinedTextField(value = home.searchQuery, onValueChange = { home.searchQuery = it.take(100) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 trailingIcon = { if (home.searchQuery.isNotEmpty()) IconButton(onClick = { home.searchQuery = "" }) { Icon(Icons.Default.Close, "Clear search") } },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).semantics { contentDescription = "Search profiles" },
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).semantics { contentDescription = "Search profiles" },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focus.clearFocus(); retry++ }))
