@@ -932,3 +932,5 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including lint and R8. No automated tests or live device/upload checks.
 - Reviewed upload ordering: local sanitization precedes the hash, signer authorization, direct upload and mirroring; failures never fall back to original bytes. Known JPEG/PNG/WebP/GIF containers remove metadata while preserving compressed image/animation data where possible. Static orientation changes and other decodable static formats re-encode pixels with bounded memory; unsupported animation/orientation combinations fail explicitly.
 - APK SHA-256: `5eec6cc3e2e3b3bd6528c536d218b1fb06219aaee4956e78665f65e53e016b4d`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
+
+- GitHub and Zapstore publication verified. Zapstore asset `be3bad22c0d9c1f24e4bdf16b49391ae6e1ffadb13a04036b7ee1d2664d128c2` matches versionCode 86 and the APK hash; CDN returned HTTP 200.
