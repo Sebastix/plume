@@ -204,7 +204,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                         withContext(Dispatchers.Main) {
                             val latest = replyDraft.value
                             check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
-                            val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n\n") + url
+                            val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
                             require(text.length <= 8000) { "Draft is full; uploaded image: $url" }
                             editReply(text)
                         }
