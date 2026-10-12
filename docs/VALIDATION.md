@@ -925,3 +925,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256: `ca78ffe254e0365de963a6e2da30b922e534a41649f5e5c0103e1047cf716d4b`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
 
 - GitHub and Zapstore publication verified. Zapstore asset `6c327ec4fa61d455d222e157dc19dc988fbc6bed9e0e87b8c44e7c95febee729` matches versionCode 85 and the APK hash; CDN returned HTTP 200.
+
+## 2026-10-12 — 0.45.0 release
+
+- Version 0.45.0 (86), source commit `beeaf24`. Metadata-stripped image uploads, attachment gallery previews, tighter thumbnail spacing, system picker selection limit, and hashtag publishing.
+- Signed release build passed, including lint and R8. No automated tests or live device/upload checks.
+- Reviewed upload ordering: local sanitization precedes the hash, signer authorization, direct upload and mirroring; failures never fall back to original bytes. Known JPEG/PNG/WebP/GIF containers remove metadata while preserving compressed image/animation data where possible. Static orientation changes and other decodable static formats re-encode pixels with bounded memory; unsupported animation/orientation combinations fail explicitly.
+- APK SHA-256: `5eec6cc3e2e3b3bd6528c536d218b1fb06219aaee4956e78665f65e53e016b4d`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
