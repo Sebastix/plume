@@ -890,7 +890,8 @@ class FeatherRepository(context: Context) {
                 .findAll(draft.text).take(16).mapNotNull { NostrContent.decode(it.value) }.distinctBy { it.id }.toList()
             val quoteTags = quotes.map { arrayOf("q", it.id, it.relays.firstOrNull().orEmpty(), it.author.orEmpty()) } +
                 quotes.mapNotNull { it.author }.distinct().filter { it !in participants && mentions.none { tag -> tag[1] == it } }.map { arrayOf("p", it) }
-            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + arrayOf(arrayOf("client", "Feather"))
+            val hashtagTags = NostrContent.hashtags(draft.text).map { arrayOf("t", it) }.toTypedArray()
+            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + arrayOf(arrayOf("client", "Feather"))
             val now = System.currentTimeMillis() / 1000
             signerRequests.run {
                 check(state.value.publicKey == author) { "Account changed" }

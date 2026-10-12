@@ -10,6 +10,14 @@ object NostrContent {
     data class Token(val start: Int, val end: Int, val text: String, val reference: Reference? = null, val url: String? = null)
     private val hex = Regex("[0-9a-f]{64}")
     private val tokens = Regex("https?://[^\\s<>]+|(?<![\\w/])(?:nostr:)?(?:npub|nprofile|note|nevent|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+|#\\[\\d{1,4}]|(?<![\\p{L}\\p{N}_/])#[\\p{L}\\p{N}_][\\p{L}\\p{N}\\p{M}_]*", RegexOption.IGNORE_CASE)
+    /** Match the same hashtags as the reader; consume whole URLs before considering their fragments. */
+    internal fun hashtags(text: String): List<String> = tokens.findAll(text)
+        .map { it.value }
+        .filter { it.startsWith("#") && !it.startsWith("#[") }
+        .map { it.drop(1).lowercase(java.util.Locale.ROOT) }
+        .distinct()
+        .toList()
+
     fun decode(raw: String): Reference? = runCatching {
         val value = raw.lowercase().removePrefix("nostr:")
         val parsed = Nip19Parser.uriToRoute(value)?.takeIf { it.nip19raw == value && it.additionalChars.isNullOrEmpty() } ?: return null

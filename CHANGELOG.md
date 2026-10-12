@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Publish lowercase, deduplicated hashtag tags on new posts and replies so relay hashtag queries can find them; preserve the original text and exclude URL fragments.
+
 ## [0.44.2] - 2026-10-12
 
 ### Fixed
