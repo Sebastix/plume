@@ -837,3 +837,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.39.0 (74), source commit `3c8d50b6cf03e0e64e8ead05afab5e1fde9b959b`. Upload byte progress and compact file size, tinted rounded composer field, secondary attachment button, rounded thumbnails with remove overlays, and a shared one-line parent summary with content-aware icons.
 - Signed release build passed, including lint and R8. No automated tests or live device checks. Upload progress reserves completion until server descriptor validation; preparation and mirrors remain indeterminate.
 - APK: 15,061,487 bytes; SHA-256 `55fbf890b785511d8695515aefd80e77cd1fbf0aea3391f671395ab7afbfabce`. Mapping archived locally. Signing certificate matches previous releases. Website unchanged by this release.
+
+## 2026-10-12 — 0.39.1 release
+
+- Version 0.39.1 (75), source commit `cc1bc438fc60a936c7c233904004906f646f5a01`. Full-width inline media, cached account-sheet avatars, media-URL cleanup in reply previews, feather-blue repost state, Reply inset, and smaller reaction emojis.
+- Signed release build passed, including lint and R8. No automated tests or live device checks.
+- APK: 15,061,487 bytes; SHA-256 `d852d5c70e0d746f97aa8c5236885c31766e38c1a960b595342ad26ae130e110`. Mapping archived locally. Signing certificate matches previous releases. Website unchanged.
