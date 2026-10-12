@@ -4,3 +4,17 @@
 
 /* Real app captures: Android status bars are removed from the source assets. */
 .hero{grid-template-columns:1.25fr 1fr;gap:70px;padding-block:32px 76px}.hero-screen{margin:0;justify-self:center;width:min(300px,100%)}.hero-screen a,.screen-card>a{display:block;background:#0e171c;border:1px solid #ffffff14;border-radius:24px;overflow:hidden;box-shadow:0 20px 55px #07233418}.hero-screen img,.screen-card img{display:block;width:100%;height:auto}.hero-screen figcaption{text-align:center;font-size:12px;color:var(--muted);margin-top:20px}.screenshots{padding-bottom:65px}.screenshots .section-intro{padding-top:38px}.screen-strip{display:grid;grid-auto-flow:column;grid-auto-columns:260px;gap:32px;overflow-x:auto;scroll-snap-type:x mandatory;padding:25px 3px 28px;scrollbar-width:thin;scrollbar-color:var(--blue) var(--mist)}.screen-strip:focus-visible{outline:2px solid var(--blue);outline-offset:6px}.screen-card{margin:0;scroll-snap-align:start}.screen-card>a{height:560px;background:#0e171c;display:flex;align-items:center}.screen-card img{max-height:100%;object-fit:contain}.screen-card figcaption{padding:23px 1px 0}.screen-card h3{font-size:17px;font-weight:600;letter-spacing:-.3px;margin:0 0 10px}.screen-card p{font-size:14px;line-height:1.7;color:var(--muted);margin:0}@media(max-width:900px){.hero{gap:30px}.hero-screen{width:260px}}@media(max-width:650px){.hero{grid-template-columns:1fr;gap:42px;padding-block:32px 52px}.hero-screen{width:min(280px,85%)}.screen-strip{grid-auto-columns:78%;gap:24px}.screen-card>a{height:auto;aspect-ratio:720/1564}.screenshots{padding-bottom:40px}}
+
+/* Three native app screens, with the main feed front and center. */
+.hero{display:flex;flex-direction:column;gap:52px;padding-block:30px 76px;text-align:center}
+.hero .intro{max-width:760px}.hero h1{font-size:clamp(40px,5.5vw,70px)}
+.hero .description{max-width:550px;margin-inline:auto}.hero .actions{justify-content:center}
+.phone-showcase{display:flex;align-items:center;justify-content:center;gap:clamp(8px,3vw,40px);width:100%;perspective:1100px;padding:16px 0 10px}
+.phone{flex:0 0 clamp(100px,23vw,270px);min-width:0;margin:0;transform-style:preserve-3d}
+.phone>a{display:block;aspect-ratio:720/1564;border:4px solid #182126;border-radius:clamp(18px,3vw,36px);overflow:hidden;background:#0e171c;box-shadow:0 0 0 1px #71828b75,0 22px 45px #07182025;transition:box-shadow .2s ease}
+.phone>a:hover{box-shadow:0 0 0 2px var(--blue),0 24px 50px #07182030}
+.phone img{display:block;width:100%;height:100%;object-fit:contain}
+.phone figcaption{margin-top:24px;color:var(--muted);font-size:13px}
+.phone-left{transform:rotateY(-15deg) scale(.95)}.phone-right{transform:rotateY(15deg) scale(.95)}.phone-center{position:relative;z-index:1}
+@media(max-width:650px){.hero{gap:34px;padding-block:24px 50px}.phone-showcase{perspective:650px;gap:8px;width:calc(100% + 24px)}.phone{flex-basis:calc((100% - 16px)/3)}.phone>a{border-width:2px}.phone figcaption{font-size:10px;margin-top:16px}.phone-left{transform:rotateY(-12deg) scale(.95)}.phone-right{transform:rotateY(12deg) scale(.95)}}
+@media(prefers-reduced-motion:reduce){.phone>a{transition:none}}

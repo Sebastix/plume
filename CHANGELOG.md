@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Present the website hero as three phone screens: notifications on the left, main feed in the center, and photos on the right, using status-bar-free screenshots.
+
 ## [0.38.0] - 2026-10-12
 
 ### Added
