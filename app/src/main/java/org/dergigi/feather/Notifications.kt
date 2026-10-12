@@ -62,14 +62,18 @@ private data class NotificationPreview(val event: Event, val actor: String?, val
 internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, home: ReaderEntry, active: Boolean) {
     val state by vm.state.collectAsStateWithLifecycle()
     val owner = state.publicKey ?: return
-    var selectedType by rememberSaveable(owner) { mutableStateOf(NotificationType.ALL) }
+    // Zero means all; each category otherwise toggles independently.
+    var selectedTypes by rememberSaveable(owner) { mutableIntStateOf(0) }
+    val includedTypes = remember(selectedTypes) {
+        NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
+    }
     val events = state.notifications.takeIf { state.notificationsFor == owner }.orEmpty()
     val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions) {
         ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive)
     }
-    val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter, selectedType) {
+    val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter, selectedTypes) {
         value = withContext(Dispatchers.Default) {
-            events.filter { selectedType.includes(it) && !filter.hides(it) }.mapNotNull { event ->
+            events.filter { event -> (includedTypes.isEmpty() || includedTypes.any { it.includes(event) }) && !filter.hides(event) }.mapNotNull { event ->
                 val target = notificationTarget(event)
                 if (target != null && filter.hides(target)) return@mapNotNull null
                 val payment = if (event.kind in listOf(9735, 9321)) zapActivity(event) ?: return@mapNotNull null else null
@@ -86,7 +90,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             }
         }
     }
-    LaunchedEffect(selectedType) { entry.list.scrollToItem(0) }
+    LaunchedEffect(selectedTypes) { entry.list.scrollToItem(0) }
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(active, message) { if (active) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(active, owner) {
@@ -149,8 +153,10 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly) {
                             NotificationType.entries.forEach { type ->
-                                IconToggleButton(checked = selectedType == type,
-                                    onCheckedChange = { selectedType = if (selectedType == type) NotificationType.ALL else type },
+                                IconToggleButton(checked = if (type == NotificationType.ALL) selectedTypes == 0 else type in includedTypes,
+                                    onCheckedChange = {
+                                        selectedTypes = if (type == NotificationType.ALL) 0 else selectedTypes xor (1 shl type.ordinal)
+                                    },
                                     modifier = Modifier.size(48.dp).semantics { contentDescription = type.label },
                                     colors = IconButtonDefaults.iconToggleButtonColors(
                                         checkedContainerColor = MaterialTheme.colorScheme.primaryContainer,

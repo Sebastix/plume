@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-12
+
 ### Changed
+- Allow multiple notification types to be selected together; the bell or clearing the last filter restores all notifications.
 - Trim trailing whitespace and blank lines before signing posts and replies, preserving leading and internal formatting.
 - Adopt “Nostr with nothing in the way.” as the website and Zapstore tagline.
 
