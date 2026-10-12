@@ -198,7 +198,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
 }
 
 @Composable
-fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, crop: Boolean = true, avatar: Boolean = false, widthPx: Int? = null, onImageSize: ((Int, Int) -> Unit)? = null) {
+fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, crop: Boolean = true, avatar: Boolean = false, widthPx: Int? = null, fillWidth: Boolean = false, onImageSize: ((Int, Int) -> Unit)? = null) {
     val media = LocalMedia.current
     val context = LocalContext.current
     val safeUrl = remember(url) { MediaContent.secureUrl(url) }
@@ -231,7 +231,7 @@ fun RemoteImage(url: String?, modifier: Modifier, description: String? = null, c
                 decoded = it.result.image
                 onImageSize?.invoke(it.result.image.width, it.result.image.height)
             },
-            contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
+            contentScale = when { fillWidth -> ContentScale.FillWidth; crop -> ContentScale.Crop; else -> ContentScale.Fit })
     }
 }
 
@@ -241,7 +241,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
     val openGallery = LocalOpenGallery.current
     val videoRatios by VideoRatios.ratios.collectAsState()
     val gallery = remember(note.id) { MediaContent.attachments(note, limit = 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { it.url } }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         attachments.forEach { attachment ->
             key(attachment.url) {
                 val identity = "$mediaKey:${attachment.url}"
@@ -261,6 +261,8 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                             var controlsVisible by remember(identity) { mutableStateOf(false) }
                             LaunchedEffect(feedbackTick) { delay(900); feedback = null }
                             AndroidView(factory = { GestureVideoView(it, playback, false) { value -> feedback = value; feedbackTick++ }.apply {
+                                layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
                                 setFullscreenButtonClickListener { isFullscreen -> if (isFullscreen) playback.enterFullscreen() }
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility -> controlsVisible = visibility == android.view.View.VISIBLE })
                             } },
@@ -291,7 +293,7 @@ private fun InlineImage(attachment: MediaContent.Attachment, onOpen: () -> Unit)
             Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer)
                 .clickable(onClickLabel = "Open image gallery", onClick = onOpen),
-            attachment.alt ?: "Image", crop = false, widthPx = widthPx,
+            attachment.alt ?: "Image", crop = false, widthPx = widthPx, fillWidth = true,
             onImageSize = { width, height ->
                 ImageRatios.put(attachment.url, width, height)?.let { ratio = it }
             })

@@ -696,7 +696,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val key = s.publicKey
                 val profile = s.profiles[key]
                 if (key != null) {
-                    Avatar(profile?.name ?: FeatherRepository.shortKey(key), 72, profile?.picture)
+                    AccountAvatar(profile?.name ?: FeatherRepository.shortKey(key), 72, profile?.picture)
                     Text(profile?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -726,6 +726,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         }
     }
     }
+    }
+}
+
+/** Account sheets share the image cache but do not inherit paused feed playback. */
+@Composable
+private fun AccountAvatar(name: String, size: Int, picture: String?) {
+    val store = (LocalContext.current.applicationContext as FeatherApplication).media
+    val resources by store.resources.collectAsStateWithLifecycle()
+    val lifecycle by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
+        lifecycle.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED), null)) {
+        Avatar(name, size, picture)
     }
 }
 
@@ -980,7 +992,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         state.publicKey?.let { key ->
             val profile = state.profiles[key]
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Avatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
+                AccountAvatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
                 Text(profile?.name ?: FeatherRepository.shortKey(key), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 FilledTonalIconButton(onClick = onWallet, modifier = Modifier.size(RoundControlSize)) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }

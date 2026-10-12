@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Load settings/account avatars through the shared image cache with the sheet’s own active lifecycle, independently of paused feed media.
+- Explicitly scale inline images and video surfaces to the full content width, preserving their aspect ratios, including low-resolution media.
+
 ## [0.39.0] - 2026-10-12
 
 ### Added
