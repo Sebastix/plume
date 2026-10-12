@@ -228,14 +228,8 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
         }
     }
-    val composer: @Composable () -> Unit = {
-        CopyableMessageHost()
-        CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, foreground, null)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = if (current.target == null) 152.dp else 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
-                Spacer(Modifier.weight(1f))
+    val imageButton: @Composable () -> Unit = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
                 if (uploading) {
                     uploadProgress?.let { progress ->
                         Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, progress.size),
@@ -262,6 +256,17 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 }) {
                     Icon(painterResource(R.drawable.photos), "Attach images")
                 }
+        }
+    }
+    val composer: @Composable () -> Unit = {
+        CopyableMessageHost()
+        CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, foreground, null)) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = if (current.target == null) 152.dp else 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
+                Spacer(Modifier.weight(1f))
+                if (current.target != null) imageButton()
                 if (current.target != null) { Spacer(Modifier.width(8.dp)); sendButton(Modifier.size(48.dp)) }
             }
             current.target?.let { target ->
@@ -330,7 +335,11 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
                     composer()
-                    sendButton(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 80.dp).size(56.dp))
+                    Row(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 80.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        imageButton()
+                        sendButton(Modifier.size(56.dp))
+                    }
                 }
             }
         }

@@ -14,6 +14,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Play shared Fountain episode links inline with episode artwork, title, duration, background audio and lock-screen controls. Cache public episode metadata within the media budget and retain ordinary link previews when an episode is unavailable.
 
 ### Changed
+- Put the full-screen composer’s image attachment button beside Send at the bottom right, preserving upload progress and matching round button sizes.
 - Replace kind-54/10154 podcast support with a Podcasts tab for Fountain episode links shared in posts and replies by the profile or followed accounts.
 - Move the profile search field to the top beside the account avatar, reserving space on the right.
 
