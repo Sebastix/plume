@@ -183,7 +183,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val draft = replyDraft.value ?: return
         val identity = signer.value ?: return
         if (replyBusy.value || imageUploading.value || uris.isEmpty() || draft.owner != identity.pubKey) return
-        imageUploadProgress.value = ImageUploadProgress(stage = "Reading image")
+        imageUploadProgress.value = ImageUploadProgress(stage = "Reading file size")
         imageUploading.value = true
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val uploadJob = currentCoroutineContext().job
@@ -194,9 +194,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val servers = withTimeout(30_000) { repo.blossomServers(draft.owner) }
                 for (uri in uris.distinct().take(4)) {
                     check(signer.value === identity) { "Account changed" }
-                    imageUploadProgress.value = ImageUploadProgress(blossom.selectedSize(uri))
+                    imageUploadProgress.value = ImageUploadProgress(stage = "Reading file size")
+                    val selectedSize = blossom.selectedSize(uri)
+                    imageUploadProgress.value = ImageUploadProgress(selectedSize)
                     val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
-                        if (uploadJob.isActive && imageUploadJob === uploadJob) imageUploadProgress.value = progress
+                        if (uploadJob.isActive && imageUploadJob === uploadJob)
+                            imageUploadProgress.value = progress.copy(size = progress.size ?: selectedSize)
                     }) { url ->
                         withContext(Dispatchers.Main) {
                             val latest = replyDraft.value
@@ -212,7 +215,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 completed = true
             } catch (e: TimeoutCancellationException) { message.value = "Image upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Image upload: ${e.message ?: e.javaClass.simpleName}" }
+            catch (e: Exception) { message.value = "Image upload (${imageUploadProgress.value?.stage ?: "unknown stage"}): ${e.message ?: e.javaClass.simpleName}" }
             finally {
                 if (imageUploadJob === uploadJob) {
                     imageUploadProgress.value = if (completed && uploadJob.isActive && replyDraft.value != null)

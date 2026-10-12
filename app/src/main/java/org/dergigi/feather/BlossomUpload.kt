@@ -28,7 +28,7 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
     it.isHttps && it.username.isEmpty() && it.password.isEmpty() && it.query == null && it.fragment == null
 }?.toString()?.trimEnd('/')
 
-internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Preparing image")
+internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Opening image")
 
 /** One bounded image at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
@@ -46,12 +46,17 @@ internal class BlossomUpload(private val context: Context) {
 
     suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
+        onProgress(ImageUploadProgress(stage = "Clearing temporary files"))
         context.cacheDir.listFiles()?.filter { it.name.startsWith("blossom-") && it.name.endsWith(".image") }?.forEach { it.delete() }
+        onProgress(ImageUploadProgress(stage = "Creating temporary file"))
         val file = File.createTempFile("blossom-", ".image", context.cacheDir)
         try {
             val digest = MessageDigest.getInstance("SHA-256")
             var size = 0L
+            onProgress(ImageUploadProgress(stage = "Opening image"))
             context.contentResolver.openInputStream(uri)?.use { input ->
+                onProgress(ImageUploadProgress(stage = "Reading image"))
+                var reportedSize = 0L
                 file.outputStream().use { output ->
                     val buffer = ByteArray(65536)
                     while (true) {
@@ -61,11 +66,15 @@ internal class BlossomUpload(private val context: Context) {
                         size += read
                         require(size <= 20L * 1024 * 1024) { "Image exceeds 20 MB" }
                         digest.update(buffer, 0, read); output.write(buffer, 0, read)
+                        if (size - reportedSize >= 256 * 1024) {
+                            onProgress(ImageUploadProgress(size, stage = "Reading image"))
+                            reportedSize = size
+                        }
                     }
                 }
             } ?: error("Could not read selected image")
             require(size > 0) { "Selected image is empty" }
-            onProgress(ImageUploadProgress(size))
+            onProgress(ImageUploadProgress(size, stage = "Checking image format"))
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
             require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
@@ -101,7 +110,7 @@ internal class BlossomUpload(private val context: Context) {
                     failures += "${server.toHttpUrlOrNull()!!.host}: ${walletErrorReason(e)}"
                     continue
                 }
-                onProgress(ImageUploadProgress(size, 100))
+                onProgress(ImageUploadProgress(size, 100, "Uploaded"))
                 if (first == null) { first = url; onUploaded(url) }
             }
             Result(first ?: error("Image upload failed: ${failures.joinToString("; ")}"), failures)

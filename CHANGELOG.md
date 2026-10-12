@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Distinguish local image file opening, reading and format checks before upload; show bytes read and include the current stage in upload errors.
+
 ## [0.44.1] - 2026-10-12
 
 ### Fixed
