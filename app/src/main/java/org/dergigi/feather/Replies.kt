@@ -344,17 +344,19 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
 /** Shared, single-line parent summary for displayed replies and the composer. */
 @Composable
 internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.kind, onClick: (() -> Unit)? = null) {
-    val summary by produceState("" to kind, parent?.id, kind) {
+    val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
+    val summary by produceState("" to kind, parent?.id, kind, detectedTypes) {
         value = withContext(Dispatchers.Default) {
-            val media = parent?.let { MediaContent.attachments(it, 8) }.orEmpty()
+            val media = parent?.let { MediaContent.attachments(it, 32) }.orEmpty()
             val type = when {
                 kind in videoKinds || media.any { it.kind == MediaContent.Kind.VIDEO } -> 21
                 kind == 30023 || kind == 9802 -> kind
                 kind == 20 || media.any { it.kind == MediaContent.Kind.IMAGE } -> 20
                 else -> kind
             }
-            val text = parent?.tagValue("title")?.takeIf { it.isNotBlank() } ?: parent?.content.orEmpty()
-            text.take(240).withoutObjectMarkers().replace('\n', ' ').trim() to type
+            val text = parent?.tagValue("title")?.takeIf { it.isNotBlank() }
+                ?: parent?.let { MediaContent.text(it, media) }.orEmpty()
+            text.withoutObjectMarkers().replace(Regex("\\s+"), " ").trim().take(240) to type
         }
     }
     val description = when (summary.second) {

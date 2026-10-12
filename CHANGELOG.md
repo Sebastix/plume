@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Strip rendered image/video URLs from shared one-line reply previews using the same media text cleanup as notes.
 - Load settings/account avatars through the shared image cache with the sheet’s own active lifecycle, independently of paused feed media.
 - Explicitly scale inline images and video surfaces to the full content width, preserving their aspect ratios, including low-resolution media.
 
