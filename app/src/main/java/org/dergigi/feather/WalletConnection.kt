@@ -69,8 +69,7 @@ internal class WalletStore(context: Context) {
     @Synchronized fun selectAccount(owner: String?) {
         account = owner
         connected.value = false
-        // Legacy connections have no provable owner. Reconnect explicitly rather than assigning them.
-        if (owner == null || prefs.getString("owner", null) != owner) disconnect()
+        migrateConnection()
         connected.value = runCatching { owner != null && connection(owner)?.also { it.secret.fill(0) } != null }.getOrDefault(false)
     }
     fun load() {
@@ -87,18 +86,35 @@ internal class WalletStore(context: Context) {
     }
     @Synchronized fun connection(owner: String): WalletConnection? {
         check(account == owner) { "Wallet account changed" }
-        if (prefs.getString("owner", null) != owner) return null
-        return prefs.getString("connection", null)?.let { WalletConnection.parse(open(it)) }
+        return prefs.getString("connection:$owner", null)?.let { WalletConnection.parse(open(it)) }
     }
     @Synchronized fun save(raw: String, owner: String) {
         check(account == owner) { "Wallet account changed" }
-        check(prefs.edit().putString("connection", seal(raw.trim())).putString("owner", owner).commit()) { "Could not save wallet" }
+        migrateConnection()
+        val slot = "connection:$owner"
+        require(prefs.contains(slot) || prefs.all.keys.count { it.startsWith("connection:") } < 32) {
+            "Saved wallet limit reached. Remove a wallet from another account first."
+        }
+        check(prefs.edit().putString(slot, seal(raw.trim())).commit()) { "Could not save wallet" }
         connected.value = true
     }
     @Synchronized fun disconnect() {
+        // Explicit deletion affects only this account. Logout only deselects it.
+        val owner = account ?: return
+        migrateConnection()
         // Preserve payment journal, so reconnecting cannot accidentally repeat an uncertain payment.
-        check(prefs.edit().remove("connection").remove("owner").commit()) { "Could not remove wallet connection" }
+        check(prefs.edit().remove("connection:$owner").commit()) { "Could not remove wallet connection" }
         connected.value = false
+    }
+    private fun migrateConnection() {
+        if (!prefs.contains("connection") && !prefs.contains("owner")) return
+        val owner = prefs.getString("owner", null)?.let(Protocol::publicKey)
+        val encrypted = prefs.getString("connection", null)
+        val edit = prefs.edit().remove("connection").remove("owner")
+        // Preserve the existing ciphertext only when its account is known; never assign an unowned wallet.
+        if (owner != null && encrypted != null && !prefs.contains("connection:$owner"))
+            edit.putString("connection:$owner", encrypted)
+        check(edit.commit()) { "Could not migrate saved wallet" }
     }
     fun forgetPayment(id: String) { check(prefs.edit().remove("payment:$id").commit()) }
     fun payment(id: String): org.json.JSONObject? = prefs.getString("payment:$id", null)?.let { org.json.JSONObject(open(it)) }

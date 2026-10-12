@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-10-12
+
+### Changed
+- Remember encrypted NWC connections separately for each account on this device. Logout deactivates the wallet; signing back into the same account restores it. The trash action deletes only that account’s connection. Preserve existing account-owned connections during migration.
+
 ### Added
 - Share one or multiple images to Feather from Android galleries and file managers. Attach and upload to the open composer/reply, or open the full-screen new-note composer with its saved draft. Queue incoming shares behind current uploads and reuse metadata stripping, progress, and Blossom server discovery.
 
