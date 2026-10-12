@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Preserve sanitized provider rejection reasons from unsuccessful Lightning HTTP responses, including Alby HTTP 400 errors.
+- Check payment status when a wallet omits the payment preimage, without resending the payment. Accept a signed settled lookup only when its payment hash and amount match. Include safe response-shape diagnostics in copied errors.
+
 ## [0.40.1] - 2026-10-12
 
 ### Changed

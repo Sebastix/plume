@@ -85,10 +85,25 @@ internal class ZapWallet(context: Context) {
     private fun get(url: String): JSONObject {
         require(MediaContent.secureUrl(url) != null) { "A secure Lightning endpoint is required" }
         return http.newCall(Request.Builder().url(url).header("Accept", "application/json").build()).execute().use { response ->
-            require(response.isSuccessful) { "HTTP ${response.code} from ${response.request.url.host}" }
-            val bytes = response.body.source().apply { request(131073) }.buffer.clone().readByteArray()
+            // Read a bounded body on errors too: LNURL providers put the useful reason
+            // in JSON even when returning HTTP 400/500.
+            val source = response.body.source()
+            source.request(131073)
+            val bytes = source.buffer.clone().readByteArray(minOf(source.buffer.size, 131073L))
+            val body = bytes.toString(Charsets.UTF_8)
+            val json = if (bytes.size <= 131072) runCatching { JSONObject(body) }.getOrNull() else null
+            val reason = listOf("reason", "message", "error").firstNotNullOfOrNull { key ->
+                json?.opt(key)?.takeUnless { it == JSONObject.NULL }?.toString()?.let(::walletErrorText)?.takeIf(String::isNotBlank)
+            }
+            require(response.isSuccessful) {
+                val detail = reason ?: if (response.header("Content-Type").orEmpty().contains("text/plain"))
+                    walletErrorText(body).takeIf(String::isNotBlank) else null
+                "HTTP ${response.code} from ${response.request.url.host}${detail?.let { ": $it" }.orEmpty()}"
+            }
             require(bytes.size <= 131072) { "Lightning response too large" }
-            JSONObject(bytes.toString(Charsets.UTF_8)).also { require(it.optString("status") != "ERROR") { "Lightning endpoint: ${walletErrorText(it.optString("reason")).ifBlank { "request rejected" }}" } }
+            requireNotNull(json) { "Invalid JSON response from ${response.request.url.host}" }
+            require(json.optString("status") != "ERROR") { "Lightning endpoint: ${reason ?: "request rejected"}" }
+            json
         }
     }
     suspend fun connect(raw: String, owner: String) = withContext(Dispatchers.IO) {
@@ -123,8 +138,8 @@ internal class ZapWallet(context: Context) {
                 paymentUncertain = true
                 // Unknown outcomes must be checked, never replaced with a fresh payable invoice.
                 val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", existing.getString("invoice")))
-                if (status.optString("state") == "settled" || status.optString("preimage").length == 64) {
-                    verifyPreimage(status, existing.getString("hash"))
+                diagnostics["Wallet lookup response"] = paymentResponseShape(status)
+                if (confirmedPayment(status, existing.getString("hash"), existing.optLong("sats", DEFAULT_ZAP_SATS))) {
                     store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
                     paymentUncertain = false
                     if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats)
@@ -192,8 +207,19 @@ internal class ZapWallet(context: Context) {
                 throw failure
             }
             step = "Verifying payment confirmation"
-            verifyPreimage(paid, hash)
+            diagnostics["Wallet payment response"] = paymentResponseShape(paid)
+            if (!confirmedPayment(paid, hash, amountSats)) {
+                // Some wallets acknowledge before returning the preimage. Query only;
+                // never submit a second payment to recover a missing confirmation.
+                step = "Checking payment confirmation"
+                val status = NwcWallet.request(connection, "lookup_invoice", JSONObject().put("invoice", invoice))
+                diagnostics["Wallet lookup response"] = paymentResponseShape(status)
+                require(confirmedPayment(status, hash, amountSats)) {
+                    "Wallet response has no verifiable payment confirmation (${paymentResponseShape(status)})"
+                }
+            }
             store.savePayment(paymentId, record.put("status", "paid"))
+            paymentUncertain = false
 
         } catch (failure: Exception) {
             if (failure is CancellationException && failure !is TimeoutCancellationException) throw failure
@@ -215,9 +241,28 @@ internal class ZapWallet(context: Context) {
             throw WalletFailure("$step: $reason$uncertainty", (failure as? WalletFailure)?.code, report)
         } finally { connection.secret.fill(0) }
     }
-    private fun verifyPreimage(result: JSONObject, hash: String) {
-        val value = result.optString("preimage")
-        require(Regex("[a-fA-F0-9]{64}").matches(value)) { "Wallet did not confirm payment" }
-        require(sha256(value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) == hash) { "Invalid payment confirmation" }
+    /** Only schema information is copied, never a preimage or arbitrary response values. */
+    private fun paymentResponseShape(result: JSONObject): String {
+        val value = result.opt("preimage")
+        val preimage = when (value) {
+            null, JSONObject.NULL -> "missing"
+            is String -> "string(${value.length}), hex=${Regex("[a-fA-F0-9]{64}").matches(value.trim())}"
+            else -> "non-string"
+        }
+        val state = result.optString("state").takeIf { it in setOf("pending", "settled", "accepted", "expired", "failed") } ?: "absent/unknown"
+        return "preimage=$preimage; state=$state; payment_hash=${result.has("payment_hash")}; amount=${result.has("amount")}; settled_at=${result.has("settled_at")}"
+    }
+
+    private fun confirmedPayment(result: JSONObject, hash: String, sats: Long): Boolean {
+        val value = (result.opt("preimage") as? String)?.trim().orEmpty()
+        if (Regex("[a-fA-F0-9]{64}").matches(value)) {
+            require(sha256(value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) == hash) { "Invalid payment confirmation: preimage does not match invoice payment hash" }
+            return true
+        }
+        // A signed, correlated lookup response can establish settlement without a
+        // preimage, provided it identifies this exact payment and amount.
+        return result.optString("state") == "settled" &&
+            result.optString("payment_hash").equals(hash, ignoreCase = true) &&
+            result.optLong("amount", -1) == sats * 1000
     }
 }
