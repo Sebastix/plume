@@ -13,6 +13,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.Buffer
+import okio.BufferedSink
+import okio.ForwardingSink
+import okio.buffer
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -24,13 +28,15 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
     it.isHttps && it.username.isEmpty() && it.password.isEmpty() && it.query == null && it.fragment == null
 }?.toString()?.trimEnd('/')
 
+internal data class ImageUploadProgress(val size: Long, val percent: Int? = null)
+
 /** One bounded image at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
     private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
     data class Result(val url: String, val failures: List<String>)
 
-    suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
+    suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
         context.cacheDir.listFiles()?.filter { it.name.startsWith("blossom-") && it.name.endsWith(".image") }?.forEach { it.delete() }
         val file = File.createTempFile("blossom-", ".image", context.cacheDir)
@@ -51,6 +57,7 @@ internal class BlossomUpload(private val context: Context) {
                 }
             } ?: error("Could not read selected image")
             require(size > 0) { "Selected image is empty" }
+            onProgress(ImageUploadProgress(size))
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
             require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
@@ -69,21 +76,23 @@ internal class BlossomUpload(private val context: Context) {
             val failures = mutableListOf<String>()
             for (server in servers) {
                 currentCoroutineContext().ensureActive()
+                onProgress(ImageUploadProgress(size))
                 val url = try {
                     val source = first
-                    if (source == null) put(server, "upload", file.asRequestBody(mime.toMediaType()), token, hash, size)
+                    if (source == null) put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent)) }, token, hash, size)
                     else try {
                         put(server, "mirror", JSONObject().put("url", source).toString().toRequestBody("application/json".toMediaType()), token, hash, size)
                     } catch (e: CancellationException) { throw e }
                     catch (e: BlossomHttpFailure) {
                         if (e.code !in listOf(404, 405, 501)) throw e
-                        put(server, "upload", file.asRequestBody(mime.toMediaType()), token, hash, size)
+                        put(server, "upload", progressBody(file, mime) { percent -> onProgress(ImageUploadProgress(size, percent)) }, token, hash, size)
                     }
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) {
                     failures += "${server.toHttpUrlOrNull()!!.host}: ${walletErrorReason(e)}"
                     continue
                 }
+                onProgress(ImageUploadProgress(size, 100))
                 if (first == null) { first = url; onUploaded(url) }
             }
             Result(first ?: error("Image upload failed: ${failures.joinToString("; ")}"), failures)
@@ -130,4 +139,29 @@ private suspend fun Call.awaitUpload(): Response = suspendCancellableCoroutine {
             continuation.resume(response, onCancellation = { _, value, _ -> value.close() })
         }
     })
+}
+
+/** Report actual request-body bytes, at most once per percentage point. */
+private fun progressBody(file: File, mime: String, progress: (Int) -> Unit): RequestBody {
+    val body = file.asRequestBody(mime.toMediaType())
+    return object : RequestBody() {
+        override fun contentType() = body.contentType()
+        override fun contentLength() = body.contentLength()
+        override fun writeTo(sink: BufferedSink) {
+            var sent = 0L
+            var previous = -1
+            val counting = object : ForwardingSink(sink) {
+                override fun write(source: Buffer, byteCount: Long) {
+                    super.write(source, byteCount)
+                    sent += byteCount
+                    // Reserve completion until the server's descriptor is validated.
+                    val percent = (sent * 100 / contentLength()).toInt().coerceIn(0, 99)
+                    if (percent != previous) { previous = percent; progress(percent) }
+                }
+            }.buffer()
+            progress(0)
+            body.writeTo(counting)
+            counting.flush()
+        }
+    }
 }

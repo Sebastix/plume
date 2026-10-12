@@ -176,6 +176,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private var replySaveJob: Job? = null
 
     internal val imageUploading = MutableStateFlow(false)
+    internal val imageUploadProgress = MutableStateFlow<ImageUploadProgress?>(null)
     private var imageUploadJob: Job? = null
     private val blossom = BlossomUpload(application)
     internal fun uploadImages(uris: List<android.net.Uri>) {
@@ -183,12 +184,16 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val identity = signer.value ?: return
         if (replyBusy.value || imageUploading.value || uris.isEmpty() || draft.owner != identity.pubKey) return
         imageUploading.value = true
-        imageUploadJob = viewModelScope.launch {
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val uploadJob = currentCoroutineContext().job
             try {
                 val servers = repo.blossomServers(draft.owner)
                 for (uri in uris.distinct().take(4)) {
                     check(signer.value === identity) { "Account changed" }
-                    val result = blossom.upload(uri, servers, identity, signerRequests) { url ->
+                    imageUploadProgress.value = null
+                    val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
+                        if (uploadJob.isActive && imageUploadJob === uploadJob) imageUploadProgress.value = progress
+                    }) { url ->
                         withContext(Dispatchers.Main) {
                             val latest = replyDraft.value
                             check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
@@ -203,8 +208,10 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: TimeoutCancellationException) { message.value = "Image upload authorization timed out" }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { message.value = "Image upload: ${e.message ?: e.javaClass.simpleName}" }
-            finally { imageUploading.value = false }
+            finally { if (imageUploadJob === uploadJob) { imageUploading.value = false; imageUploadProgress.value = null } }
         }
+        imageUploadJob = job
+        job.start()
     }
 
     internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null) {

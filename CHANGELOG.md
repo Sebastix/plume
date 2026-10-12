@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Show image upload percentage inside a compact progress ring and a subtle human-readable file size in the composer. Progress follows bytes sent; preparation and server-side mirroring remain indeterminate.
+
 ### Changed
+- Give composer text fields a subtly tinted rounded surface and image attachment buttons a secondary circular fill matching the send button size.
 - Present the website hero as three phone screens: notifications on the left, main feed in the center, and photos on the right, using status-bar-free screenshots.
 
 ## [0.38.0] - 2026-10-12

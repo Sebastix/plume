@@ -5,6 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
@@ -37,6 +40,7 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.OffsetMapping
 import kotlinx.coroutines.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -166,6 +170,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val draft by vm.replyDraft.collectAsStateWithLifecycle()
     val busy by vm.replyBusy.collectAsStateWithLifecycle()
     val uploading by vm.imageUploading.collectAsStateWithLifecycle()
+    val uploadProgress by vm.imageUploadProgress.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val current = draft ?: return
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
@@ -234,13 +239,33 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
-                IconButton(enabled = !busy && !uploading, onClick = {
+                if (uploading) {
+                    uploadProgress?.let { progress ->
+                        Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, progress.size),
+                            fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 4.dp))
+                    }
+                    Box(Modifier.size(if (current.target == null) 56.dp else 48.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape).semantics {
+                        contentDescription = uploadProgress?.percent?.let { "Image upload $it percent" } ?: "Preparing image or waiting for Blossom server"
+                    }, contentAlignment = Alignment.Center) {
+                        val percent = uploadProgress?.percent
+                        if (percent == null) CircularProgressIndicator(Modifier.size(34.dp), strokeWidth = 2.dp)
+                        else {
+                            CircularProgressIndicator(progress = { percent / 100f }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp)
+                            Text("$percent%", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                } else FilledIconButton(enabled = !busy,
+                    modifier = Modifier.size(if (current.target == null) 56.dp else 48.dp), shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer), onClick = {
                     imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }) {
-                    if (uploading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    else Icon(painterResource(R.drawable.photos), "Attach images")
+                    Icon(painterResource(R.drawable.photos), "Attach images")
                 }
-                if (current.target != null) sendButton(Modifier.size(48.dp))
+                if (current.target != null) { Spacer(Modifier.width(8.dp)); sendButton(Modifier.size(48.dp)) }
             }
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]
@@ -252,8 +277,13 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
             }, visualTransformation = transform, enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus).semantics { contentDescription = if (current.target == null) "Post text" else "Reply text" },
-                colors = TextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface))
+                shape = RoundedCornerShape(20.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent))
             if (images.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 images.forEach { url ->
