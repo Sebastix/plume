@@ -8,6 +8,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
@@ -287,10 +288,15 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             if (images.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 images.forEach { url ->
-                    Column {
-                        RemoteImage(url, Modifier.size(88.dp), "Attached image")
-                        IconButton(enabled = !busy, onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
-                            Icon(Icons.Default.Close, "Remove image from post")
+                    Box(Modifier.size(88.dp)) {
+                        RemoteImage(url, Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)), "Attached image")
+                        IconButton(enabled = !busy,
+                            modifier = Modifier.align(Alignment.TopEnd).size(48.dp),
+                            onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
+                            Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Close, "Remove image from post", Modifier.size(18.dp), tint = Color.White)
+                            }
                         }
                     }
                 }
