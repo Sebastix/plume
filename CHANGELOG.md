@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Show NIP-05 verification before the follow indicator in profile search and composer profile suggestions, keeping follow status at the far right.
+
 ## [0.45.0] - 2026-10-12
 
 ### Added
