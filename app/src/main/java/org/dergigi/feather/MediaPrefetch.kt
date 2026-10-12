@@ -45,7 +45,7 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
     val first = input.notes.indexOfFirst { it.id in visibleIds }
     val last = input.notes.indexOfLast { it.id in visibleIds }
     fun images(event: Event): List<PrefetchImage> {
-        val note = if (event.kind == 6) input.embedded[repostTarget(event)?.id] ?: return emptyList() else event
+        val note = if (event.kind in listOf(6, 16)) input.embedded[repostTarget(event)?.id] ?: return emptyList() else event
         if (note.kind in listOf(3, 30000, 30617)) return emptyList()
         if (note.kind == 30023) return listOfNotNull(MediaContent.secureUrl(note.tagValue("image"))?.let { PrefetchImage(it, false) })
         if (note.kind == 32267) return listOfNotNull(MediaContent.secureUrl(note.tagValue("icon"))?.let { PrefetchImage(it, false, small = true) })
@@ -61,7 +61,7 @@ private fun plan(input: PrefetchInput): PrefetchPlan {
     val upcoming = ahead.take(6) + behind
     val videoNotes = input.notes.filter { it.id in visibleIds } + ahead + behind
     val videoUrls = videoNotes.flatMap { event ->
-        val note = if (event.kind == 6) input.embedded[repostTarget(event)?.id] else event
+        val note = if (event.kind in listOf(6, 16)) input.embedded[repostTarget(event)?.id] else event
         if (note == null) emptyList() else {
             val originals = listOf(note) + NostrContent.quotes(note).mapNotNull { input.embedded[it.id] }
             originals.flatMap { MediaContent.attachments(it).filter { it.kind == MediaContent.Kind.VIDEO }.map { it.url } }

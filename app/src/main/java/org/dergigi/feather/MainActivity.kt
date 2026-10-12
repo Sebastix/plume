@@ -134,6 +134,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val s by vm.state.collectAsStateWithLifecycle()
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
     val composingReply by vm.replyDraft.collectAsStateWithLifecycle()
+    val reposting by vm.reposting.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
     val zapping by vm.zapping.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
@@ -248,7 +249,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
-    }, LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }) { note, amount ->
+    }, LocalRepostActions provides RepostActions(reposting,
+        repost = { note -> if (s.publicKey == null) showAccount = true else vm.repost(note) },
+        quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }) { note, amount ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note, amount)
@@ -653,7 +656,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             ProfileTabRow(tabSpace, note.id, profileViewport) {
                                 if (note.kind == 30617) ProjectCard(note)
                                 else if (note.kind == 32267) SoftwareAppCard(note)
-                                else if (note.kind == 6) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                                else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                     openNote(original)
                                 } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
@@ -755,7 +758,7 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
     onProfile: (String) -> Unit, onOpen: (Event) -> Unit) {
     if (LocalContentFilter.current.hides(repost)) return
     val target = remember(repost.id) { repostTarget(repost) } ?: return
-    val original = state.embedded[target.id]?.takeIf { it.kind == 1 }
+    val original = state.embedded[target.id]?.takeIf { it.kind in readableKinds }
     if (original != null) {
         NoteRow(original, state, onReference, { onProfile(original.pubKey) }, { onOpen(original) }, repost = repost)
     } else {
@@ -841,6 +844,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 }
                 if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            RepostButton(note, note.id in state.sentReposts)
             Spacer(Modifier.weight(1f))
             OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
             NoteZap(note, counts, state.publicKey)

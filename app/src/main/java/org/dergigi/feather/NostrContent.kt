@@ -53,7 +53,7 @@ object NostrContent {
     private fun parseReferences(event: Event): List<Reference> {
         if (event.kind in listOf(32267, 30617, 30030)) return emptyList()
         // Repost content is an encoded event, not user-facing text to tokenize.
-        if (event.kind in listOf(3, 6, 9735, 9321, 30000, 10003, 30003)) return activityReferences(event)
+        if (event.kind in listOf(3, 6, 16, 9735, 9321, 30000, 10003, 30003)) return activityReferences(event)
         return (listOfNotNull(replyReference(event)) + activityReferences(event) + tokens(event.content, event).mapNotNull { it.reference } +
         event.tags.asSequence().filter { it.size >= 2 && it[0] == "q" && hex.matches(it[1]) }.take(3).map {
             Reference(it[1], relays = listOfNotNull(it.getOrNull(2)?.let(Protocol::relay)), author = it.getOrNull(3)?.takeIf(hex::matches))

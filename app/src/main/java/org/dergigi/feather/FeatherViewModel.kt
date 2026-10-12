@@ -31,9 +31,11 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val signerRequests = SignerRequests()
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<String, Job>()
+    val reposting = MutableStateFlow<Set<String>>(emptySet())
+    private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
     private fun queueHasRoom(): Boolean {
-        if (zapJobs.size + reactionJobs.size < 32) return true
+        if (zapJobs.size + reactionJobs.size + repostJobs.size < 32) return true
         message.value = "Action queue is full. Try again shortly."
         return false
     }
@@ -41,6 +43,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         imageUploadJob?.cancel(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
+        repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptySet()
         zapJobs.clear(); reactionJobs.clear()
         zapping.value = emptySet(); reacting.value = emptySet()
     }
@@ -204,7 +207,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    internal fun openReply(note: Event? = null, mentionProfile: String? = null) {
+    internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value || imageUploading.value) return
         replyLoadJob?.cancel()
@@ -214,7 +217,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val draft = withContext(Dispatchers.IO) {
                     val saved = replyStore.load(owner, note)
                     val mention = mentionProfile?.let(Protocol::publicKey)?.takeIf { note == null }
-                    if (mention == null || mention in replyMentions(saved.text)) saved
+                    if (quote != null && note == null) {
+                        val pointer = com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(quote.id, quote.pubKey, quote.kind, relay = null)
+                        val reference = "nostr:$pointer"
+                        if (reference in saved.text) saved else {
+                            val text = saved.text.trimEnd() + "\n\n" + reference
+                            require(text.length <= 8000) { "Saved draft is full. Shorten it before adding a quote." }
+                            saved.copy(text = text).also(replyStore::save)
+                        }
+                    } else if (mention == null || mention in replyMentions(saved.text)) saved
                     else {
                         val text = "nostr:${Protocol.npub(mention)} ${saved.text}"
                         require(text.length <= 8000) { "Saved draft is full. Shorten it before adding a mention." }
@@ -267,6 +278,23 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (e: Exception) { message.value = "Publish: ${e.message ?: e.javaClass.simpleName}" }
             finally { replyBusy.value = false }
         }
+    }
+
+    fun repost(note: Event) {
+        if (note.id in reposting.value || note.id in state.value.sentReposts || !queueHasRoom()) return
+        val connected = signer.value ?: run { message.value = "Connect an Android signer first"; return }
+        reposting.update { it + note.id }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try { repo.repost(note, connected, signerRequests) }
+            catch (_: TimeoutCancellationException) { message.value = "Repost not confirmed. Tap again to retry the same event." }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Repost: ${walletErrorReason(e)}" }
+            finally { if (repostJobs[note.id] === currentCoroutineContext().job) {
+                repostJobs.remove(note.id); reposting.update { it - note.id }
+            } }
+        }
+        repostJobs[note.id] = job
+        job.start()
     }
 
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {

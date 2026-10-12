@@ -7,12 +7,12 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
 internal val readableKinds = listOf(1, 1111, 20, 9802, 30023, 30030) + videoKinds
-internal val profileKinds = listOf(1, 1111, 6, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds
+internal val profileKinds = listOf(1, 1111, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     SEARCH(emptyList(), "Search"), NOTIFICATIONS(emptyList(), "Notifications"),
     POSTS(listOf(1), "Posts"), REPLIES(listOf(1, 1111), "Replies"),
-    REPOSTS(listOf(6), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
+    REPOSTS(listOf(6, 16), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
@@ -79,11 +79,11 @@ internal fun Event.tagValue(name: String): String? = tags.firstOrNull { it.size 
 
 /** NIP-18 text-note reposts resolve via their e/p tags; content may be empty. */
 internal fun repostTarget(event: Event): NostrContent.Reference? {
-    if (event.kind != 6) return null
+    if (event.kind !in listOf(6, 16)) return null
     val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" } ?: return null
     val id = Protocol.publicKey(tag[1]) ?: return null
     return NostrContent.Reference(id, relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)),
-        author = event.tagValue("p")?.let(Protocol::publicKey), kind = 1)
+        author = event.tagValue("p")?.let(Protocol::publicKey), kind = if (event.kind in listOf(6, 16)) 1 else event.tagValue("k")?.toIntOrNull())
 }
 
 internal fun reactionTarget(event: Event): NostrContent.Reference? {
@@ -121,7 +121,7 @@ internal fun highlightSource(event: Event): HighlightSource? {
 internal fun activityReferences(event: Event): List<NostrContent.Reference> = when (event.kind) {
     3, 30000 -> peopleReferences(event)
     10003, 30003 -> bookmarkReferences(event)
-    6 -> listOfNotNull(repostTarget(event))
+    6, 16 -> listOfNotNull(repostTarget(event))
     7 -> listOfNotNull(reactionTarget(event))
     9735, 9321 -> zapActivityReferences(event)
     9802 -> listOfNotNull(highlightAuthor(event)?.let { NostrContent.Reference(it, profile = true) }) +
@@ -157,9 +157,9 @@ internal fun NostrContent.Reference.addressFilter(): com.vitorpamplona.quartz.ni
 }
 
 /** Home uses the same categories as profiles, with reposts included on the Posts page. */
-internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) listOf(1, 6) else kinds
+internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) listOf(1, 6, 16) else kinds
 internal fun ProfileTab.matchesFeed(event: Event): Boolean =
-    if (this == ProfileTab.POSTS && event.kind == 6) repostTarget(event) != null else matches(event)
+    if (this == ProfileTab.POSTS && event.kind in listOf(6, 16)) repostTarget(event) != null else matches(event)
 
 /** Lightning receipts use p/P; nutzaps use the sender author and recipient p tag. */
 internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFilters(): List<com.vitorpamplona.quartz.nip01Core.relay.filters.Filter> {

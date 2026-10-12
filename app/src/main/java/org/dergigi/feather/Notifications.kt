@@ -33,9 +33,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
-internal val notificationKinds = listOf(1, 1111, 6, 7, 9735, 9321)
+internal val notificationKinds = listOf(1, 1111, 6, 16, 7, 9735, 9321)
 internal fun notificationTarget(event: Event): NostrContent.Reference? = when (event.kind) {
-    6 -> repostTarget(event)
+    6, 16 -> repostTarget(event)
     7 -> reactionTarget(event)
     9735, 9321 -> zapNoteReference(event)
     else -> NostrContent.Reference(event.id, author = event.pubKey, kind = event.kind)
@@ -49,7 +49,7 @@ private enum class NotificationType(val label: String) {
         REPLIES -> event.kind in listOf(1, 1111) && Protocol.isReply(event)
         REACTIONS -> event.kind == 7
         ZAPS -> event.kind in listOf(9735, 9321)
-        REPOSTS -> event.kind == 6
+        REPOSTS -> event.kind in listOf(6, 16)
         MENTIONS -> event.kind in listOf(1, 1111) && !Protocol.isReply(event)
     }
 }
@@ -79,7 +79,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 val text = payment?.comment?.takeIf { it.isNotBlank() }
                     ?: source?.let { it.tagValue("title") ?: MediaContent.text(it, MediaContent.attachments(it, 32)) }.orEmpty()
                 NotificationPreview(event, actor, text.withoutObjectMarkers().take(400), when(event.kind) {
-                    6 -> "Repost"; 7 -> "Reaction"; 9735 -> "Zap"; 9321 -> "Nutzap"
+                    6, 16 -> "Repost"; 7 -> "Reaction"; 9735 -> "Zap"; 9321 -> "Nutzap"
                     else -> if (Protocol.isReply(event)) "Reply" else "Mention"
                 }, if (event.kind == 7) reactionChoice(event) else null,
                     payment?.amount?.let { "$it ${payment.unit}" })
@@ -194,7 +194,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             else if (reaction != null) Text(reaction.display.take(16))
                             else if (item.event.kind == 7) Icon(Icons.Default.FavoriteBorder, item.action, Modifier.size(22.dp), tint = tint)
                             else Icon(painterResource(when(item.event.kind) {
-                                6 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation
+                                6, 16 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation
                             }), item.action, Modifier.size(22.dp), tint = tint)
                         }
                         Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.clickable(onClickLabel = "Open $name's profile") {

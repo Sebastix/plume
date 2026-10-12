@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-12
+
 ### Added
+- Tap the repost icon to publish a signer-authorized repost; hold to compose a quote post. Persist signed reposts for exact-event retries and support generic kind-16 reposts alongside kind 6.
 - Filter notifications by replies, reactions, zaps/nutzaps, reposts, or mentions using a compact icon row; tap the active filter again to show everything.
 - Show follow status and NIP-05 verification icons in profile search results, using the same indicators as composer mentions.
 
