@@ -907,3 +907,5 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.44.0 (83), source commit `6951b82e654744c4285503aa0e0472f0b8de98b8`. Fountain episode shares replace kind-54 podcasts; quiet reaction retries, transient wallet lookup retries, top-aligned search, and composer attachment beside Send.
 - Signed release build passed, including lint and R8. Inspected a live Fountain episode page and its public audio metadata. No automated tests or live device/payment checks.
 - APK: 15,474,273 bytes; SHA-256 `27fdfcda43be9c53f2d1a27ae072069bca24e3e0d57170e59c4970afbebd74dc`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
+
+- GitHub and Zapstore publication verified. Zapstore asset `c82c7f067a2a18137986ecd254e75a77511a5025eafc6358baf9f574100ee814` matches versionCode 83 and the APK hash; CDN returned HTTP 200.
