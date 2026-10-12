@@ -77,7 +77,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                 } else Icon(Icons.Default.FavoriteBorder, "React; hold to choose an emoji",
                     Modifier.size(20.dp), tint = tint)
             }
-            if (!iconOnly && count > 0) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
+            if (!iconOnly && count > 0 && !(count == 1 && latestReaction != null)) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
         }
         DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {

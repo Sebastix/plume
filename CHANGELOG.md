@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Hide the reaction count when the sole reaction is your own; keep the active emoji visible.
+
 ## [0.39.1] - 2026-10-12
 
 ### Changed
