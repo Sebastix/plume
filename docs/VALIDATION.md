@@ -822,3 +822,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Zapstore kind-32267 metadata contains eight image URLs ordered feed, photos, gallery, thread, reactions, notifications, search, settings. Description matches the user's requested wording. No new APK version published.
 - Profile search and composer suggestions share follow/NIP-05 status icons. Notification filtering uses the existing bounded events, computes previews on Default, and adds no subscriptions. Replies include kind 1/1111; zaps include nutzaps. Active filter toggles back to all; selection is saved per account in UI state.
 - Debug builds passed for both UI changes. No automated tests or live device checks.
+
+## 2026-10-12 — 0.38.0 release
+
+- Version 0.38.0 (73), source commit `08f91c53f28273d44b49cca86f788bc2248b0538`. Repost on tap, quote composer on hold, notification type filters, and shared follow/NIP-05 indicators in profile search.
+- Signed release build passed, including lint and R8. No automated tests or live device checks.
+- Signed reposts persist before publication for exact-event retries; account-scoped pending state and bounded journal. Protected reposts omit embedded content.
+- APK: 15,061,487 bytes; SHA-256 `a866f5d3555f6ca9f02310681dcafac81838cc1e3265fa7dae296a6a948b5127`. Mapping archived locally. Signing certificate matches previous releases. Website unchanged by this release.
