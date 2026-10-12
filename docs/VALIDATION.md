@@ -917,3 +917,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256: `894508b9c1bd17950d12f46c50c503c0c1676440225fd88cee92147edab0146f`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
 
 - GitHub and Zapstore publication verified. Zapstore asset `a4e942b6197d5c2b3da7039b8f4e297adb219bff1ddacee5f708f7b39d3315de` matches versionCode 84 and the APK hash.
+
+## 2026-10-12 — 0.44.2 release
+
+- Version 0.44.2 (85), source commit `208a34c`. Thumbnail removal button centered on the corner; single-newline image URLs; clearer local image preparation diagnostics.
+- Signed release build passed, including lint and R8. No automated tests or live device checks.
+- APK SHA-256: `ca78ffe254e0365de963a6e2da30b922e534a41649f5e5c0103e1047cf716d4b`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
