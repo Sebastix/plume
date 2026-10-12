@@ -40,7 +40,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
-        imageUploadJob?.cancel(); imageUploadProgress.value = null; replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
+        cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
         repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptySet()
@@ -178,6 +178,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val imageUploading = MutableStateFlow(false)
     internal val imageUploadProgress = MutableStateFlow<ImageUploadProgress?>(null)
     private var imageUploadJob: Job? = null
+    // A canceled provider read can take time to return. Keep file work serialized without locking the composer.
+    private val imageUploadMutex = Mutex()
+    private fun cancelImageUpload() {
+        val previous = imageUploadJob
+        imageUploadJob = null
+        imageUploading.value = false
+        imageUploadProgress.value = null
+        previous?.cancel()
+    }
     private val blossom = BlossomUpload(application)
     internal fun uploadImages(uris: List<android.net.Uri>) {
         val draft = replyDraft.value ?: return
@@ -188,34 +197,45 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val uploadJob = currentCoroutineContext().job
             var completed = false
+            fun currentUpload() = uploadJob.isActive && imageUploadJob === uploadJob
+            fun progress(value: ImageUploadProgress) {
+                if (currentUpload()) imageUploadProgress.value = value
+            }
             try {
-                val size = blossom.selectedSize(uris.first())
-                imageUploadProgress.value = ImageUploadProgress(size, stage = "Finding Blossom servers")
-                val servers = withTimeout(30_000) { repo.blossomServers(draft.owner) }
-                for (uri in uris.distinct()) {
-                    check(signer.value === identity) { "Account changed" }
-                    imageUploadProgress.value = ImageUploadProgress(stage = "Reading file size")
-                    val selectedSize = blossom.selectedSize(uri)
-                    imageUploadProgress.value = ImageUploadProgress(selectedSize)
-                    val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
-                        if (uploadJob.isActive && imageUploadJob === uploadJob)
-                            imageUploadProgress.value = progress.copy(size = progress.size ?: selectedSize)
-                    }) { url ->
-                        withContext(Dispatchers.Main) {
-                            val latest = replyDraft.value
-                            check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
-                            val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
-                            require(text.length <= 8000) { "Draft is full; uploaded image: $url" }
-                            editReply(text)
+                progress(ImageUploadProgress(stage = "Waiting for previous upload"))
+                imageUploadMutex.withLock {
+                    currentCoroutineContext().ensureActive()
+                    progress(ImageUploadProgress(stage = "Reading file size"))
+                    val size = blossom.selectedSize(uris.first())
+                    progress(ImageUploadProgress(size, stage = "Finding Blossom servers"))
+                    val servers = withTimeout(30_000) { repo.blossomServers(draft.owner) }
+                    for (uri in uris.distinct()) {
+                        check(signer.value === identity) { "Account changed" }
+                        currentCoroutineContext().ensureActive()
+                        progress(ImageUploadProgress(stage = "Reading file size"))
+                        val selectedSize = blossom.selectedSize(uri)
+                        progress(ImageUploadProgress(selectedSize))
+                        val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
+                            if (uploadJob.isActive && imageUploadJob === uploadJob)
+                                imageUploadProgress.value = progress.copy(size = progress.size ?: selectedSize)
+                        }) { url ->
+                            withContext(Dispatchers.Main) {
+                                check(currentUpload()) { "Upload canceled" }
+                                val latest = replyDraft.value
+                                check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
+                                val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
+                                require(text.length <= 8000) { "Draft is full; uploaded image: $url" }
+                                editReply(text)
+                            }
+                            replySaveJob?.join()
                         }
-                        replySaveJob?.join()
+                        if (currentUpload() && result.failures.isNotEmpty()) message.value = "Image uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
                     }
-                    if (result.failures.isNotEmpty()) message.value = "Image uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
+                    completed = true
                 }
-                completed = true
-            } catch (e: TimeoutCancellationException) { message.value = "Image upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
+            } catch (e: TimeoutCancellationException) { if (currentUpload()) message.value = "Image upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Image upload (${imageUploadProgress.value?.stage ?: "unknown stage"}): ${e.message ?: e.javaClass.simpleName}" }
+            catch (e: Exception) { if (currentUpload()) message.value = "Image upload (${imageUploadProgress.value?.stage ?: "unknown stage"}): ${e.message ?: e.javaClass.simpleName}" }
             finally {
                 if (imageUploadJob === uploadJob) {
                     imageUploadProgress.value = if (completed && uploadJob.isActive && replyDraft.value != null)
@@ -276,8 +296,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     internal fun closeReply() {
-        imageUploadProgress.value = null
-        imageUploadJob?.cancel()
+        cancelImageUpload()
+        replyLoadJob?.cancel()
         val draft = replyDraft.value
         replyDraft.value = null
         if (draft == null || replyBusy.value) return
