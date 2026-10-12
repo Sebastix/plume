@@ -1,6 +1,6 @@
 # Feather
 
-a lightweight android client
+Nostr with nothing in the way.
 
 Read Nostr with chronological feeds, profiles, and conversations.
 

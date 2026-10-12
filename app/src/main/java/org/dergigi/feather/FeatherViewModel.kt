@@ -269,7 +269,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     internal fun sendReply() {
-        val draft = replyDraft.value ?: return
+        val current = replyDraft.value ?: return
+        val draft = current.copy(text = current.text.trimEnd())
         val identity = signer.value ?: return
         if (replyBusy.value || imageUploading.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
         replyBusy.value = true

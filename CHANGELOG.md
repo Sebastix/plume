@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Trim trailing whitespace and blank lines before signing posts and replies, preserving leading and internal formatting.
+- Adopt “Nostr with nothing in the way.” as the website and Zapstore tagline.
+
 ## [0.39.2] - 2026-10-12
 
 ### Changed

@@ -1,6 +1,6 @@
 # Soft Plume
 
-Tagline: **a lightweight android client**. Keep it lowercase.
+Tagline: **Nostr with nothing in the way.**
 
 Use the tagline on its own. Do not add supporting slogans; describe concrete features when more copy is needed.
 
