@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Share one or multiple images to Feather from Android galleries and file managers. Attach and upload to the open composer/reply, or open the full-screen new-note composer with its saved draft. Queue incoming shares behind current uploads and reuse metadata stripping, progress, and Blossom server discovery.
+
 ## [0.45.1] - 2026-10-12
 
 ### Fixed

@@ -193,3 +193,7 @@ The reply icon opens a minimal text-only sheet with the parent author, a short p
 ## Podcast shares
 
 The Podcasts category selects ordinary posts and replies containing Fountain episode links. Resolve visible episode pages off-thread into public audio, title, artwork, show and duration; never select subscriber-only product media. Reuse bounded link-preview caching and the background audio media session. Keep the ordinary link preview when unavailable. Do not subscribe to kind 54 or 10154. Voice notes retain their dedicated kinds.
+
+### Incoming image shares
+
+Register Feather for Android image shares, including multiple images. Keep the current composer and reply target when open; otherwise open the full-screen new-note composer and preserve its saved text. Upload shared images through the same sequential Blossom flow, with metadata removal and progress. Wait for signer login when disconnected. Closing the composer cancels queued shares and uploads; never publish a note automatically.

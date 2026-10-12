@@ -4,6 +4,8 @@ import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.viewModels
+import androidx.core.content.IntentCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -82,14 +84,41 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 private val Sky = Color(0xFF79C4F2)
 
 class MainActivity : ComponentActivity() {
+    private val composerModel: FeatherViewModel by viewModels()
     private val repo get() = (application as FeatherApplication).repository
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        receiveImages(intent)
         setContent {
-            FeatherTheme { CopyableMessageHost(); FeatherApp(window); PreviousCrashDialog() }
+            FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog() }
         }
     }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        receiveImages(intent)
+    }
+
+    private fun receiveImages(shared: Intent) {
+        if (shared.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE) ||
+            shared.type?.startsWith("image/") != true) return
+        try {
+            val streams = if (shared.action == Intent.ACTION_SEND_MULTIPLE)
+                IntentCompat.getParcelableArrayListExtra(shared, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            else listOfNotNull(IntentCompat.getParcelableExtra(shared, Intent.EXTRA_STREAM, Uri::class.java))
+            val clips = shared.clipData
+            val uris = (streams + (0 until (clips?.itemCount ?: 0)).mapNotNull { clips?.getItemAt(it)?.uri })
+                .distinct().filter { it.scheme == "content" }
+            if (uris.isEmpty()) composerModel.message.value = "No readable image was shared."
+            else composerModel.receiveSharedImages(uris)
+        } catch (_: Exception) {
+            composerModel.message.value = "Could not read shared images."
+        }
+        // Do not replay uploads when this activity is recreated. Android retains the URI grants for the task.
+        setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
+    }
+
     override fun onStart() { super.onStart(); repo.foreground() }
     override fun onStop() { repo.background(); super.onStop() }
 }
@@ -97,6 +126,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) {
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
+    LaunchedEffect(connectedSigner) { vm.processSharedImages() }
     val signerScope = rememberCoroutineScope()
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(message) { message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }

@@ -40,6 +40,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
+        if (signer.value != null) cancelSharedImages()
         cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
@@ -175,6 +176,55 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private var replyLoadJob: Job? = null
     private var replySaveJob: Job? = null
 
+    private val sharedImages = ArrayDeque<android.net.Uri>()
+    private var sharedImageJob: Job? = null
+
+    internal fun receiveSharedImages(uris: List<android.net.Uri>) {
+        if (replyBusy.value) {
+            message.value = "Wait for the current post to finish sending, then share again."
+            return
+        }
+        if (sharedImages.size + uris.size > 256) {
+            message.value = "Too many queued images. Wait for uploads to finish, then share again."
+            return
+        }
+        sharedImages.addAll(uris)
+        if (signer.value == null) message.value = "Connect an Android signer to upload shared images."
+        processSharedImages()
+    }
+
+    internal fun processSharedImages() {
+        val identity = signer.value ?: return
+        if (sharedImages.isEmpty() || sharedImageJob?.isActive == true) return
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                // Keep an open reply's target and text; otherwise restore the saved new-post draft.
+                replyLoadJob?.join()
+                if (replyDraft.value == null) { openReply(); replyLoadJob?.join() }
+                if (replyDraft.value == null) { sharedImages.clear(); return@launch }
+                while (sharedImages.isNotEmpty()) {
+                    imageUploadJob?.join()
+                    ensureActive()
+                    if (signer.value !== identity || replyDraft.value == null) break
+                    val batch = sharedImages.toList()
+                    sharedImages.clear()
+                    uploadImages(batch)
+                    imageUploadJob?.join()
+                }
+            } finally {
+                if (sharedImageJob === currentCoroutineContext().job) sharedImageJob = null
+            }
+        }
+        sharedImageJob = job
+        job.start()
+    }
+
+    private fun cancelSharedImages() {
+        sharedImages.clear()
+        sharedImageJob?.cancel()
+        sharedImageJob = null
+    }
+
     internal val imageUploading = MutableStateFlow(false)
     internal val imageUploadProgress = MutableStateFlow<ImageUploadProgress?>(null)
     private var imageUploadJob: Job? = null
@@ -296,6 +346,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     internal fun closeReply() {
+        cancelSharedImages()
         cancelImageUpload()
         replyLoadJob?.cancel()
         val draft = replyDraft.value
