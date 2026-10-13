@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.48.1] - 2026-10-13
+
 ### Fixed
 - Keep article Markdown parser, reference links and image transformer stable across screen updates, preventing repeated loading-state height collapses, flicker and scroll jumps.
 
