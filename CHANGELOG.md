@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-10-13
+
+### Added
+- A feather button at the far right of the settings feedback row opens Feather’s profile inside the app.
+- Website link to Feather’s Nostr profile and details about composer GIF search.
+
 ### Fixed
 - Retry pre-payment Lightning address and invoice HTTP requests twice on network failures, including DNS errors and connection aborts. Reuse the signed request and include attempt details in copied diagnostics; wallet payments are never automatically resent.
 

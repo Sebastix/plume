@@ -761,6 +761,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             CopyableMessageHost()
             Settings(s, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 onIssue = { type -> showSettings = false; vm.issues.open(type) },
+                onFeather = {
+                    showSettings = false; showAccount = false
+                    Protocol.publicKey("npub1r7u5wcxpv0fknn486uarrlset92caxntmwn22nvw2fjan630m03stxw3t3")?.let(::openProfile)
+                },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
@@ -1072,7 +1076,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 }
 
 @Composable
-private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, modifier: Modifier) {
+private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -1151,6 +1155,10 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             Spacer(Modifier.width(12.dp))
             FilledTonalIconButton(onClick = { onIssue(IssueType.FEATURE) }, modifier = Modifier.size(RoundControlSize)) {
                 Icon(painterResource(R.drawable.feature_request), "Suggest a feature")
+            }
+            Spacer(Modifier.weight(1f))
+            FilledTonalIconButton(onClick = onFeather, modifier = Modifier.size(RoundControlSize)) {
+                Icon(painterResource(R.drawable.feather), "Open Feather profile", tint = Color.Unspecified)
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
