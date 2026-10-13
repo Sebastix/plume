@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         receiveImages(intent)
         setContent {
-            FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog() }
+            FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog(composerModel); IssueComposer(composerModel) }
         }
     }
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
@@ -730,6 +730,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             CopyableMessageHost()
             Settings(s, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
+                onIssue = { type -> showSettings = false; vm.issues.open(type) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
@@ -863,6 +864,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when {
+            note.kind == 1621 -> IssueContent(note, compact, onReference)
             note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
             note.kind == 30023 -> ArticleContent(note, compact, onReference)
@@ -1035,7 +1037,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 }
 
 @Composable
-private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, modifier: Modifier) {
+private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -1095,6 +1097,15 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 onSelect = { selectedBudget = it },
                 onFinished = { index -> scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[index]) } })
             mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = { onIssue(IssueType.BUG) }, modifier = Modifier.size(RoundControlSize)) {
+                Icon(painterResource(R.drawable.bug_report), "Report a bug")
+            }
+            Spacer(Modifier.width(12.dp))
+            FilledTonalIconButton(onClick = { onIssue(IssueType.FEATURE) }, modifier = Modifier.size(RoundControlSize)) {
+                Icon(painterResource(R.drawable.feature_request), "Suggest a feature")
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {

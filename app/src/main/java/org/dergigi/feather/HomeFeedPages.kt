@@ -230,6 +230,7 @@ internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifie
         ProfileTab.PROJECTS -> R.drawable.project
         ProfileTab.APPS -> R.drawable.apps
         ProfileTab.EMOJI_PACKS -> R.drawable.emoji_pack
+        ProfileTab.ISSUES -> R.drawable.bug_report
         else -> null
     }
     if (resource != null) Icon(painterResource(resource), category.label, modifier)

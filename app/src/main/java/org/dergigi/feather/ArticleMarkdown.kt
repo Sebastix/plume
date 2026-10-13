@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 
 /** Full document renderer shared with Boris; keep parsing asynchronous and use Feather's media cache. */
 @Composable
-internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference) -> Unit) {
+internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference) -> Unit, articleLayout: Boolean = true) {
     val context = LocalContext.current
     val navigate by rememberUpdatedState(onReference)
     val links = remember(context) { object : UriHandler {
@@ -60,8 +60,8 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
         parser = parser, referenceLinkHandler = referenceLinks)
     val gallery by rememberUpdatedState(LocalOpenGallery.current)
     val transformer = remember(event.id) { ArticleImageTransformer { url -> gallery(listOf(url), 0, event) } }
-    val title = remember(event.id) { event.tagValue("title")?.withoutObjectMarkers()?.takeIf(String::isNotBlank) }
-    val cover = remember(event.id) { MediaContent.secureUrl(event.tagValue("image")) }
+    val title = remember(event.id, articleLayout) { if (articleLayout) event.tagValue("title")?.withoutObjectMarkers()?.takeIf(String::isNotBlank) else null }
+    val cover = remember(event.id, articleLayout) { if (articleLayout) MediaContent.secureUrl(event.tagValue("image")) else null }
     val colors = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -78,7 +78,7 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
         if (body == null) CircularProgressIndicator(Modifier.padding(horizontal = 24.dp).size(24.dp), strokeWidth = 2.dp)
         else CompositionLocalProvider(LocalUriHandler provides links) {
             SelectionContainer {
-                Markdown(markdownState = markdown, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                Markdown(markdownState = markdown, modifier = Modifier.fillMaxWidth().padding(horizontal = if (articleLayout) 24.dp else 0.dp),
                     colors = markdownColor(text = colors.onSurface, codeBackground = colors.surfaceContainerHigh,
                         inlineCodeBackground = colors.surfaceContainerHigh, dividerColor = colors.outlineVariant,
                         tableBackground = colors.surfaceContainer),

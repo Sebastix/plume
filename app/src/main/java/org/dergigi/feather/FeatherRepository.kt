@@ -137,7 +137,8 @@ class FeatherRepository(context: Context) {
     private fun stopProfileSweep() { profileSweep?.cancel(); profileSweep = null; profileSweepKey = null }
     private fun profileReadRelays(author: String, tab: ProfileTab): List<String> =
         (relayLists[author]?.write.orEmpty().ifEmpty { state.value.relays } +
-            listOfNotNull(ZAPSTORE_RELAY.takeIf { tab == ProfileTab.APPS })).distinct()
+            listOfNotNull(ZAPSTORE_RELAY.takeIf { tab == ProfileTab.APPS }) +
+            if (tab == ProfileTab.ISSUES) IssueReports.RELAYS else emptyList()).distinct()
 
     private var historyJob: Job? = null
     private var refreshTimeout: Job? = null
@@ -269,16 +270,27 @@ class FeatherRepository(context: Context) {
         val routes = (if (writes.isNotEmpty()) writes else state.value.relays).filter { it in routingPool && healthy(it) }.take(2)
         val filters = kinds.flatMap { kind -> Filter(authors = listOf(author), kinds = listOf(kind), limit = limit, until = until).activityFilters() }
         val result = routes.associate { it.normalizeRelayUrl() to filters }
-        return if (32267 in kinds) result + (ZAPSTORE_RELAY.normalizeRelayUrl() to
+        val catalog = if (32267 in kinds) result + (ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(authors = listOf(author), kinds = listOf(32267), limit = limit, until = until))) else result
+        return withIssueRoutes(catalog, listOf(author), kinds, limit, until)
     }
     private fun authorFilters(authors: List<String>?, kinds: List<Int>, limit: Int, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
         val routes = (if (authors == null) routingPool.filter { it != "wss://purplepag.es" }
             .associate { it.normalizeRelayUrl() to listOf(Filter(kinds = kinds, limit = limit, until = until)) }
         else Outbox.readRoutes(authors, relayLists, state.value.relays, allowed = routingPool).mapKeys { it.key.normalizeRelayUrl() }
             .mapValues { (_, keys) -> listOf(Filter(authors = keys, kinds = kinds, limit = limit, until = until)) }).mapValues { (_, filters) -> filters.flatMap { it.activityFilters() } }
-        return if (32267 in kinds) routes + (ZAPSTORE_RELAY.normalizeRelayUrl() to
+        val catalog = if (32267 in kinds) routes + (ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(authors = authors, kinds = listOf(32267), limit = limit, until = until))) else routes
+        return withIssueRoutes(catalog, authors, kinds, limit, until)
+    }
+    private fun withIssueRoutes(routes: Map<NormalizedRelayUrl, List<Filter>>, authors: List<String>?, kinds: List<Int>, limit: Int, until: Long?): Map<NormalizedRelayUrl, List<Filter>> {
+        if (1621 !in kinds) return routes
+        val result = routes.toMutableMap()
+        IssueReports.RELAYS.forEach { url ->
+            val relay = url.normalizeRelayUrl()
+            result[relay] = result[relay].orEmpty() + Filter(authors = authors, kinds = listOf(1621), limit = limit, until = until)
+        }
+        return result
     }
     private fun discoverRelays() {
         val s = state.value
@@ -441,13 +453,18 @@ class FeatherRepository(context: Context) {
         if (event.kind == 0) accept(event)
     }
 
+    internal suspend fun cacheIssue(event: Event) = withContext(Dispatchers.IO) {
+        ready.await()
+        if (event.kind == 1621) { accept(event); feedDiscoveryAt = 0; changed.tryEmit(Unit) }
+    }
+
     private suspend fun accept(event: Event, history: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         acceptOnIo(event, history)
     }
 
     private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
-        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030)) || event.content.length > (if (event.kind in listOf(30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
             val cached = verified[event.id]
             if (cached == false || (cached == true && !history)) return cached
@@ -712,7 +729,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        for ((kind, max) in listOf(1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
             val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
             if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
         }
@@ -911,7 +928,8 @@ class FeatherRepository(context: Context) {
             updateRoutingPool()
             client.connect()
             val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                target?.let { relayLists[it.pubKey]?.read }.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
+                target?.let { relayLists[it.pubKey]?.read }.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4) +
+                if (target?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true) IssueReports.RELAYS else emptyList()
             check(routes.isNotEmpty()) { "No relay available. Draft saved." }
             check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
                 "No relay confirmed the post. Draft saved; send again to retry the same event."
@@ -1002,7 +1020,7 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) subscribeFeed() }
     }
 
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps") }; if (active) subscribeFeed() }
+    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps"); client.unsubscribe("profile-issues") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
@@ -1019,6 +1037,8 @@ class FeatherRepository(context: Context) {
         // Apps are commonly published only to the catalog relay, not personal write relays.
         client.subscribe("profile-apps", mapOf(ZAPSTORE_RELAY.normalizeRelayUrl() to
             listOf(Filter(kinds = listOf(32267), authors = listOf(key), limit = if (profileTab == ProfileTab.APPS) 80 else 8))), listener)
+        client.subscribe("profile-issues", IssueReports.RELAYS.associate { it.normalizeRelayUrl() to
+            listOf(Filter(kinds = listOf(1621), authors = listOf(key), limit = if (profileTab == ProfileTab.ISSUES) 80 else 8)) }, listener)
         val tab = profileTab
         val allRelays = profileReadRelays(key, tab)
         val sweepKey = Triple(key, tab, allRelays)
@@ -1068,7 +1088,9 @@ class FeatherRepository(context: Context) {
     private fun subscribeThread(id: String) {
         discoverRelays()
         val author = state.value.threadNotes.find { it.id == id }?.pubKey
-        val routes = (state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool }
+        val issue = state.value.threadNotes.find { it.id == id }?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true
+        val routes = ((state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool } +
+            if (issue) IssueReports.RELAYS else emptyList()).distinct()
         val filters = listOf(Filter(ids = listOf(id), kinds = readableKinds), Filter(kinds = listOf(1, 1111, 1244), tags = mapOf("e" to listOf(id)), limit = 80))
         client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)
     }

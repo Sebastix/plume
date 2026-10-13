@@ -35,7 +35,7 @@ internal class CrashReports(context: Context) {
                     runCatching {
                         val buffer = BoundedWriter()
                         PrintWriter(buffer).use { out ->
-                            out.println("Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                            out.println("Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${BuildConfig.GIT_COMMIT}")
                             out.println("Time: ${Instant.now()}")
                             out.println("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
                             out.println("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
@@ -102,10 +102,13 @@ internal class CrashReports(context: Context) {
 }
 
 @Composable
-internal fun PreviousCrashDialog() {
+internal fun PreviousCrashDialog(vm: FeatherViewModel) {
     val reports = (LocalContext.current.applicationContext as FeatherApplication).crashes
     val report by reports.report.collectAsState()
+    val reporting by vm.issues.visible.collectAsState()
+    if (reporting) return
     report?.let { captured ->
-        StatusDetails("Feather stopped unexpectedly", captured) { reports.dismiss(captured) }
+        StatusDetails("Feather stopped unexpectedly", captured,
+            onReport = { vm.issues.open(IssueType.CRASH, captured) }) { reports.dismiss(captured) }
     }
 }

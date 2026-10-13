@@ -201,3 +201,9 @@ Register Feather for Android image shares, including multiple images. Keep the c
 ### Article documents and notification preferences
 
 Full article detail uses the same full-document Markdown renderer as Boris, with Material 3 typography/colors and Feather’s shared image cache. Preserve structured lists, quotes, tables, code and links. Article covers span the reading width, with the title over a dark bottom gradient; pad the body and keep normal titles for coverless articles. Notification type selections are stored per account in private device preferences and loaded off-main before showing the list, including after restarts.
+
+### Nostr issue reporting
+
+Settings offers separate bug and feature-request icons. The previous-crash dialog retains copy/close and adds a bug icon that prefills an editable issue with redacted diagnostics. Keep the report private until explicit Send; indicate that it will be public under the connected account. Guests can draft and connect an Android signer in the same screen. Sign kind 1621 with repository address, maintainer, subject, bug/enhancement labels and client hint. Publish to Feather’s advertised GRASP relays using at most two short-lived connections, require an OK acknowledgement, and close sockets on completion/cancellation. Save bounded local drafts and the exact signed event before publishing so explicit retries reuse its ID. No telemetry or automatic crash submission. Use a GitWorkshop event link after success.
+
+Discover kind 1621 as an Issues category in main/profile tabs, after the fixed priority categories. Show subject, repository link and a bounded excerpt; render Markdown in detail. Query public issues from author relays and Feather’s two GRASP relays with author filters and existing pagination/mute/content rules; cache at most 300 issues.

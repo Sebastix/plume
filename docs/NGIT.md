@@ -29,6 +29,8 @@ The remote signer must be online for signed pushes. If a mirror misses an update
 
 ## Issues
 
+Feather also offers bug and feature-request buttons in settings, and a prefilled report action in the crash dialog. Reports are editable public Nostr issues, signed by the reporting user through their Android signer. The Issues tab displays kind-1621 activity.
+
 Use the GitWorkshop link above, or the CLI from a clone:
 
 ```sh

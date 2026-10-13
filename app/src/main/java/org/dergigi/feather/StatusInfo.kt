@@ -36,7 +36,7 @@ internal fun StatusInfo(title: String, error: Boolean = false, hidden: Boolean =
 
 /** Hosted outside the list so incoming notes cannot dismiss details while they are being read. */
 @Composable
-internal fun StatusDetails(title: String, captured: String, onDismiss: () -> Unit) {
+internal fun StatusDetails(title: String, captured: String, onReport: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -47,11 +47,16 @@ internal fun StatusDetails(title: String, captured: String, onDismiss: () -> Uni
             }
         },
         confirmButton = {
+            androidx.compose.foundation.layout.Row {
+            onReport?.let { report ->
+                IconButton(onClick = report) { Icon(painterResource(R.drawable.bug_report), "Report crash") }
+            }
             IconButton(onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Feather status", captured))
                 if (android.os.Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
             }) { Icon(painterResource(R.drawable.copy), "Copy details") }
+            }
         },
         dismissButton = {
             IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close details") }

@@ -50,6 +50,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     val zapping = MutableStateFlow<Set<String>>(emptySet())
     internal val signerRequests = SignerRequests()
+    internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<String, Job>()
     val reposting = MutableStateFlow<Set<String>>(emptySet())
@@ -61,6 +62,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
+        issues.accountChanged()
         if (signer.value != null) cancelSharedImages()
         cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }

@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-10-13
+
 ### Added
+- Report bugs and suggest features from settings as public Nostr issues using the connected Android signer. Crash reports can prefill an editable report with common secrets and URLs removed. Private drafts and exact signed retries survive restarts.
+- Discover an Issues tab for kind-1621 events on profiles and the main feed, with repository links, subject previews and Markdown detail views.
 - Nostr repository and issue tracking through GitWorkshop, with GRASP copies on relay.ngit.dev and gitnostr.com alongside GitHub.
 
 ## [0.48.1] - 2026-10-13
