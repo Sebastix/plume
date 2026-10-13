@@ -51,23 +51,32 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
+import org.json.JSONArray
 
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
-internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null)
+internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList())
 
 /** Private local drafts and exact signed retries, bounded and accessed only on IO. */
 internal class ReplyStore(context: Context) {
     private val drafts = context.getSharedPreferences("reply-drafts", Context.MODE_PRIVATE)
+    private val media = context.getSharedPreferences("reply-gifs", Context.MODE_PRIVATE)
     private val pending = context.getSharedPreferences("reply-pending", Context.MODE_PRIVATE)
     private fun key(owner: String, target: Event?) = "$owner:${target?.id ?: "post"}"
     @Synchronized fun load(owner: String, target: Event?): ReplyDraft = ReplyDraft(owner, target,
-        drafts.getString(key(owner, target), "").orEmpty().take(8000))
+        drafts.getString(key(owner, target), "").orEmpty().take(8000),
+        gifs = GifItem.list(media.getString(key(owner, target), "[]").orEmpty()))
     @Synchronized fun save(draft: ReplyDraft) {
         val key = key(draft.owner, draft.target)
         val edit = drafts.edit()
         if (draft.text.isBlank()) edit.remove(key) else edit.putString(key, draft.text)
         drafts.all.keys.filter { it != key }.drop(15).forEach(edit::remove)
         check(edit.commit()) { "Could not save reply draft" }
+        val attachments = draft.gifs.filter { it.url in draft.text }.distinctBy { it.url }.take(32)
+        val mediaEdit = media.edit()
+        if (attachments.isEmpty()) mediaEdit.remove(key)
+        else mediaEdit.putString(key, JSONArray(attachments.map { it.json() }).toString())
+        media.all.keys.filter { it != key }.drop(15).forEach(mediaEdit::remove)
+        check(mediaEdit.commit()) { "Could not save GIF attachments" }
     }
     @Synchronized fun signed(draft: ReplyDraft): Event? = pending.getString(key(draft.owner, draft.target), null)?.let {
         runCatching { Event.fromJson(JSONObject(it).getString("event")) }.getOrNull()
@@ -79,6 +88,7 @@ internal class ReplyStore(context: Context) {
         check(edit.commit()) { "Could not save signed reply for retry" }
     }
     @Synchronized fun complete(draft: ReplyDraft) {
+        check(media.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear GIF attachments" }
         check(drafts.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply draft" }
         check(pending.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply retry" }
     }
@@ -229,6 +239,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val transform = remember(current.text, labels) { mentionTransformation(current.text, labels) }
+    var gifPicker by remember(current.owner, current.target?.id) { mutableStateOf(false) }
+    val gifFocus = remember { FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val canSend = !busy && !uploading && current.text.isNotBlank()
     val sendButton: @Composable (Modifier) -> Unit = { modifier ->
         FilledIconButton(onClick = vm::sendReply, enabled = canSend,
@@ -239,6 +252,13 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             if (busy) ComposerProgress(mining)
             else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
         }
+    }
+    val gifButton: @Composable () -> Unit = {
+        FilledIconButton(enabled = !busy, modifier = Modifier.size(if (current.target == null) 56.dp else 48.dp)
+            .focusRequester(gifFocus).semantics { contentDescription = "Add a GIF" }, shape = CircleShape,
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+            onClick = { keyboard?.hide(); gifPicker = true }) { Text("GIF", style = MaterialTheme.typography.labelLarge) }
     }
     val imageButton: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +304,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
-                if (current.target != null) imageButton()
+                if (current.target != null) { gifButton(); Spacer(Modifier.width(8.dp)); imageButton() }
                 if (current.target != null) { Spacer(Modifier.width(8.dp)); sendButton(Modifier.size(48.dp)) }
             }
             current.target?.let { target ->
@@ -317,7 +337,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
                 Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
                     images.forEachIndexed { index, url ->
-                        RemoteImage(url, Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp)
+                        RemoteImage(current.gifs.find { it.url == url }?.still ?: url, Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .clickable(onClickLabel = "Preview attached image") { openGallery(images, index, expandAlbum = false) }, "Attached image")
                     }
@@ -369,8 +389,10 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
                     composer()
+                    if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
                     Row(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 80.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        gifButton()
                         imageButton()
                         sendButton(Modifier.size(56.dp))
                     }
@@ -380,7 +402,10 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     } else {
         ModalBottomSheet(onDismissRequest = vm::closeReply,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface) { composer() }
+            containerColor = MaterialTheme.colorScheme.surface) {
+                composer()
+                if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
+            }
     }
 }
 

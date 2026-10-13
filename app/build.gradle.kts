@@ -11,6 +11,10 @@ val secrets = Properties().apply {
 }
 fun secret(name: String): String? = System.getenv(name) ?: secrets.getProperty(name)
 
+val gifApiKey = secret("GIFS_NOSTR_BUILD_API_KEY").orEmpty().also {
+    require(it.isEmpty() || it.matches(Regex("gnb_[A-Za-z0-9_-]+"))) { "Invalid GIF API key format" }
+}
+
 val gitCommit = providers.exec {
     workingDir(rootProject.projectDir)
     commandLine("git", "rev-parse", "HEAD")
@@ -25,9 +29,10 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 97
-        versionName = "0.54.0"
+        versionCode = 98
+        versionName = "0.55.0"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+        buildConfigField("String", "GIFS_NOSTR_BUILD_API_KEY", "\"$gifApiKey\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     if (secret("OEM_STORE_FILE") != null) {

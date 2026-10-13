@@ -4,6 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-10-13
+
+### Added
+- GIF search from nostr.build in post and reply composers, with a circular GIF button to the left of image attachments, starter searches, autocomplete and emoji/non-Latin queries.
+- A lazy two-column picker with bounded native animated previews, reduced-motion stills, clear error/retry states and subtle linked attribution.
+- Attach original GIF links without re-uploading. Preserve NIP-92 dimensions, format, size and description in saved drafts and published events.
+
 ## [0.54.0] - 2026-10-13
 
 ### Fixed

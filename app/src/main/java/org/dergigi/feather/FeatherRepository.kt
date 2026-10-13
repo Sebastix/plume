@@ -925,7 +925,8 @@ class FeatherRepository(context: Context) {
             val quoteTags = quotes.map { arrayOf("q", it.id, it.relays.firstOrNull().orEmpty(), it.author.orEmpty()) } +
                 quotes.mapNotNull { it.author }.distinct().filter { it !in participants && mentions.none { tag -> tag[1] == it } }.map { arrayOf("p", it) }
             val hashtagTags = NostrContent.hashtags(draft.text).map { arrayOf("t", it) }.toTypedArray()
-            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + arrayOf(arrayOf("client", "Feather"))
+            val gifTags = draft.gifs.filter { it.url in draft.text }.distinctBy { it.url }.take(32).map { it.imeta() }.toTypedArray()
+            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + gifTags + arrayOf(arrayOf("client", "Feather"))
             val now = System.currentTimeMillis() / 1000
             val powEnabled = state.value.proofOfWork
             val mined = ProofOfWork.prepare(author, now, kind, tags, draft.text, ProofOfWork.POST_BITS, powEnabled, onMining)

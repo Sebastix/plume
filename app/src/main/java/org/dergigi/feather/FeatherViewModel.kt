@@ -381,9 +381,18 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (e: Exception) { message.value = "Could not open composer: ${e.message}" }
         }
     }
+    internal fun attachGif(gif: GifItem) {
+        val draft = replyDraft.value ?: return
+        if (replyBusy.value || draft.owner != signer.value?.pubKey || gif.url in draft.text) return
+        val text = draft.text.trimEnd() + (if (draft.text.isBlank()) "" else "\n") + gif.url
+        if (text.length > 8000 || draft.gifs.size >= 32) { message.value = "Draft is full"; return }
+        replyDraft.value = draft.copy(gifs = draft.gifs + gif)
+        editReply(text)
+    }
     internal fun editReply(text: String) {
         if (replyBusy.value) return
-        val draft = replyDraft.value?.copy(text = text.take(8000)) ?: return
+        val previous = replyDraft.value ?: return
+        val draft = previous.copy(text = text.take(8000), gifs = previous.gifs.filter { it.url in text })
         replyDraft.value = draft
         replySaveJob?.cancel()
         replySaveJob = viewModelScope.launch {
