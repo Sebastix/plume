@@ -1017,3 +1017,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build passed, including lint/R8. Reviewed gesture direction locking and window brightness restoration, redirect limits/deadline, and bounded account-scoped reaction queues. No automated tests or live device checks.
 - APK SHA-256: `9bf115433b7618ddbb11f9aa7f8c33d4830bced2315c8807ca9307651d0a917f`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
 - GitHub digest and signed Zapstore asset `137dc6eda5ed01127cb12bcec70e0f9bd99068dfdcf2e19a09420f8821215cec` verified: versionCode 97, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
+
+## 2026-10-13 — 0.55.0 release
+
+- Version 0.55.0 (98), source commit `28848b1`. Native nostr.build GIF picker in post/reply composers, draft-persisted NIP-92 metadata and subtle linked attribution. API key kept in ignored local build configuration.
+- Debug compilation and signed release build passed, including lint/R8. Read integration/grid guides; adapted browser advice to bounded native Coil previews (six visible animations, no original grid downloads). Read-only authenticated API queries for gm, 😂, 猫 and café returned 200 results each. No automated tests, live device checks or synthetic public posts.
+- APK SHA-256: `86b4cc47ab8f21d8a1b94b199499a2487b95dcceff1ad5717003573f43520e8e`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
+- GitHub digest and signed Zapstore asset `bbb81ca2bc2599370ce867bd3a8915017f844f40bc4abc6bd3bb44a3892001e9` verified: versionCode 98, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
