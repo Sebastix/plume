@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.56.1] - 2026-10-14
+
 ### Changed
 - Reduce the feather logo inside the settings profile button while keeping its touch target unchanged.
 
