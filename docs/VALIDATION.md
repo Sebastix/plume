@@ -996,3 +996,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build passed, including lint/R8. Reviewed Zapstore comment implementation, current NIP-22 and read-only live app metadata. No automated tests, live device checks or synthetic public comments/payments.
 - APK SHA-256: `08d44d9cd2da4b6e93e0081a1d1e3ffad8a62d8f628584c91d312f7be7cd9895`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
 - GitHub digest and signed Zapstore asset `d63ccf2be18a22af050a595f09a7b052a2bb03150a197035307bf296b54d3e4a` verified: versionCode 94, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors after remote signer reconnected.
+
+## 2026-10-13 — 0.52.0 release
+
+- Version 0.52.0 (95), source commit `2713219`. Background NIP-13 proof of work for posts/replies (16 bits) and emoji reactions (12 bits), with a persistent settings toggle enabled by default.
+- Debug compilation and signed release build passed, including lint/R8. Reviewed Wisp defaults, Quartz miner, signature/hash checks and exact-event retries. Mining uses a single background CPU worker, outside the signer lock, without a cancellation control. No automated tests or live device checks.
+- APK SHA-256: `660619910e8815cf14095ca5d634b27854da1de086f96b60b35c8bedb7bf6459`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
+- GitHub digest and signed Zapstore asset `c526399c8d586a9c1f92bf47aed0cb664a540cc401b279bc9c5ebc60ac2085c3` verified: versionCode 95, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
