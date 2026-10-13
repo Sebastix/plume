@@ -28,6 +28,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -50,7 +51,7 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
 
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
-internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "")
+internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null)
 
 /** Private local drafts and exact signed retries, bounded and accessed only on IO. */
 internal class ReplyStore(context: Context) {
@@ -187,7 +188,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val media = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
     val focus = remember(current.owner, current.target?.id) { FocusRequester() }
-    var editor by remember(current.owner, current.target?.id) { mutableStateOf(TextFieldValue(current.text, TextRange(current.text.length))) }
+    var editor by remember(current.owner, current.target?.id) { mutableStateOf(TextFieldValue(current.text, TextRange((current.initialCursor ?: if (current.text.startsWith("\nnostr:")) 0 else current.text.length).coerceIn(0, current.text.length)))) }
     var chosenNames by remember(current.owner, current.target?.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
     LaunchedEffect(current.text) {
         if (editor.text != current.text) editor = TextFieldValue(current.text, TextRange(current.text.length))
@@ -225,8 +226,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val transform = remember(current.text, labels) { mentionTransformation(current.text, labels) }
+    val canSend = !busy && !uploading && current.text.isNotBlank()
     val sendButton: @Composable (Modifier) -> Unit = { modifier ->
-        FilledIconButton(onClick = vm::sendReply, enabled = !busy && !uploading && current.text.isNotBlank(),
+        FilledIconButton(onClick = vm::sendReply, enabled = canSend,
             modifier = modifier, shape = CircleShape,
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -289,7 +291,17 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
             }, visualTransformation = transform, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus).semantics { contentDescription = if (current.target == null) "Post text" else "Reply text" },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus)
+                    .onPreviewKeyEvent { event ->
+                        if ((event.isCtrlPressed || event.isMetaPressed) && event.key == Key.N) {
+                            true // Already composing: preserve this draft and do not insert an N.
+                        } else if ((event.isCtrlPressed || event.isMetaPressed) && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
+                            // Consume before TextField inserts a newline; held keys must not resend.
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0 && canSend)
+                                vm.sendReply()
+                            true
+                        } else false
+                    }.semantics { contentDescription = if (current.target == null) "Post text" else "Reply text" },
                 shape = RoundedCornerShape(20.dp),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

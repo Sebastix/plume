@@ -59,7 +59,10 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && visible
     val date = remember(note.createdAt) {
-        DateTimeFormatter.ofPattern("MMM d · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochSecond(note.createdAt))
+        val zone = ZoneId.systemDefault()
+        val time = Instant.ofEpochSecond(note.createdAt)
+        val olderThanYear = time.isBefore(java.time.ZonedDateTime.now(zone).minusYears(1).toInstant())
+        DateTimeFormatter.ofPattern(if (olderThanYear) "yyyy · MMM d · HH:mm" else "MMM d · HH:mm").withZone(zone).format(time)
     }
     LaunchedEffect(mode, active, note.createdAt) {
         if (!active) return@LaunchedEffect

@@ -94,6 +94,17 @@ class MainActivity : ComponentActivity() {
             FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog() }
         }
     }
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if ((event.isCtrlPressed || event.isMetaPressed) && event.keyCode == android.view.KeyEvent.KEYCODE_N) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                if (composerModel.signer.value == null) composerModel.message.value = "Connect an Android signer first."
+                else if (composerModel.replyDraft.value == null) composerModel.openReply()
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -127,6 +138,8 @@ class MainActivity : ComponentActivity() {
 fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) {
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
     LaunchedEffect(connectedSigner) { vm.processSharedImages() }
+    val appState by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(appState.pendingMuteList?.id, connectedSigner) { vm.loadMutes(appState.pendingMuteList) }
     val signerScope = rememberCoroutineScope()
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(message) { message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
@@ -348,17 +361,17 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }
         },
         floatingActionButton = {
-            if (screen == "profile" && profileKey != null && profileKey != s.publicKey) {
+            if (screen == "profile" && profileKey != null) {
                 val opacity by androidx.compose.animation.core.animateFloatAsState(
                     if (activeListState.isScrollInProgress) 0.4f else 1f, tween(180), label = "Profile feather scroll opacity")
                 FeatherComposeButton(onClick = {
                     if (s.publicKey == null) showAccount = true
-                    else vm.openReply(mentionProfile = profileKey)
+                    else vm.openReply(mentionProfile = profileKey.takeUnless { it == s.publicKey })
                 }, modifier = Modifier.padding(end = 8.dp, bottom = 8.dp).graphicsLayer {
                     alpha = opacity
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                 }, showShadow = !activeListState.isScrollInProgress && opacity == 1f,
-                    description = "Create post mentioning ${s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey)}")
+                    description = if (profileKey == s.publicKey) "Create post" else "Create post mentioning ${s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey)}")
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,
@@ -842,7 +855,6 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                         Avatar(name, picture = profile?.picture)
                     }
                 }
-                Spacer(Modifier.width(10.dp))
                 Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
             NoteTimestamp(note)
@@ -868,10 +880,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
-        val content = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
+        val richContent = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
+        val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
         if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
-        quotes.forEach { reference ->
-            Spacer(Modifier.height(12.dp))
+        quotes.forEachIndexed { index, reference ->
+            if (content.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
         }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
@@ -957,6 +970,15 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
 internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
     val filter = LocalContentFilter.current
     if (filter.hides(reference) || (note != null && filter.hides(note))) return
+    if (note?.kind == 30023) {
+        val profile = profiles[note.pubKey]
+        Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+            ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), profile?.picture,
+                onProfile = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
+                onOpen = { onReference(reference) })
+        }
+        return
+    }
     Surface(onClick = { onReference(reference) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -978,16 +1000,17 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 val profile = profiles[note.pubKey]
                 val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
                 Row(Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
                         modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" },
                     ) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                            Avatar(name, 28, profile?.picture)
+                            Avatar(name, 36, profile?.picture)
                         }
                     }
-                    Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    NoteTimestamp(note)
                 }
                 if (note.kind in voiceKinds) AudioContent(note, compact, name)
                 else if (note.kind == 30030) EmojiPackContent(note)

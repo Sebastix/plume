@@ -4,6 +4,23 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-10-13
+
+### Changed
+- Tighten note author spacing and the gap above embedded quotes; remove trailing blank lines left by hidden quote references.
+- Render linked articles with the compact article preview card and show timestamps on embedded notes.
+- Show the compose button on your own profile without pre-filling a self-mention.
+- Include the year in absolute timestamps for notes older than one year.
+
+### Fixed
+- Preserve notification filter selections and scroll position when returning from a note; show an @ indicator for mentions.
+- Load private mute lists at app level, including when viewing notifications.
+- Start quote-post drafts with one newline before the reference and place the cursor above it.
+
+### Added
+- Open the new-note composer with Ctrl+N or Cmd+N; preserve an already open draft.
+- Send new notes and replies with Ctrl+Enter or Cmd+Enter on a hardware keyboard, including numpad Enter. Preserve ordinary Enter for newlines and block sending while uploading or publishing.
+
 ## [0.46.0] - 2026-10-12
 
 ### Changed

@@ -317,9 +317,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                         val pointer = com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(quote.id, quote.pubKey, quote.kind, relay = null)
                         val reference = "nostr:$pointer"
                         if (reference in saved.text) saved else {
-                            val text = saved.text.trimEnd() + "\n\n" + reference
+                            val text = saved.text.trimEnd() + "\n" + reference
                             require(text.length <= 8000) { "Saved draft is full. Shorten it before adding a quote." }
-                            saved.copy(text = text).also(replyStore::save)
+                            saved.copy(text = text, initialCursor = saved.text.trimEnd().length).also(replyStore::save)
                         }
                     } else if (mention == null || mention in replyMentions(saved.text)) saved
                     else {

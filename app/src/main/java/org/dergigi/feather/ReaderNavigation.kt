@@ -20,6 +20,7 @@ internal class ReaderEntry(
     val list = LazyListState(index, offset)
     val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
     fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
+    var notificationFilters by mutableIntStateOf(0)
     var searchQuery by mutableStateOf("")
     var tab by mutableStateOf(tab)
     var toolbar by mutableStateOf(toolbar)
@@ -53,7 +54,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putStringArrayList("feedTabs", ArrayList(entry.tabs.map { it.name }))
                 entry.feedPages.forEach { (category, page) -> putBundle("feed:${category.name}", Bundle().apply {
                     putString("key", page.key); putInt("index", page.list.firstVisibleItemIndex)
-                    putInt("offset", page.list.firstVisibleItemScrollOffset); putBoolean("toolbar", page.toolbar)
+                    putInt("offset", page.list.firstVisibleItemScrollOffset); putBoolean("toolbar", page.toolbar); putInt("notificationFilters", page.notificationFilters)
                 }) }
                 putStringArrayList("relays", ArrayList(entry.reference?.relays.orEmpty()))
                 putString("author", entry.reference?.author)
@@ -67,7 +68,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     if (entry.screen == "feed") ProfileTab.entries.forEach { category ->
                         bundle.getBundle("feed:${category.name}")?.let { page ->
                             entry.feedPages[category] = ReaderEntry("feed", key = page.getString("key") ?: UUID.randomUUID().toString(),
-                                index = page.getInt("index"), offset = page.getInt("offset"), tab = category, toolbar = page.getBoolean("toolbar"))
+                                index = page.getInt("index"), offset = page.getInt("offset"), tab = category, toolbar = page.getBoolean("toolbar")).also { it.notificationFilters = page.getInt("notificationFilters") }
                         }
                     }
                     if (entry.screen == "profile" || entry.screen == "thread") entry.reference =

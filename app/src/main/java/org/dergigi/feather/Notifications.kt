@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,7 +65,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val state by vm.state.collectAsStateWithLifecycle()
     val owner = state.publicKey ?: return
     // Zero means all; each category otherwise toggles independently.
-    var selectedTypes by rememberSaveable(owner) { mutableIntStateOf(0) }
+    var selectedTypes by entry::notificationFilters
     val includedTypes = remember(selectedTypes) {
         NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
     }
@@ -93,7 +92,11 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             }
         }
     }
-    LaunchedEffect(selectedTypes) { entry.list.scrollToItem(0) }
+    var previousTypes by remember { mutableIntStateOf(selectedTypes) }
+    LaunchedEffect(selectedTypes) {
+        if (previousTypes != selectedTypes) entry.list.scrollToItem(0)
+        previousTypes = selectedTypes
+    }
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(active, message) { if (active) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(active, owner) {
@@ -217,6 +220,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             else if (reaction?.content in listOf("", "+")) Icon(Icons.Default.Favorite, item.action, Modifier.size(22.dp), tint = Color(0xFFFF8A00))
                             else if (reaction != null) Text(reaction.display.take(16))
                             else if (item.event.kind == 7) Icon(Icons.Default.FavoriteBorder, item.action, Modifier.size(22.dp), tint = tint)
+                            else if (item.action == "Mention") Text("@", color = tint, style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.semantics { contentDescription = "Mention" })
                             else Icon(painterResource(when(item.event.kind) {
                                 6, 16 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation
                             }), item.action, Modifier.size(22.dp), tint = tint)
