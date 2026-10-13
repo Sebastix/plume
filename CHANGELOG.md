@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Follow bounded HTTPS redirects when resolving Lightning addresses and invoice callbacks instead of failing on HTTP 302. Preserve the request deadline and include redirect hosts in copied zap diagnostics.
 
 ### Changed
+- Keep reaction pickers usable while sending. Queue additional emoji selections and removals in order with immediate optimistic feedback.
 - Use `nostr+walletconnect://` as the wallet connection field hint.
 
 ### Added

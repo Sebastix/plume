@@ -32,7 +32,7 @@ internal data class PendingReaction(val choice: ReactionChoice, val remove: Bool
 }
 internal data class ReactionActions(
     val pending: Set<String> = emptySet(),
-    val optimistic: Map<String, PendingReaction> = emptyMap(),
+    val optimistic: Map<String, List<PendingReaction>> = emptyMap(),
     val choices: List<ReactionChoice> = defaultReactions,
     val recentEmojis: List<String> = emptyList(),
     val customEmojis: List<ReactionChoice> = emptyList(),
@@ -49,7 +49,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     enabled: Boolean = true,
     onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
-    val visibleReactions = actions.optimistic[note.id]?.applyTo(sent) ?: sent
+    val visibleReactions = actions.optimistic[note.id].orEmpty().fold(sent) { reactions, change -> change.applyTo(reactions) }
     val latestEnabled by rememberUpdatedState(enabled)
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
@@ -62,10 +62,10 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     val latestReaction = visibleReactions.firstOrNull()
     Box {
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
-            .combinedClickable(enabled = enabled && note.id !in actions.pending,
+            .combinedClickable(enabled = enabled,
                 onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
                 onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
-                onLongClick = { menuChoices = (sent + actions.choices).distinctBy { it.key }.take(6); picker = true })
+                onLongClick = { menuChoices = (visibleReactions + actions.choices).distinctBy { it.key }.take(6); picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                 if (latestReaction != null) {
@@ -88,8 +88,8 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
         DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 344.dp).padding(horizontal = 4.dp), maxItemsInEachRow = 7) {
                 menuChoices.forEach { choice ->
-                    val alreadySent = choice in sent
-                    IconButton(enabled = enabled && note.id !in actions.pending && (alreadySent || validReactionChoice(choice)), onClick = {
+                    val alreadySent = choice in visibleReactions
+                    IconButton(enabled = enabled && (alreadySent || validReactionChoice(choice)), onClick = {
                         picker = false
                         if (alreadySent) actions.remove(note, choice) else actions.react(note, choice)
                     }, modifier = Modifier.size(48.dp)) {
@@ -101,7 +101,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                         }
                     }
                 }
-                IconButton(enabled = enabled && note.id !in actions.pending, onClick = {
+                IconButton(enabled = enabled, onClick = {
                     picker = false
                     fullPicker = true
                 }, modifier = Modifier.size(48.dp)) {
@@ -112,13 +112,13 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     }
     if (fullPicker && enabled) {
         val latestActions by rememberUpdatedState(actions)
-        val latestSent by rememberUpdatedState(sent)
+        val latestSent by rememberUpdatedState(visibleReactions)
         val recent = actions.recentEmojis
         val height = (LocalConfiguration.current.screenHeightDp * 0.6f).coerceAtMost(480f).dp
         ModalBottomSheet(onDismissRequest = { fullPicker = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
-                if (latestEnabled && note.id !in latestActions.pending && validReactionChoice(choice)) {
+                if (latestEnabled && validReactionChoice(choice)) {
                     fullPicker = false
                     if (choice in latestSent) latestActions.remove(note, choice) else latestActions.react(note, choice)
                 }

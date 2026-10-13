@@ -71,7 +71,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
     private fun queueHasRoom(): Boolean {
-        if (zapJobs.size + reactionJobs.size + repostJobs.size < 32) return true
+        if (zapJobs.size + optimisticReactions.value.values.sumOf { it.size } + repostJobs.size < 32) return true
         message.value = "Action queue is full. Try again shortly."
         return false
     }
@@ -133,7 +133,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         job.start()
     }
     val reacting = MutableStateFlow<Set<String>>(emptySet())
-    internal val optimisticReactions = MutableStateFlow<Map<String, PendingReaction>>(emptyMap())
+    internal val optimisticReactions = MutableStateFlow<Map<String, List<PendingReaction>>>(emptyMap())
     val decryptingMutes = MutableStateFlow(false)
     private var muteJob: Job? = null
     private var attemptedMute: String? = null
@@ -448,16 +448,30 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
-        if (note.id in reacting.value || (!remove && choice in state.value.sentReactions[note.id].orEmpty()) || !queueHasRoom()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
-        optimisticReactions.update { it + (note.id to PendingReaction(choice, remove)) }
+        val queued = optimisticReactions.value[note.id].orEmpty()
+        val visible = queued.fold(state.value.sentReactions[note.id].orEmpty()) { reactions, change -> change.applyTo(reactions) }
+        if ((!remove && choice in visible) || (remove && choice !in visible) || !queueHasRoom()) return
+        optimisticReactions.update { it + (note.id to (queued + PendingReaction(choice, remove))) }
         reacting.update { it + note.id }
+        if (reactionJobs[note.id] != null) return
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            try { if (remove) repo.removeReaction(note, choice, connected, signerRequests) else repo.react(note, choice, connected, signerRequests) }
-            catch (_: TimeoutCancellationException) { /* Reactions fail quietly. */ }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { /* Keep the last confirmed reaction state without a toast. */ }
-            finally {
+            try {
+                while (signer.value === connected) {
+                    val change = optimisticReactions.value[note.id]?.firstOrNull() ?: break
+                    try {
+                        if (change.remove) repo.removeReaction(note, change.choice, connected, signerRequests)
+                        else repo.react(note, change.choice, connected, signerRequests)
+                    } catch (_: TimeoutCancellationException) { /* Reactions fail quietly. */ }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { /* Roll back this action, then process the next selection. */ }
+                    currentCoroutineContext().ensureActive()
+                    optimisticReactions.update { pending ->
+                        val remaining = pending[note.id].orEmpty().drop(1)
+                        if (remaining.isEmpty()) pending - note.id else pending + (note.id to remaining)
+                    }
+                }
+            } finally {
                 if (reactionJobs[note.id] === currentCoroutineContext().job) {
                     reactionJobs.remove(note.id)
                     optimisticReactions.update { it - note.id }
