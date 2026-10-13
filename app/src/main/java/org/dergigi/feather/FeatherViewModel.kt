@@ -322,18 +322,18 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                                 val latest = replyDraft.value
                                 check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
                                 val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
-                                require(text.length <= 8000) { "Draft is full; uploaded image: $url" }
+                                require(text.length <= 8000) { "Draft is full; uploaded attachment: $url" }
                                 editReply(text)
                             }
                             replySaveJob?.join()
                         }
-                        if (currentUpload() && result.failures.isNotEmpty()) message.value = "Image uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
+                        if (currentUpload() && result.failures.isNotEmpty()) message.value = "Media uploaded; some Blossom servers failed: ${result.failures.joinToString("; ")}"
                     }
                     completed = true
                 }
-            } catch (e: TimeoutCancellationException) { if (currentUpload()) message.value = "Image upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
+            } catch (e: TimeoutCancellationException) { if (currentUpload()) message.value = "Media upload: ${imageUploadProgress.value?.stage ?: "Upload"} timed out" }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { if (currentUpload()) message.value = "Image upload (${imageUploadProgress.value?.stage ?: "unknown stage"}): ${e.message ?: e.javaClass.simpleName}" }
+            catch (e: Exception) { if (currentUpload()) message.value = "Media upload (${imageUploadProgress.value?.stage ?: "unknown stage"}): ${e.message ?: e.javaClass.simpleName}" }
             finally {
                 if (imageUploadJob === uploadJob) {
                     imageUploadProgress.value = if (completed && uploadJob.isActive && replyDraft.value != null)

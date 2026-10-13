@@ -210,10 +210,11 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     val images by produceState<List<String>>(emptyList(), current.text) {
         value = withContext(Dispatchers.Default) {
             Regex("https://[^\\s<>]+", RegexOption.IGNORE_CASE).findAll(current.text).map { it.value }
-                .filter { url -> runCatching { java.net.URI(url).path?.substringAfterLast('.')?.lowercase() in listOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif") }.getOrDefault(false) }
+                .filter { url -> runCatching { java.net.URI(url).path?.substringAfterLast('.')?.lowercase() in listOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "mp4", "m4v", "mov", "webm") }.getOrDefault(false) }
                 .distinct().toList()
         }
     }
+    var previewVideo by remember { mutableStateOf<String?>(null) }
     val mention = remember(editor) { mentionInput(editor) }
     var suggestions by remember { mutableStateOf<List<SearchProfile>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -289,9 +290,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer), onClick = {
-                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 }) {
-                    Icon(painterResource(R.drawable.photos), "Attach images")
+                    Icon(painterResource(R.drawable.photos), "Attach images or videos")
                 }
         }
     }
@@ -304,8 +305,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
                 Spacer(Modifier.weight(1f))
-                if (current.target != null) { gifButton(); Spacer(Modifier.width(8.dp)); imageButton() }
-                if (current.target != null) { Spacer(Modifier.width(8.dp)); sendButton(Modifier.size(48.dp)) }
+
             }
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]
@@ -337,9 +337,16 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
                 Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
                     images.forEachIndexed { index, url ->
-                        RemoteImage(current.gifs.find { it.url == url }?.still ?: url, Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable(onClickLabel = "Preview attached image") { openGallery(images, index, expandAlbum = false) }, "Attached image")
+                        val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
+                        val tile = Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp).clip(RoundedCornerShape(16.dp))
+                        if (video) Box(tile.background(MaterialTheme.colorScheme.secondaryContainer)
+                            .clickable(onClickLabel = "Preview attached video") { previewVideo = url }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.PlayArrow, "Attached video", Modifier.size(32.dp))
+                        } else RemoteImage(current.gifs.find { it.url == url }?.still ?: url, tile
+                            .clickable(onClickLabel = "Preview attached image") {
+                                val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
+                                openGallery(photos, photos.indexOf(url), expandAlbum = false)
+                            }, "Attached image")
                     }
                     images.forEachIndexed { index, url ->
                         IconButton(enabled = !busy,
@@ -347,7 +354,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                             onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
                             Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
                                 contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Close, "Remove image from post", Modifier.size(18.dp), tint = Color.White)
+                                Icon(Icons.Default.Close, "Remove attachment from post", Modifier.size(18.dp), tint = Color.White)
                             }
                         }
                     }
@@ -378,6 +385,13 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     ProfileStatusIcons(profile, profile.event.pubKey in state.following)
                 }
             } }
+            if (current.target != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                gifButton()
+                Spacer(Modifier.weight(1f))
+                imageButton()
+                sendButton(Modifier.size(48.dp))
+            }
         }
         }
         }
@@ -389,10 +403,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
                     composer()
+                    previewVideo?.let { ComposerVideoPreview(it) { previewVideo = null } }
                     if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
-                    Row(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 80.dp),
+                    Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 80.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         gifButton()
+                        Spacer(Modifier.weight(1f))
                         imageButton()
                         sendButton(Modifier.size(56.dp))
                     }
@@ -404,6 +420,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface) {
                 composer()
+                previewVideo?.let { ComposerVideoPreview(it) { previewVideo = null } }
                 if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
             }
     }

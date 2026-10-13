@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-10-14
+
+### Added
+- Select images and videos together from the composer attachment button. Upload videos up to 250 MB to your Blossom servers with progress, preview and removal controls. Repackage audio/video tracks without location metadata before upload; retain original encoded quality and rotation.
+
+### Changed
+- Place the GIF button at the far left of composer actions, with attachments and Send on the right.
+
 ## [0.56.1] - 2026-10-14
 
 ### Changed

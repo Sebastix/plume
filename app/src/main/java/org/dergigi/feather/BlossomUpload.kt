@@ -28,9 +28,9 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
     it.isHttps && it.username.isEmpty() && it.password.isEmpty() && it.query == null && it.fragment == null
 }?.toString()?.trimEnd('/')
 
-internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Opening image")
+internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Opening attachment")
 
-/** One bounded image at a time; only explicitly selected account servers receive bytes. */
+/** One bounded attachment at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
     private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
@@ -46,6 +46,10 @@ internal class BlossomUpload(private val context: Context) {
 
     suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
+        val video = context.contentResolver.getType(uri)?.startsWith("video/") == true
+        val label = if (video) "video" else "image"
+        val maxBytes = (if (video) 250L else 20L) * 1024 * 1024
+        selectedSize(uri)?.let { require(it <= maxBytes) { "${label.replaceFirstChar(Char::uppercase)} exceeds ${maxBytes / 1024 / 1024} MB" } }
         onProgress(ImageUploadProgress(stage = "Clearing temporary files"))
         context.cacheDir.listFiles()?.filter { it.name.startsWith("blossom-") && it.name.endsWith(".image") }?.forEach { it.delete() }
         onProgress(ImageUploadProgress(stage = "Creating temporary file"))
@@ -53,9 +57,9 @@ internal class BlossomUpload(private val context: Context) {
         val file = File.createTempFile("blossom-", ".image", context.cacheDir)
         try {
             var size = 0L
-            onProgress(ImageUploadProgress(stage = "Opening image"))
+            onProgress(ImageUploadProgress(stage = "Opening $label"))
             context.contentResolver.openInputStream(uri)?.use { input ->
-                onProgress(ImageUploadProgress(stage = "Reading image"))
+                onProgress(ImageUploadProgress(stage = "Reading $label"))
                 var reportedSize = 0L
                 original.outputStream().use { output ->
                     val buffer = ByteArray(65536)
@@ -64,27 +68,30 @@ internal class BlossomUpload(private val context: Context) {
                         val read = input.read(buffer)
                         if (read < 0) break
                         size += read
-                        require(size <= 20L * 1024 * 1024) { "Image exceeds 20 MB" }
+                        require(size <= maxBytes) { "${label.replaceFirstChar(Char::uppercase)} exceeds ${maxBytes / 1024 / 1024} MB" }
                         output.write(buffer, 0, read)
                         if (size - reportedSize >= 256 * 1024) {
-                            onProgress(ImageUploadProgress(size, stage = "Reading image"))
+                            onProgress(ImageUploadProgress(size, stage = "Reading $label"))
                             reportedSize = size
                         }
                     }
                 }
-            } ?: error("Could not read selected image")
-            require(size > 0) { "Selected image is empty" }
-            onProgress(ImageUploadProgress(size, stage = "Checking image format"))
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(original.absolutePath, bounds)
-            require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
+            } ?: error("Could not read selected $label")
+            require(size > 0) { "Selected $label is empty" }
             onProgress(ImageUploadProgress(size, stage = "Removing metadata"))
-            val mime = ImagePrivacy.clean(original, file, bounds.outMimeType!!)
+            val mime = if (video) {
+                VideoPrivacy.clean(original, file)
+            } else {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(original.absolutePath, bounds)
+                require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
+                ImagePrivacy.clean(original, file, bounds.outMimeType!!)
+            }
             original.delete()
             currentCoroutineContext().ensureActive()
             size = file.length()
-            require(size in 1..20L * 1024 * 1024) { "Sanitized image exceeds 20 MB" }
-            onProgress(ImageUploadProgress(size, stage = "Hashing image"))
+            require(size in 1..maxBytes) { "Processed $label exceeds ${maxBytes / 1024 / 1024} MB" }
+            onProgress(ImageUploadProgress(size, stage = "Hashing $label"))
             val digest = MessageDigest.getInstance("SHA-256")
             file.inputStream().use { input ->
                 val buffer = ByteArray(65536)
@@ -99,7 +106,7 @@ internal class BlossomUpload(private val context: Context) {
             val now = System.currentTimeMillis() / 1000 - 1
             val tags = (listOf(arrayOf("t", "upload"), arrayOf("x", hash), arrayOf("expiration", (now + 1800).toString())) +
                 servers.map { arrayOf("server", it.toHttpUrlOrNull()!!.host) }.distinctBy { it[1] }).toTypedArray()
-            val content = "Upload image to your Blossom servers"
+            val content = "Upload $label to your Blossom servers"
             onProgress(ImageUploadProgress(size, stage = "Waiting for signer"))
             val auth = withTimeout(180_000) { requests.run { signer.sign<Event>(now, 24242, tags, content) } }
             require(auth.pubKey == signer.pubKey && auth.kind == 24242 && auth.createdAt == now &&
@@ -129,7 +136,7 @@ internal class BlossomUpload(private val context: Context) {
                 onProgress(ImageUploadProgress(size, 100, "Uploaded"))
                 if (first == null) { first = url; onUploaded(url) }
             }
-            Result(first ?: error("Image upload failed: ${failures.joinToString("; ")}"), failures)
+            Result(first ?: error("Media upload failed: ${failures.joinToString("; ")}"), failures)
         } finally { original.delete(); file.delete() }
     }
 
@@ -137,7 +144,7 @@ internal class BlossomUpload(private val context: Context) {
         val request = Request.Builder().url("$server/$path").header("Authorization", token)
             .header("X-SHA-256", hash).put(body).build()
         val call = http.newCall(request)
-        call.timeout().timeout(if (path == "mirror") 15 else 90, TimeUnit.SECONDS)
+        call.timeout().timeout(if (path == "mirror") 15 else 300, TimeUnit.SECONDS)
         return call.awaitUpload().use { response ->
             if (!response.isSuccessful) {
                 val reason = response.header("X-Reason")?.takeIf { it.isNotBlank() }
@@ -154,10 +161,10 @@ internal class BlossomUpload(private val context: Context) {
             source.request(32769)
             require(source.buffer.size <= 32768) { "Upload response too large" }
             val descriptor = JSONObject(source.readUtf8())
-            require(descriptor.getString("sha256") == hash && descriptor.getLong("size") == size) { "Upload descriptor does not match image" }
+            require(descriptor.getString("sha256") == hash && descriptor.getLong("size") == size) { "Upload descriptor does not match attachment" }
             val url = descriptor.getString("url").toHttpUrlOrNull()
             require(url != null && url.isHttps && url.username.isEmpty() && url.password.isEmpty() &&
-                url.toString().length <= 2048 && url.pathSegments.last().startsWith(hash)) { "Invalid Blossom image URL" }
+                url.toString().length <= 2048 && url.pathSegments.last().startsWith(hash)) { "Invalid Blossom media URL" }
             url.toString()
         }
     }
