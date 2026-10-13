@@ -1010,3 +1010,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build passed, including lint/R8. Reviewed exact-event retries, account-scoped optimistic state, deletion tombstones and fresh IDs after undo/repost. No automated tests or live device checks.
 - APK SHA-256: `2a265d10638c0f0b49707d3e5b321bd882b5d69104453eb90082f05cf3e68edc`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
 - GitHub digest and signed Zapstore asset `225dd40b26b8dc3d125c66ec3ba6573a9ae47c5191ed379cc5ed0852eb2b3a04` verified: versionCode 96, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
+
+## 2026-10-13 — 0.54.0 release
+
+- Version 0.54.0 (97), source commit `d35b5e2`. Full-screen gallery brightness gestures, bounded HTTPS Lightning redirects with diagnostics, wallet URI hint, and reaction pickers usable during queued sends/removals.
+- Debug compilation and signed release build passed, including lint/R8. Reviewed gesture direction locking and window brightness restoration, redirect limits/deadline, and bounded account-scoped reaction queues. No automated tests or live device checks.
+- APK SHA-256: `9bf115433b7618ddbb11f9aa7f8c33d4830bced2315c8807ca9307651d0a917f`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
+- GitHub digest and signed Zapstore asset `137dc6eda5ed01127cb12bcec70e0f9bd99068dfdcf2e19a09420f8821215cec` verified: versionCode 97, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
