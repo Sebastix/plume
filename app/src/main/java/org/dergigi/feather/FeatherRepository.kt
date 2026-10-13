@@ -925,14 +925,8 @@ class FeatherRepository(context: Context) {
         check(state.value.publicKey == author) { "Account changed" }
         publishingAuthor = target?.pubKey ?: author
         try {
-            updateRoutingPool()
-            client.connect()
-            val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                target?.let { relayLists[it.pubKey]?.read }.orEmpty().filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4) +
-                if (target?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true) IssueReports.RELAYS else emptyList()
-            check(routes.isNotEmpty()) { "No relay available. Draft saved." }
-            check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
-                "No relay confirmed the post. Draft saved; send again to retry the same event."
+            check(publishPostEvent(signed, target)) {
+                "No relay confirmed the post after 3 attempts. Draft saved; send again to retry the same event."
             }
             accept(signed)
             _state.update { if (target != null && it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
@@ -940,6 +934,33 @@ class FeatherRepository(context: Context) {
             publishingAuthor = null
             if (active) updateRoutingPool()
         }
+    }
+
+    /** Sign and persist once; only relay delivery is retried, never signing or image uploads. */
+    private suspend fun publishPostEvent(event: Event, target: Event?): Boolean {
+        repeat(3) { attempt ->
+            if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
+            currentCoroutineContext().ensureActive()
+            check(state.value.publicKey == event.pubKey) { "Account changed" }
+            // The signer may have backgrounded Feather. Do not reconnect while it is still hidden.
+            withTimeout(15_000) { foregroundActive.first { it } }
+            check(state.value.publicKey == event.pubKey) { "Account changed" }
+            updateRoutingPool()
+            client.connect()
+            val routes = (relayLists[event.pubKey]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
+                target?.let { relayLists[it.pubKey]?.read }.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
+                state.value.relays.filter(::healthy)).distinct().take(4) +
+                if (target?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true) IssueReports.RELAYS else emptyList()
+            val accepted = try {
+                routes.isNotEmpty() && client.publishAndConfirm(event, routes.map { it.normalizeRelayUrl() }.toSet(),
+                    timeoutInSeconds = 15, untilFirstAccept = true)
+            } catch (_: TimeoutCancellationException) {
+                currentCoroutineContext().ensureActive()
+                false
+            } catch (_: java.io.IOException) { false }
+            if (accepted) return true
+        }
+        return false
     }
 
     internal suspend fun removeReaction(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Retry post and reply delivery up to twice after relay timeouts, connection failures or missing acknowledgements, reusing the saved signed event to avoid duplicates. Preserve the draft if all three attempts fail.
+
 ### Changed
 - Give Nostr issue reporting, ngit and GRASP mirrors a prominent website section with Feather icons, GitWorkshop links, contribution details and updated public-report privacy information.
 
