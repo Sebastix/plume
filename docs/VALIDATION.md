@@ -1024,3 +1024,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build passed, including lint/R8. Read integration/grid guides; adapted browser advice to bounded native Coil previews (six visible animations, no original grid downloads). Read-only authenticated API queries for gm, 😂, 猫 and café returned 200 results each. No automated tests, live device checks or synthetic public posts.
 - APK SHA-256: `86b4cc47ab8f21d8a1b94b199499a2487b95dcceff1ad5717003573f43520e8e`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
 - GitHub digest and signed Zapstore asset `bbb81ca2bc2599370ce867bd3a8915017f844f40bc4abc6bd3bb44a3892001e9` verified: versionCode 98, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
+
+## 2026-10-13 — 0.56.0 release
+
+- Version 0.56.0 (99), source commit `55d413c`. Settings feather button opens the supplied Feather profile internally; pre-payment Lightning HTTP network failures retry twice with diagnostic attempt details, without resending wallet payments.
+- Signed release build passed, including lint/R8. APK signature and version verified. No automated tests or live device checks.
+- APK SHA-256: `ad4bb0a437077c24816f50e69f39bdc28465a6bc01c09ad701869dd3a7df1c61`. Signing certificate matches prior releases; mapping archived locally.
+- GitHub digest and signed Zapstore asset `de6e852abff8160fca5538bc5bc9374a0f2d82d65082325c7c865d5f34e9c5a6` verified: versionCode 99, matching APK hash/certificate, CDN HTTP 200. Source and tag verified on both GRASP mirrors.
+- Separately requested website update deployed to feather.dergigi.com: Feather Nostr profile link and GIF keyboard/search description. Verified both on the live page. Existing screenshots unchanged.
