@@ -982,3 +982,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256: `303b088e6ab4ab98fa91892dc9884791c5827c2adf8682e5ca4b3635c593d62e`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
 - GitHub APK digest verified. GitHub and both GRASP mirrors have the release source commit and tag.
 - Zapstore release and signed asset `b0c3741adaffd2a043bf5e8c5038ee0049211ca734e31bd748b92ff98d673015` verified: versionCode 92, matching APK hash/certificate, CDN HTTP 200.
+
+## 2026-10-13 — 0.50.0 release
+
+- Version 0.50.0 (93), source commit `4c738ec`. Android nostr: note/profile links on cold and warm starts, plus bounded post/reply delivery retries using the same signed event.
+- Debug compilation and signed release build passed, including lint and R8. Inspected packaged VIEW/DEFAULT/BROWSABLE nostr intent filter and version metadata. No automated tests or live device checks.
+- APK SHA-256: `2d08300ae41836e66304a3eac5fac7f70a9e002d2b4a0a5de57917c7fbb82563`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
+- GitHub asset digest matches. Zapstore release and signed asset `bccf0075acc1d3a2ba59197c1779f72c0a68ab2c824c6c6a1e5cad8a9a882f87` verified: versionCode 93, matching APK hash/certificate, CDN HTTP 200. Release source and tag pushed through ngit to GitHub and both GRASP mirrors.
