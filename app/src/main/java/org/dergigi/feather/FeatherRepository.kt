@@ -908,7 +908,7 @@ class FeatherRepository(context: Context) {
         servers
     }
 
-    internal suspend fun reply(draft: ReplyDraft, signer: NostrSignerExternal, signerRequests: SignerRequests, store: ReplyStore) = withContext(Dispatchers.IO) {
+    internal suspend fun reply(draft: ReplyDraft, signer: NostrSignerExternal, signerRequests: SignerRequests, store: ReplyStore, onMining: (Boolean) -> Unit = {}) = withContext(Dispatchers.IO) {
         ready.await()
         val author = draft.owner
         val target = draft.target
@@ -928,7 +928,7 @@ class FeatherRepository(context: Context) {
             val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + arrayOf(arrayOf("client", "Feather"))
             val now = System.currentTimeMillis() / 1000
             val powEnabled = state.value.proofOfWork
-            val mined = ProofOfWork.prepare(author, now, kind, tags, draft.text, ProofOfWork.POST_BITS, powEnabled)
+            val mined = ProofOfWork.prepare(author, now, kind, tags, draft.text, ProofOfWork.POST_BITS, powEnabled, onMining)
             signerRequests.run {
                 check(state.value.publicKey == author) { "Account changed" }
                 withTimeout(180_000) { signer.sign<Event>(mined.createdAt, kind, mined.tags, draft.text) }

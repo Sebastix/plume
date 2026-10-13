@@ -1117,7 +1117,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.proof_of_work), null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
-            Text("Proof of work", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text("PoW", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = state.proofOfWork, onCheckedChange = { enabled ->
                 scope.launch {
                     runCatching { (context.applicationContext as FeatherApplication).repository.proofOfWork(enabled) }

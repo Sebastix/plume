@@ -1,6 +1,8 @@
 package org.dergigi.feather
 
 import android.content.Context
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -172,6 +174,7 @@ private fun mentionTransformation(text: String, labels: Map<String, String>): Vi
 internal fun ReplyComposer(vm: FeatherViewModel) {
     val draft by vm.replyDraft.collectAsStateWithLifecycle()
     val busy by vm.replyBusy.collectAsStateWithLifecycle()
+    val mining by vm.replyMining.collectAsStateWithLifecycle()
     val uploading by vm.imageUploading.collectAsStateWithLifecycle()
     val uploadProgress by vm.imageUploadProgress.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
@@ -233,7 +236,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary)) {
-            if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+            if (busy) ComposerProgress(mining)
             else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
         }
     }
@@ -423,4 +426,17 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
             overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** Extra rotation only during CPU mining; signing and relay delivery keep the regular spinner. */
+@Composable
+private fun ComposerProgress(mining: Boolean) {
+    if (mining) {
+        val transition = rememberInfiniteTransition(label = "Proof of work")
+        val rotation by transition.animateFloat(0f, 360f,
+            animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "Mining rotation")
+        CircularProgressIndicator(Modifier.size(22.dp).graphicsLayer { rotationZ = rotation }
+            .semantics { contentDescription = "Mining proof of work" },
+            strokeWidth = 2.dp, color = Color(0xFFFF8A00))
+    } else CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
 }

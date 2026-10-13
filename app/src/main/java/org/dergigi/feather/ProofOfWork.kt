@@ -14,14 +14,17 @@ internal object ProofOfWork {
     const val REACTION_BITS = 12
     private val dispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    suspend fun prepare(author: String, createdAt: Long, kind: Int, tags: Array<Array<String>>, content: String, bits: Int, enabled: Boolean): EventTemplate<Event> =
+    suspend fun prepare(author: String, createdAt: Long, kind: Int, tags: Array<Array<String>>, content: String, bits: Int, enabled: Boolean, onMining: (Boolean) -> Unit = {}): EventTemplate<Event> =
         withContext(dispatcher) {
             if (!enabled) return@withContext EventTemplate<Event>(createdAt, kind, tags, content)
             require(bits == POST_BITS || bits == REACTION_BITS)
             require(tags.none { it.firstOrNull() == "nonce" })
             // Quartz's synchronous miner completes its search without coroutine cancellation checks.
             // Cancellation/account checks in the caller still prevent a stale result from being signed.
-            val mined = PoWMiner.run(EventTemplate<Event>(createdAt, kind, tags, content), author, bits)
+            onMining(true)
+            val mined = try {
+                PoWMiner.run(EventTemplate<Event>(createdAt, kind, tags, content), author, bits)
+            } finally { onMining(false) }
             val id = EventHasher.hashId(author, mined.createdAt, kind, mined.tags, content)
             check(PoWRankEvaluator.calculatePowRankOf(id) >= bits &&
                 mined.tags.single { it.firstOrNull() == "nonce" }.getOrNull(2) == bits.toString()) { "Invalid mined proof of work" }

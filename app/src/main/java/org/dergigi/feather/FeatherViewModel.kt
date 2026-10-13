@@ -78,7 +78,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private fun cancelActions() {
         issues.accountChanged()
         if (signer.value != null) cancelSharedImages()
-        cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
+        cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null; replyMining.value = false
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
         repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptyMap()
@@ -218,6 +218,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
 
     internal val replyDraft = MutableStateFlow<ReplyDraft?>(null)
     internal val replyBusy = MutableStateFlow(false)
+    internal val replyMining = MutableStateFlow(false)
     private val replyStore = ReplyStore(application)
     private var replyJob: Job? = null
     private var replyLoadJob: Job? = null
@@ -416,13 +417,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 replySaveJob?.cancelAndJoin()
                 withContext(Dispatchers.IO) { replyStore.save(draft) }
-                repo.reply(draft, identity, signerRequests, replyStore)
+                repo.reply(draft, identity, signerRequests, replyStore) { mining ->
+                    if (signer.value === identity) replyMining.value = mining
+                }
                 withContext(Dispatchers.IO) { replyStore.complete(draft) }
                 if (replyDraft.value?.target?.id == draft.target?.id && replyDraft.value?.owner == draft.owner) replyDraft.value = null
             } catch (_: TimeoutCancellationException) { message.value = "Publication not confirmed. Your draft is saved; send again to retry." }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { message.value = "Publish: ${e.message ?: e.javaClass.simpleName}" }
-            finally { replyBusy.value = false }
+            finally { replyMining.value = false; replyBusy.value = false }
         }
     }
 
