@@ -1158,7 +1158,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             }
             Spacer(Modifier.weight(1f))
             FilledTonalIconButton(onClick = onFeather, modifier = Modifier.size(RoundControlSize)) {
-                Icon(painterResource(R.drawable.feather), "Open Feather profile", tint = Color.Unspecified)
+                Icon(painterResource(R.drawable.feather), "Open Feather profile", Modifier.size(28.dp), tint = Color.Unspecified)
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
