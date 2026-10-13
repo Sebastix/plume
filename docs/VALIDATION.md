@@ -1032,3 +1032,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256: `ad4bb0a437077c24816f50e69f39bdc28465a6bc01c09ad701869dd3a7df1c61`. Signing certificate matches prior releases; mapping archived locally.
 - GitHub digest and signed Zapstore asset `de6e852abff8160fca5538bc5bc9374a0f2d82d65082325c7c865d5f34e9c5a6` verified: versionCode 99, matching APK hash/certificate, CDN HTTP 200. Source and tag verified on both GRASP mirrors.
 - Separately requested website update deployed to feather.dergigi.com: Feather Nostr profile link and GIF keyboard/search description. Verified both on the live page. Existing screenshots unchanged.
+
+## 2026-10-14 — 0.56.1 release
+
+- Version 0.56.1 (100), source `81e57b4`. Settings feather icon reduced to 28dp, with unchanged button and touch target.
+- Signed release build including lint/R8 passed; no automated tests. APK hash `eafc33c2f2b2f963941d15fda90580485a257a1db165efcc1991aab81597eccd`, certificate matches previous releases. Mapping archived locally.
+- GitHub digest and both GRASP tags verified. After reconnecting the signer, Zapstore asset `89586c5ecfc45319cac224bee4cca137832755a8c47d1b525e8b88ceab9cb523` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
