@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -59,6 +60,7 @@ import coil3.request.maxBitmapSize
 import coil3.size.Size
 import kotlinx.coroutines.*
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
 internal val LocalGalleryVisible = staticCompositionLocalOf { false }
@@ -204,7 +206,20 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         CopyableMessageHost()
-        HidePhotoStatusBar((LocalView.current.parent as DialogWindowProvider).window, hideNavigationBar = true)
+        val window = (LocalView.current.parent as DialogWindowProvider).window
+        HidePhotoStatusBar(window, hideNavigationBar = true)
+        val systemBrightness by produceState(.5f, context) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f }.getOrDefault(.5f)
+            }
+        }
+        var brightnessFeedback by remember { mutableStateOf<VideoFeedback?>(null) }
+        var brightnessTick by remember { mutableIntStateOf(0) }
+        LaunchedEffect(brightnessTick) { delay(900); brightnessFeedback = null }
+        DisposableEffect(window) {
+            val original = window.attributes.screenBrightness
+            onDispose { window.attributes = window.attributes.apply { screenBrightness = original } }
+        }
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, lifecycle.isAtLeast(Lifecycle.State.STARTED), null)) {
         Box(Modifier.fillMaxSize().background(colors[background]).pointerInput(Unit) {
             awaitPointerEventScope {
@@ -217,8 +232,15 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
             HorizontalPager(state = pager, userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize()) { page ->
                 ZoomableGalleryImage(urls[page], page == pager.currentPage,
                     onToggleControls = { controlsVisible = !controlsVisible },
+                    brightness = { window.attributes.screenBrightness.takeIf { it >= 0f } ?: systemBrightness },
+                    onBrightness = { level ->
+                        window.attributes = window.attributes.apply { screenBrightness = level }
+                        brightnessFeedback = VideoFeedback("brightness", "${(level * 100).roundToInt()}%")
+                        brightnessTick++
+                    },
                     onZoomed = { if (page == pager.currentPage) { zoomed = it; if (it) controlsVisible = false } })
             }
+            VideoGestureFeedback(brightnessFeedback, Modifier.align(Alignment.Center))
             AnimatedVisibility(controlsVisible, modifier = Modifier.align(Alignment.TopCenter),
                 enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it },
                 exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it }) {
@@ -307,7 +329,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
 }
 
 @Composable
-private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleControls: () -> Unit, onZoomed: (Boolean) -> Unit) {
+private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleControls: () -> Unit, brightness: () -> Float, onBrightness: (Float) -> Unit, onZoomed: (Boolean) -> Unit) {
     val context = LocalContext.current
     val media = (context.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsState()
@@ -323,6 +345,8 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleContro
     val gestureScope = rememberCoroutineScope()
     var singleTap by remember(url) { mutableStateOf<Job?>(null) }
     val currentToggleControls by rememberUpdatedState(onToggleControls)
+    val currentBrightness by rememberUpdatedState(brightness)
+    val currentOnBrightness by rememberUpdatedState(onBrightness)
     DisposableEffect(url, isCurrent) { onDispose { singleTap?.cancel() } }
     var failed by remember(url) { mutableStateOf(false) }
     var loaded by remember(url) { mutableStateOf(false) }
@@ -338,7 +362,7 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleContro
         if (failed) {
             IconButton(onClick = { failed = false; loaded = false; retry++ }) { Icon(Icons.Outlined.Refresh, "Image failed to load. Retry.") }
         } else if (resources != null) key(url, retry) {
-            AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; tap for controls, pinch or double-tap to zoom", contentScale = ContentScale.Fit,
+            AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; tap for controls, pinch or double-tap to zoom, swipe vertically to adjust brightness", contentScale = ContentScale.Fit,
                 onSuccess = { loaded = true; decoded = it.result.image }, onError = { failed = true },
                 modifier = Modifier.fillMaxSize().semantics {
                     customActions = listOf(CustomAccessibilityAction("Toggle gallery controls") { currentToggleControls(); true }, CustomAccessibilityAction("Zoom in") { applyScale(2.5f); true }, CustomAccessibilityAction("Reset zoom") { applyScale(1f); true })
@@ -351,12 +375,27 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleContro
                         var endedAt = start
                         var pinching = false
                         var dragged = false
+                        var direction = 0 // Lock to brightness or paging after touch slop.
+                        var travel = Offset.Zero
+                        val startBrightness = currentBrightness()
                         do {
                             val event = awaitPointerEvent()
                             endedAt = event.changes.maxOf { it.uptimeMillis }
                             val pan = event.calculatePan()
                             if (event.changes.count { it.pressed } >= 2) pinching = true
                             if (abs(pan.x) > 1f || abs(pan.y) > 1f) dragged = true
+                            if (!pinching && scale == 1f) {
+                                travel += pan
+                                if (direction == 0 && travel.getDistance() > viewConfiguration.touchSlop) {
+                                    direction = if (abs(travel.y) > abs(travel.x)) 1 else 2
+                                    singleTap?.cancel()
+                                }
+                                if (direction == 1 && event.changes.none { it.isConsumed }) {
+                                    dragged = true
+                                    currentOnBrightness((startBrightness - travel.y / size.height.coerceAtLeast(1)).coerceIn(.01f, 1f))
+                                    event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+                            }
                             if (pinching || scale > 1f) {
                                 val next = (scale * event.calculateZoom()).coerceIn(1f, 5f)
                                 val maxX = size.width * (next - 1) / 2

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Swipe vertically in the full-screen image gallery to adjust brightness, with the video player’s brightness indicator. Horizontal paging and zoomed-image panning remain available; closing the gallery restores normal brightness.
+
 ## [0.53.0] - 2026-10-13
 
 ### Changed
