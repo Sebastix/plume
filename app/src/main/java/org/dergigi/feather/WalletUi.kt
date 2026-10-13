@@ -86,7 +86,7 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                 }
             } else {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(8192) }, singleLine = true,
-                    enabled = !busy, label = { Text("Nostr Wallet Connect") },
+                    enabled = !busy, label = { Text("nostr+walletconnect://") },
                     visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
                     IconButton(enabled = !busy, onClick = {
