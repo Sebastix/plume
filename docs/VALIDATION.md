@@ -1038,3 +1038,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.56.1 (100), source `81e57b4`. Settings feather icon reduced to 28dp, with unchanged button and touch target.
 - Signed release build including lint/R8 passed; no automated tests. APK hash `eafc33c2f2b2f963941d15fda90580485a257a1db165efcc1991aab81597eccd`, certificate matches previous releases. Mapping archived locally.
 - GitHub digest and both GRASP tags verified. After reconnecting the signer, Zapstore asset `89586c5ecfc45319cac224bee4cca137832755a8c47d1b525e8b88ceab9cb523` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+## 2026-10-14 — 0.57.0 release
+
+- Version 0.57.0 (101), source `a2595cd`. Combined image/video composer picker, bounded sequential Blossom video uploads, metadata-removing remux without re-encoding, video preview/removal and left-aligned GIF actions.
+- Debug compilation and signed release build including lint/R8 passed. Reviewed background processing, cancellation, 250 MB video bound, 16 MB frame buffer, player lifecycle, MP4 rotation and WebM container selection. No automated tests, live device uploads or public test posts. Codec/container compatibility and device preview behavior remain for live testing.
+- APK SHA-256 `d6173f332b6861127686b0ebc51857b0cdcbaf5fed0472a328a15d1bd49ea49b`; signing certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
+- Signed Zapstore asset `327dc37826f1460ed2e88b53ed02e439c00aaff08e4f709d4788bd1258b22e85` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
