@@ -25,8 +25,14 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
 
 internal const val ORANGE_HEART = "🧡"
+internal data class PendingReaction(val choice: ReactionChoice, val remove: Boolean) {
+    fun applyTo(sent: List<ReactionChoice>): List<ReactionChoice> =
+        if (remove) sent.filterNot { it.key == choice.key }
+        else listOf(choice) + sent.filterNot { it.key == choice.key }
+}
 internal data class ReactionActions(
     val pending: Set<String> = emptySet(),
+    val optimistic: Map<String, PendingReaction> = emptyMap(),
     val choices: List<ReactionChoice> = defaultReactions,
     val recentEmojis: List<String> = emptyList(),
     val customEmojis: List<ReactionChoice> = emptyList(),
@@ -43,7 +49,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     enabled: Boolean = true,
     onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
-    val pending = note.id in actions.pending
+    val visibleReactions = actions.optimistic[note.id]?.applyTo(sent) ?: sent
     val latestEnabled by rememberUpdatedState(enabled)
     var picker by remember(note.id) { mutableStateOf(false) }
     var fullPicker by remember(note.id) { mutableStateOf(false) }
@@ -53,7 +59,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     LaunchedEffect(picker, fullPicker) { pickerCallback(picker || fullPicker) }
     DisposableEffect(Unit) { onDispose { pickerCallback(false) } }
     // Repository snapshots and accepted local reactions are ordered newest first.
-    val latestReaction = sent.firstOrNull()
+    val latestReaction = visibleReactions.firstOrNull()
     Box {
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
             .combinedClickable(enabled = enabled && note.id !in actions.pending,
@@ -62,8 +68,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                 onLongClick = { menuChoices = (sent + actions.choices).distinctBy { it.key }.take(6); picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
-                else if (latestReaction != null) {
+                if (latestReaction != null) {
                     Box(Modifier.size(24.dp).semantics {
                         contentDescription = "Your reaction: ${latestReaction.description}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {

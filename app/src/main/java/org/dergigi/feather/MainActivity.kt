@@ -208,6 +208,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val composingReply by vm.replyDraft.collectAsStateWithLifecycle()
     val reposting by vm.reposting.collectAsStateWithLifecycle()
     val reacting by vm.reacting.collectAsStateWithLifecycle()
+    val optimisticReactions by vm.optimisticReactions.collectAsStateWithLifecycle()
     val zapping by vm.zapping.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val confirmedPayments by vm.wallet.store.confirmedPayments.collectAsStateWithLifecycle()
@@ -327,7 +328,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note, amount)
-    }, LocalReactionActions provides ReactionActions(pending = reacting, choices = s.reactionChoices, recentEmojis = s.recentEmojis, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
+    }, LocalReactionActions provides ReactionActions(pending = reacting, optimistic = optimisticReactions, choices = s.reactionChoices, recentEmojis = s.recentEmojis, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
     GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },

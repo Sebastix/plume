@@ -794,15 +794,8 @@ class FeatherRepository(context: Context) {
             check(state.value.publicKey == author) { "Account changed." }
             publishingAuthor = target.pubKey
             try {
-                updateRoutingPool()
-                client.connect()
-                val own = relayLists[author]?.write.orEmpty()
-                val inbox = relayLists[target.pubKey]?.read.orEmpty()
-                val routes = (own.filter { it in routingPool && healthy(it) }.take(2) +
-                    inbox.filter { it in routingPool && healthy(it) }.take(2) + state.value.relays.filter(::healthy)).distinct().take(4)
-                check(routes.isNotEmpty()) { "No relay available." }
-                check(client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)) {
-                    "No relay confirmed the repost. Tap again to retry."
+                check(publishPostEvent(signed, target)) {
+                    "No relay confirmed the repost after 3 attempts. Tap again to retry the same event."
                 }
                 repostStore.put(target.id, signed, accepted = true)
                 accept(signed)

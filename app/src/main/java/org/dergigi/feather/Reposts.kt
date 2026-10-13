@@ -22,12 +22,12 @@ internal val LocalRepostActions = staticCompositionLocalOf { RepostActions() }
 internal fun RepostButton(note: Event, sent: Boolean) {
     val actions = LocalRepostActions.current
     val pending = note.id in actions.pending
+    val active = sent || pending
     Box(Modifier.size(48.dp).clip(CircleShape).combinedClickable(enabled = !pending,
-        onClickLabel = if (sent) "Already reposted" else "Repost", onLongClickLabel = "Quote post",
-        onClick = { if (!sent) actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
-        if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        else Icon(painterResource(R.drawable.repost), if (sent) "Reposted; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
-            tint = if (sent) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
+        onClickLabel = if (active) "Already reposted" else "Repost", onLongClickLabel = "Quote post",
+        onClick = { if (!active) actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
+        Icon(painterResource(R.drawable.repost), if (active) "Reposted; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
+            tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

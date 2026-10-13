@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Reaction buttons immediately show the selected emoji or removal without a spinner, reverting to confirmed state if retries fail.
+- Reposts show the active icon immediately without a spinner, retry relay delivery up to three times using the same signed event, and quietly revert if delivery fails.
+
 ## [0.52.0] - 2026-10-13
 
 ### Added

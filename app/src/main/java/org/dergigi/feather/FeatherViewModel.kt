@@ -83,7 +83,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         reactionJobs.values.toList().forEach { it.cancel() }
         repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptySet()
         zapJobs.clear(); reactionJobs.clear()
-        zapping.value = emptySet(); reacting.value = emptySet()
+        zapping.value = emptySet(); reacting.value = emptySet(); optimisticReactions.value = emptyMap()
     }
     private var walletJob: Job? = null
     fun connectWallet(raw: String) {
@@ -133,6 +133,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         job.start()
     }
     val reacting = MutableStateFlow<Set<String>>(emptySet())
+    internal val optimisticReactions = MutableStateFlow<Map<String, PendingReaction>>(emptyMap())
     val decryptingMutes = MutableStateFlow(false)
     private var muteJob: Job? = null
     private var attemptedMute: String? = null
@@ -431,9 +432,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         reposting.update { it + note.id }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try { repo.repost(note, connected, signerRequests) }
-            catch (_: TimeoutCancellationException) { message.value = "Repost not confirmed. Tap again to retry the same event." }
+            catch (_: TimeoutCancellationException) { /* Revert the optimistic icon quietly. */ }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Repost: ${walletErrorReason(e)}" }
+            catch (_: Exception) { /* Keep the signed event for a later retry; revert the icon. */ }
             finally { if (repostJobs[note.id] === currentCoroutineContext().job) {
                 repostJobs.remove(note.id); reposting.update { it - note.id }
             } }
@@ -445,6 +446,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
         if (note.id in reacting.value || (!remove && choice in state.value.sentReactions[note.id].orEmpty()) || !queueHasRoom()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
+        optimisticReactions.update { it + (note.id to PendingReaction(choice, remove)) }
         reacting.update { it + note.id }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try { if (remove) repo.removeReaction(note, choice, connected, signerRequests) else repo.react(note, choice, connected, signerRequests) }
@@ -453,7 +455,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (_: Exception) { /* Keep the last confirmed reaction state without a toast. */ }
             finally {
                 if (reactionJobs[note.id] === currentCoroutineContext().job) {
-                    reactionJobs.remove(note.id); reacting.update { it - note.id }
+                    reactionJobs.remove(note.id)
+                    optimisticReactions.update { it - note.id }
+                    reacting.update { it - note.id }
                 }
             }
         }
