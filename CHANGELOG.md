@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Retry pre-payment Lightning address and invoice HTTP requests twice on network failures, including DNS errors and connection aborts. Reuse the signed request and include attempt details in copied diagnostics; wallet payments are never automatically resent.
+
 ## [0.55.0] - 2026-10-13
 
 ### Added

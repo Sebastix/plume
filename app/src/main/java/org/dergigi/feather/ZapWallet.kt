@@ -142,7 +142,32 @@ internal class ZapWallet(context: Context) {
         var step = "Loading payment history"
         var paymentUncertain = false
         val diagnostics = linkedMapOf("Amount" to "$amountSats sats", "Note" to note.id.take(12), "Recipient" to note.pubKey.take(12))
-        // Retry only read-only status requests, never pay_invoice or invoice creation.
+        // Only pre-payment HTTP requests and status lookups retry; never resend pay_invoice.
+        suspend fun lightningGet(url: String, label: String): JSONObject {
+            val failures = mutableListOf<java.io.IOException>()
+            repeat(3) { attempt ->
+                if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
+                currentCoroutineContext().ensureActive()
+                diagnostics["$label attempts"] = (attempt + 1).toString()
+                try {
+                    // Reuse the exact callback URL and signed zap request. An invoice
+                    // response is validated before any wallet payment can be submitted.
+                    return get(url) { redirect ->
+                        diagnostics["$label redirects"] = listOfNotNull(diagnostics["$label redirects"], redirect).joinToString("; ")
+                    }
+                } catch (failure: java.io.IOException) {
+                    currentCoroutineContext().ensureActive()
+                    diagnostics["$label network error ${attempt + 1}"] = walletErrorReason(failure)
+                    // Certificate/TLS and malformed HTTP failures require a fix, not retries.
+                    if (failure is javax.net.ssl.SSLException || failure is java.net.ProtocolException || attempt == 2) {
+                        failures.filter { it !== failure }.forEach(failure::addSuppressed)
+                        throw failure
+                    }
+                    failures += failure
+                }
+            }
+            error("Unreachable Lightning request attempt")
+        }
         suspend fun lookupPayment(invoice: String): JSONObject {
             for (attempt in 1..3) {
                 currentCoroutineContext().ensureActive()
@@ -187,9 +212,7 @@ internal class ZapWallet(context: Context) {
             val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
             val lnurl = LnurlForm.urlToBech32(endpoint)
             diagnostics["Provider"] = endpoint.toHttpUrl().host
-            val params = get(endpoint) { redirect ->
-                diagnostics["Address redirects"] = listOfNotNull(diagnostics["Address redirects"], redirect).joinToString("; ")
-            }
+            val params = lightningGet(endpoint, "Address")
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
             val msats = amountSats * 1000
             require(msats >= params.getLong("minSendable") && msats <= params.getLong("maxSendable")) { "This address does not accept a $amountSats-sat zap" }
@@ -211,9 +234,7 @@ internal class ZapWallet(context: Context) {
             val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).setQueryParameter("lnurl", lnurl).build()
             step = "Requesting Lightning invoice"
             diagnostics["Callback host"] = url.host
-            val invoice = get(url.toString()) { redirect ->
-                diagnostics["Invoice redirects"] = listOfNotNull(diagnostics["Invoice redirects"], redirect).joinToString("; ")
-            }.getString("pr")
+            val invoice = lightningGet(url.toString(), "Invoice").getString("pr")
             step = "Validating Lightning invoice"
             require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(amountSats)) == 0) { "Invoice amount does not match $amountSats sats" }
             val descriptionHash = invoiceHash(invoice, 'h')
