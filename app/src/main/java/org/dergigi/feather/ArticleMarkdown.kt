@@ -31,6 +31,7 @@ import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.*
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.parser.MarkdownParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -50,9 +51,15 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
         value = withContext(Dispatchers.Default) { event.content.withoutObjectMarkers() }
     }
     val flavour = remember { GFMFlavourDescriptor() }
-    val markdown = rememberMarkdownState(content = body.orEmpty(), flavour = flavour)
-    val gallery = LocalOpenGallery.current
-    val transformer = remember(event.id, gallery) { ArticleImageTransformer { url -> gallery(listOf(url), 0, event) } }
+    // The library's default arguments allocate new instances on every recomposition.
+    // Those instances key its parse state, resetting the body to Loading and collapsing
+    // the enclosing list item whenever relay/profile/scroll state updates.
+    val parser = remember(flavour) { MarkdownParser(flavour) }
+    val referenceLinks = remember(event.id) { ReferenceLinkHandlerImpl() }
+    val markdown = rememberMarkdownState(content = body.orEmpty(), flavour = flavour,
+        parser = parser, referenceLinkHandler = referenceLinks)
+    val gallery by rememberUpdatedState(LocalOpenGallery.current)
+    val transformer = remember(event.id) { ArticleImageTransformer { url -> gallery(listOf(url), 0, event) } }
     val title = remember(event.id) { event.tagValue("title")?.withoutObjectMarkers()?.takeIf(String::isNotBlank) }
     val cover = remember(event.id) { MediaContent.secureUrl(event.tagValue("image")) }
     val colors = MaterialTheme.colorScheme
