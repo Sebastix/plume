@@ -956,3 +956,5 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Version 0.47.0 (89), source commit `cf5e1fd`. Hardware keyboard composer shortcuts, quote layout/cursor and article previews, notification filter retention and mention icons, app-level private mute loading, own-profile composer, and year-aware timestamps.
 - Signed release build passed, including lint and R8. No automated tests or live device checks. Private blocks require a mute list available through the connected signer; the notification-only screen now triggers the same decryption path as readers.
 - APK SHA-256: `bccda5037a96e8e1b8256ac07f49eee76acf457dca30035c5c3b2cc0ae247215`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
+
+- GitHub and Zapstore publication verified. Zapstore asset `10fef19c64d18ae3f2f9e7f56ba9e79429874a6d1684788ee30c7aaf37611cf2` matches versionCode 89 and the APK hash; CDN returned HTTP 200.
