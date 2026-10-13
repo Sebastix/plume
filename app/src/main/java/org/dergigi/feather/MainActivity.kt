@@ -1113,6 +1113,17 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 }
             }, modifier = Modifier.semantics { contentDescription = "Show NSFW and content-warning tagged content" })
         }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.proof_of_work), null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(16.dp))
+            Text("Proof of work", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Switch(checked = state.proofOfWork, onCheckedChange = { enabled ->
+                scope.launch {
+                    runCatching { (context.applicationContext as FeatherApplication).repository.proofOfWork(enabled) }
+                        .onFailure { AppMessages.show("Could not save proof-of-work setting") }
+                }
+            }, modifier = Modifier.semantics { contentDescription = "Proof of work for posts and emoji reactions" })
+        }
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.storage), "Media cache storage", tint = MaterialTheme.colorScheme.primary)

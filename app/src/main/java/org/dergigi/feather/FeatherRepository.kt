@@ -62,6 +62,7 @@ data class FeedState(
     val customEmojis: List<ReactionChoice> = emptyList(),
     val mutedAuthors: Set<String> = emptySet(),
     val showSensitive: Boolean = false,
+    val proofOfWork: Boolean = true,
     val pendingMuteList: Event? = null,
     val publicKey: String? = null,
     val signerPackage: String? = null,
@@ -96,6 +97,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var engagementApps: List<String> = emptyList()
     private val _state = MutableStateFlow(FeedState(
         showSensitive = prefs.getBoolean("show-sensitive", false),
+        proofOfWork = prefs.getBoolean("proof-of-work", true),
         publicKey = prefs.getString("pubkey", null)?.takeIf { !prefs.getString("signer", null).isNullOrBlank() }, signerPackage = prefs.getString("signer", null)?.takeIf { it.isNotBlank() },
     ))
     suspend fun showSensitive(show: Boolean) = withContext(Dispatchers.IO) {
@@ -103,6 +105,10 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(showSensitive = show) }
         feedDiscoveryAt = 0L
         changed.tryEmit(Unit)
+    }
+    suspend fun proofOfWork(enabled: Boolean) = withContext(Dispatchers.IO) {
+        check(prefs.edit().putBoolean("proof-of-work", enabled).commit()) { "Could not save proof-of-work setting" }
+        _state.update { it.copy(proofOfWork = enabled) }
     }
     val state: StateFlow<FeedState> = _state.asStateFlow()
     private val client = NostrClient(RelayTransport(), scope)
@@ -854,8 +860,16 @@ class FeatherRepository(context: Context) {
                 if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
             }.toTypedArray()
             val createdAt = maxOf(System.currentTimeMillis() / 1000, (previous?.event?.createdAt ?: 0) + 1)
-            val signed = saved?.event ?: signerRequests.run { withTimeout(180_000) { signer.sign<Event>(createdAt, 7, tags, choice.content) } }.also {
-                require(it.createdAt == createdAt && it.tags.contentDeepEquals(tags)) { "Signer changed the reaction." }
+            val signed = saved?.event ?: run {
+                val powEnabled = state.value.proofOfWork
+                val mined = ProofOfWork.prepare(author, createdAt, 7, tags, choice.content, ProofOfWork.REACTION_BITS, powEnabled)
+                signerRequests.run {
+                    check(state.value.publicKey == author) { "Account changed" }
+                    withTimeout(180_000) { signer.sign<Event>(mined.createdAt, 7, mined.tags, choice.content) }
+                }.also {
+                    require(it.createdAt == mined.createdAt && it.tags.contentDeepEquals(mined.tags)) { "Signer changed the reaction." }
+                    if (powEnabled) ProofOfWork.verifySigned(it, ProofOfWork.REACTION_BITS)
+                }
             }
             require(signed.pubKey == author && signed.kind == 7 && signed.content == choice.content && reactionChoice(signed) == choice &&
                 reactionTarget(signed)?.id == target.id && signed.tagValue("p") == target.pubKey && signed.verify()) { "Invalid signed reaction." }
@@ -916,11 +930,14 @@ class FeatherRepository(context: Context) {
             val hashtagTags = NostrContent.hashtags(draft.text).map { arrayOf("t", it) }.toTypedArray()
             val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + arrayOf(arrayOf("client", "Feather"))
             val now = System.currentTimeMillis() / 1000
+            val powEnabled = state.value.proofOfWork
+            val mined = ProofOfWork.prepare(author, now, kind, tags, draft.text, ProofOfWork.POST_BITS, powEnabled)
             signerRequests.run {
                 check(state.value.publicKey == author) { "Account changed" }
-                withTimeout(180_000) { signer.sign<Event>(now, kind, tags, draft.text) }
+                withTimeout(180_000) { signer.sign<Event>(mined.createdAt, kind, mined.tags, draft.text) }
             }.also {
-                require(it.createdAt == now && it.kind == kind && it.tags.contentDeepEquals(tags)) { "Signer changed the post" }
+                require(it.createdAt == mined.createdAt && it.kind == kind && it.tags.contentDeepEquals(mined.tags)) { "Signer changed the post" }
+                if (powEnabled) ProofOfWork.verifySigned(it, ProofOfWork.POST_BITS)
             }
         }
         require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (target == null || target.kind == 1) 1 else 1111) &&

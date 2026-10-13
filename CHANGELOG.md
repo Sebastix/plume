@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-10-13
+
+### Added
+- Automatic NIP-13 proof of work for new posts and replies (16 bits) and emoji reactions (12 bits), matching Wisp’s defaults. A settings toggle controls both, enabled by default. Mine on one background CPU worker before signing; delivery retries reuse the same signed event.
+
+
 ## [0.51.0] - 2026-10-13
 
 ### Added
