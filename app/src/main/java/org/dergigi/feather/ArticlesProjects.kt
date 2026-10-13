@@ -3,7 +3,6 @@ package org.dergigi.feather
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,7 +13,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.*
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,8 +25,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private data class ArticleBlock(val text: AnnotatedString? = null, val image: String? = null, val alt: String? = null)
-private data class Article(val title: String?, val cover: String?, val blocks: List<ArticleBlock>)
 private val markdownImage = Regex("!\\[([^]\\n]*)]\\((https?://[^\\s)]+)(?:\\s+\"[^\"]*\")?\\)")
 
 @Composable
@@ -37,47 +33,7 @@ internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrC
         ArticlePreview(event)
         return
     }
-    val context = LocalContext.current
-    val navigate by rememberUpdatedState(onReference)
-    val style = MaterialTheme.typography.bodyLarge
-    val linkStyle = SpanStyle(color = MaterialTheme.colorScheme.primary)
-    val codeStyle = SpanStyle(fontFamily = FontFamily.Monospace, background = MaterialTheme.colorScheme.surfaceContainerHighest)
-    val listener = remember(context) { LinkInteractionListener { link ->
-        if (link is LinkAnnotation.Url) {
-            NostrContent.decode(link.url)?.let(navigate) ?: run {
-                if (android.net.Uri.parse(link.url).scheme in listOf("http", "https")) context.openWebLink(link.url)
-            }
-        }
-    } }
-    val article by produceState<Article?>(null, event.id, compact, style, linkStyle, codeStyle) {
-        value = withContext(Dispatchers.Default) {
-            fun render(text: String) = markdownDocument(text, style, linkStyle, codeStyle, listener)
-            val body = (if (compact) event.tagValue("summary")?.takeIf { it.isNotBlank() } ?: event.content.take(1000) else event.content).withoutObjectMarkers()
-            val blocks = mutableListOf<ArticleBlock>()
-            var offset = 0
-            // Bound automatic image loads; keep paragraphs in their original order.
-            markdownImage.findAll(body).take(if (compact) 0 else 32).forEach { match ->
-                if (match.range.first > offset) blocks += ArticleBlock(text = render(body.substring(offset, match.range.first)))
-                blocks += ArticleBlock(image = MediaContent.secureUrl(match.groupValues[2]), alt = match.groupValues[1])
-                offset = match.range.last + 1
-            }
-            if (offset < body.length) blocks += ArticleBlock(text = render(body.substring(offset)))
-            Article(event.tagValue("title")?.withoutObjectMarkers(), MediaContent.secureUrl(event.tagValue("image")), blocks)
-        }
-    }
-    val model = article
-    if (model == null) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-    else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        model.cover?.let { ArticleImage(it, model.title, event) }
-        model.title?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.headlineSmall) }
-        model.blocks.forEach { block ->
-            block.image?.let { ArticleImage(it, block.alt, event) }
-            block.text?.takeIf { it.isNotBlank() }?.let {
-                if (compact) Text(it, maxLines = 5, overflow = TextOverflow.Ellipsis, style = style)
-                else SelectionContainer { Text(it, style = style) }
-            }
-        }
-    }
+    ArticleMarkdown(event, onReference)
 }
 
 @Composable
@@ -179,16 +135,6 @@ private fun ArticlePreview(event: Event) {
         preview.cover?.let { cover ->
             RemoteImage(cover, Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)), "Article cover")
         }
-    }
-}
-
-@Composable
-private fun ArticleImage(url: String, alt: String?, event: Event) {
-    var ratio by remember(url) { mutableFloatStateOf(16f / 9f) }
-    val gallery = LocalOpenGallery.current
-    Surface(onClick = { gallery(listOf(url), 0, event) }, color = MaterialTheme.colorScheme.surface) {
-        RemoteImage(url, Modifier.fillMaxWidth().aspectRatio(ratio), alt, crop = false,
-            onImageSize = { width, height -> if (width > 0 && height > 0) ratio = width.toFloat() / height })
     }
 }
 

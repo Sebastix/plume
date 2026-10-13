@@ -65,7 +65,13 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val state by vm.state.collectAsStateWithLifecycle()
     val owner = state.publicKey ?: return
     // Zero means all; each category otherwise toggles independently.
-    var selectedTypes by entry::notificationFilters
+    val savedFilters by vm.notificationFilters.collectAsStateWithLifecycle()
+    val selection = savedFilters
+    if (selection == null || selection.first != owner) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) }
+        return
+    }
+    val selectedTypes = selection.second
     val includedTypes = remember(selectedTypes) {
         NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
     }
@@ -161,7 +167,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             horizontalArrangement = Arrangement.SpaceEvenly) {
                             NotificationType.entries.forEach { type ->
                                 if (type == NotificationType.ALL) {
-                                    OutlinedIconButton(onClick = { selectedTypes = 0 }, enabled = selectedTypes != 0,
+                                    OutlinedIconButton(onClick = { vm.setNotificationFilters(0) }, enabled = selectedTypes != 0,
                                         modifier = Modifier.size(48.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                         colors = IconButtonDefaults.outlinedIconButtonColors(
@@ -176,7 +182,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                 }
                                 IconToggleButton(checked = type in includedTypes,
                                     onCheckedChange = {
-                                        selectedTypes = selectedTypes xor (1 shl type.ordinal)
+                                        vm.setNotificationFilters(selectedTypes xor (1 shl type.ordinal))
                                     },
                                     modifier = Modifier.size(48.dp).semantics { contentDescription = type.label },
                                     colors = IconButtonDefaults.iconToggleButtonColors(

@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-10-13
+
+### Changed
+- Render complete articles with the same full Markdown engine as boris-android, preserving headings, nested lists, block quotes, tables, code blocks and reference links instead of flattening blocks to text. Keep Feather’s theme, cached images, gallery taps and Nostr link navigation.
+- Show article covers full width behind the title with a dark readability gradient; keep body text padded and provide a regular title when no cover exists.
+
+### Fixed
+- Save notification filter selections per account on this device and restore them across app restarts, without briefly showing unfiltered notifications.
+
 ## [0.47.0] - 2026-10-13
 
 ### Changed

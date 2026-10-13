@@ -15,6 +15,27 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     val repo = (application as FeatherApplication).repository
     val state = repo.state
     val message = MutableStateFlow<String?>(null)
+    internal val notificationFilters = MutableStateFlow<Pair<String?, Int>?>(null)
+    private val notificationFilterMutex = Mutex()
+    private fun notificationPreferences() = getApplication<Application>().getSharedPreferences("notification-filters", android.content.Context.MODE_PRIVATE)
+    internal fun setNotificationFilters(mask: Int) {
+        val owner = state.value.publicKey ?: return
+        if (notificationFilters.value?.first != owner) return
+        notificationFilters.value = owner to mask
+        viewModelScope.launch {
+            try {
+                notificationFilterMutex.withLock {
+                    withContext(Dispatchers.IO) {
+                        val prefs = notificationPreferences()
+                        val edit = prefs.edit().putInt(owner, mask)
+                        prefs.all.keys.filter { it != owner }.drop(31).forEach(edit::remove)
+                        check(edit.commit()) { "Could not save notification filters" }
+                    }
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = e.message ?: "Could not save notification filters" }
+        }
+    }
     internal val wallet = ZapWallet(application)
     val walletBusy = MutableStateFlow(false)
     val walletError = MutableStateFlow<String?>(null)
@@ -137,6 +158,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
+        viewModelScope.launch {
+            state.map { it.publicKey }.distinctUntilChanged().collectLatest { owner ->
+                notificationFilters.value = null
+                val mask = notificationFilterMutex.withLock {
+                    withContext(Dispatchers.IO) { if (owner == null) 0 else notificationPreferences().getInt(owner, 0) }
+                }
+                notificationFilters.value = owner to mask
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) { wallet.store.load() }
         viewModelScope.launch {
             var identity = initialIdentity

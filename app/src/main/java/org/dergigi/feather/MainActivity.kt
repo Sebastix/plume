@@ -843,12 +843,13 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var truncated by remember(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
-    Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = 24.dp, vertical = 24.dp)) {
+    val articleDetail = note.kind == 30023 && !compact
+    Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = 24.dp)) {
         if (repost != null) {
             RepostAttribution(repost, state) { onReference(NostrContent.Reference(repost.pubKey, profile = true)) }
             Spacer(Modifier.height(12.dp))
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onProfile, modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" }) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
@@ -891,7 +892,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        if (note.kind !in listOf(7, 30030)) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30030)) Row(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {

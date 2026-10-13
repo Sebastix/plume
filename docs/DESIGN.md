@@ -197,3 +197,7 @@ The Podcasts category selects ordinary posts and replies containing Fountain epi
 ### Incoming image shares
 
 Register Feather for Android image shares, including multiple images. Keep the current composer and reply target when open; otherwise open the full-screen new-note composer and preserve its saved text. Upload shared images through the same sequential Blossom flow, with metadata removal and progress. Wait for signer login when disconnected. Closing the composer cancels queued shares and uploads; never publish a note automatically.
+
+### Article documents and notification preferences
+
+Full article detail uses the same full-document Markdown renderer as Boris, with Material 3 typography/colors and Feather’s shared image cache. Preserve structured lists, quotes, tables, code and links. Article covers span the reading width, with the title over a dark bottom gradient; pad the body and keep normal titles for coverless articles. Notification type selections are stored per account in private device preferences and loaded off-main before showing the list, including after restarts.
