@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Follow bounded HTTPS redirects when resolving Lightning addresses and invoice callbacks instead of failing on HTTP 302. Preserve the request deadline and include redirect hosts in copied zap diagnostics.
+
 ### Changed
 - Use `nostr+walletconnect://` as the wallet connection field hint.
 

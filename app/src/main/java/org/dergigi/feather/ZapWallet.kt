@@ -82,29 +82,49 @@ internal class ZapWallet(context: Context) {
     }
     private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
-    private fun get(url: String): JSONObject {
-        require(MediaContent.secureUrl(url) != null) { "A secure Lightning endpoint is required" }
-        return http.newCall(Request.Builder().url(url).header("Accept", "application/json").build()).execute().use { response ->
-            // Read a bounded body on errors too: LNURL providers put the useful reason
-            // in JSON even when returning HTTP 400/500.
-            val source = response.body.source()
-            source.request(131073)
-            val bytes = source.buffer.clone().readByteArray(minOf(source.buffer.size, 131073L))
-            val body = bytes.toString(Charsets.UTF_8)
-            val json = if (bytes.size <= 131072) runCatching { JSONObject(body) }.getOrNull() else null
-            val reason = listOf("reason", "message", "error").firstNotNullOfOrNull { key ->
-                json?.opt(key)?.takeUnless { it == JSONObject.NULL }?.toString()?.let(::walletErrorText)?.takeIf(String::isNotBlank)
+    private suspend fun get(url: String, onRedirect: (String) -> Unit = {}): JSONObject {
+        var endpoint = url.toHttpUrl()
+        val visited = mutableSetOf<String>()
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+        repeat(6) { hop ->
+            currentCoroutineContext().ensureActive()
+            require(MediaContent.secureUrl(endpoint.toString()) != null) { "A secure Lightning endpoint is required" }
+            require(visited.add(endpoint.toString())) { "Lightning redirect loop at ${endpoint.host}" }
+            val call = http.newCall(Request.Builder().url(endpoint).header("Accept", "application/json").build())
+            call.timeout().deadlineNanoTime(deadline)
+            val json = call.execute().use { response ->
+                if (response.code in listOf(301, 302, 303, 307, 308)) {
+                    require(hop < 5) { "Too many Lightning redirects from ${response.request.url.host}" }
+                    val next = response.header("Location")?.let(response.request.url::resolve)
+                    require(next != null) { "HTTP ${response.code} from ${response.request.url.host}: missing or invalid redirect location" }
+                    require(MediaContent.secureUrl(next.toString()) != null) { "Unsafe Lightning redirect from ${response.request.url.host}: HTTPS required" }
+                    onRedirect("HTTP ${response.code}: ${response.request.url.host} → ${next.host}")
+                    endpoint = next
+                    return@use null
+                }
+                // Read a bounded body on errors too: LNURL providers put the useful reason
+                // in JSON even when returning HTTP 400/500.
+                val source = response.body.source()
+                source.request(131073)
+                val bytes = source.buffer.clone().readByteArray(minOf(source.buffer.size, 131073L))
+                val body = bytes.toString(Charsets.UTF_8)
+                val json = if (bytes.size <= 131072) runCatching { JSONObject(body) }.getOrNull() else null
+                val reason = listOf("reason", "message", "error").firstNotNullOfOrNull { key ->
+                    json?.opt(key)?.takeUnless { it == JSONObject.NULL }?.toString()?.let(::walletErrorText)?.takeIf(String::isNotBlank)
+                }
+                require(response.isSuccessful) {
+                    val detail = reason ?: if (response.header("Content-Type").orEmpty().contains("text/plain"))
+                        walletErrorText(body).takeIf(String::isNotBlank) else null
+                    "HTTP ${response.code} from ${response.request.url.host}${detail?.let { ": $it" }.orEmpty()}"
+                }
+                require(bytes.size <= 131072) { "Lightning response too large" }
+                requireNotNull(json) { "Invalid JSON response from ${response.request.url.host}" }
+                require(json.optString("status") != "ERROR") { "Lightning endpoint: ${reason ?: "request rejected"}" }
+                json
             }
-            require(response.isSuccessful) {
-                val detail = reason ?: if (response.header("Content-Type").orEmpty().contains("text/plain"))
-                    walletErrorText(body).takeIf(String::isNotBlank) else null
-                "HTTP ${response.code} from ${response.request.url.host}${detail?.let { ": $it" }.orEmpty()}"
-            }
-            require(bytes.size <= 131072) { "Lightning response too large" }
-            requireNotNull(json) { "Invalid JSON response from ${response.request.url.host}" }
-            require(json.optString("status") != "ERROR") { "Lightning endpoint: ${reason ?: "request rejected"}" }
-            json
+            if (json != null) return json
         }
+        error("Too many Lightning redirects")
     }
     suspend fun connect(raw: String, owner: String) = withContext(Dispatchers.IO) {
         val connection = WalletConnection.parse(raw)
@@ -167,7 +187,9 @@ internal class ZapWallet(context: Context) {
             val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
             val lnurl = LnurlForm.urlToBech32(endpoint)
             diagnostics["Provider"] = endpoint.toHttpUrl().host
-            val params = get(endpoint)
+            val params = get(endpoint) { redirect ->
+                diagnostics["Address redirects"] = listOfNotNull(diagnostics["Address redirects"], redirect).joinToString("; ")
+            }
             require(params.optString("tag") == "payRequest" && params.optBoolean("allowsNostr") && Protocol.publicKey(params.optString("nostrPubkey")) != null) { "This address does not support Nostr zaps" }
             val msats = amountSats * 1000
             require(msats >= params.getLong("minSendable") && msats <= params.getLong("maxSendable")) { "This address does not accept a $amountSats-sat zap" }
@@ -189,7 +211,9 @@ internal class ZapWallet(context: Context) {
             val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).setQueryParameter("lnurl", lnurl).build()
             step = "Requesting Lightning invoice"
             diagnostics["Callback host"] = url.host
-            val invoice = get(url.toString()).getString("pr")
+            val invoice = get(url.toString()) { redirect ->
+                diagnostics["Invoice redirects"] = listOfNotNull(diagnostics["Invoice redirects"], redirect).joinToString("; ")
+            }.getString("pr")
             step = "Validating Lightning invoice"
             require(LnInvoiceUtil.getAmountInSats(invoice).compareTo(BigDecimal.valueOf(amountSats)) == 0) { "Invoice amount does not match $amountSats sats" }
             val descriptionHash = invoiceHash(invoice, 'h')
