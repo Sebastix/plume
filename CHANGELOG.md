@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Nostr repository and issue tracking through GitWorkshop, with GRASP copies on relay.ngit.dev and gitnostr.com alongside GitHub.
+
 ## [0.48.1] - 2026-10-13
 
 ### Fixed

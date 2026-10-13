@@ -8,6 +8,8 @@ Read Nostr with chronological feeds, profiles, and conversations.
 
 [Website](https://feather.dergigi.com) · [Zapstore](https://zapstore.dev/apps/org.dergigi.feather) · [APK releases](https://github.com/dergigi/feather/releases)
 
+[Source and issues on Nostr](https://gitworkshop.dev/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc/relay.ngit.dev/feather) — report bugs using your Nostr identity, without a GitHub account. See [Nostr repository workflow](docs/NGIT.md) for cloning, mirroring, and issue tracking.
+
 ## MVP
 
 - Swipe through full-screen feeds: Posts, Replies, then other available categories ranked by activity, with independent scroll positions and no tab bar.

@@ -8,6 +8,7 @@ A release is complete when both the signed GitHub APK and Zapstore publication e
 - Commit the release source and version before the final build so its embedded Git commit links to that exact source. Record verification evidence afterward.
 - Verify APK signature using Android build-tools `apksigner verify --verbose --print-certs`.
 - Commit with Conventional Commits, tag `vX.Y.Z`, push master and tag.
+- Push through the Nostr `origin` remote to update the GRASP copies and listed GitHub mirror; see [the repository workflow](NGIT.md). Verify both GRASP copies and GitHub have the release commit and tag. Use the `github` remote explicitly when a GitHub-only operation is intended.
 - Publish signed APK plus SHA256SUMS to GitHub.
 - Run `scripts/zapstore-publish.sh` using ignored local credentials.
 
