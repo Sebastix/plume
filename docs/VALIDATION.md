@@ -1003,3 +1003,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build passed, including lint/R8. Reviewed Wisp defaults, Quartz miner, signature/hash checks and exact-event retries. Mining uses a single background CPU worker, outside the signer lock, without a cancellation control. No automated tests or live device checks.
 - APK SHA-256: `660619910e8815cf14095ca5d634b27854da1de086f96b60b35c8bedb7bf6459`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
 - GitHub digest and signed Zapstore asset `c526399c8d586a9c1f92bf47aed0cb664a540cc401b279bc9c5ebc60ac2085c3` verified: versionCode 95, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
+
+## 2026-10-13 — 0.53.0 release
+
+- Version 0.53.0 (96), source commit `d6b2f8a`. Optimistic reaction/repost icons without spinners, bounded repost retries, signed repost deletion/undo, and faster orange composer progress specifically during PoW mining. Settings label shortened to PoW.
+- Debug compilation and signed release build passed, including lint/R8. Reviewed exact-event retries, account-scoped optimistic state, deletion tombstones and fresh IDs after undo/repost. No automated tests or live device checks.
+- APK SHA-256: `2a265d10638c0f0b49707d3e5b321bd882b5d69104453eb90082f05cf3e68edc`. Signing certificate matches prior releases; mapping archived locally. Website unchanged.
+- GitHub digest and signed Zapstore asset `225dd40b26b8dc3d125c66ec3ba6573a9ae47c5191ed379cc5ed0852eb2b3a04` verified: versionCode 96, matching APK hash/certificate, CDN HTTP 200. Source and tag pushed to GitHub and both GRASP mirrors.
