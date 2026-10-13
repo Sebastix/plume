@@ -15,6 +15,20 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     val repo = (application as FeatherApplication).repository
     val state = repo.state
     val message = MutableStateFlow<String?>(null)
+    internal val incomingLink = MutableStateFlow<Pair<Long, NostrContent.Reference>?>(null)
+    private var linkJob: Job? = null
+    private var linkSequence = 0L
+    internal fun receiveNostrLink(raw: String) {
+        linkJob?.cancel()
+        val sequence = ++linkSequence
+        linkJob = viewModelScope.launch {
+            val reference = withContext(Dispatchers.Default) {
+                raw.takeIf { it.length <= 8192 }?.let(NostrContent::decode)
+            }
+            if (reference == null) message.value = "Invalid or unsupported Nostr link."
+            else incomingLink.value = sequence to reference
+        }
+    }
     internal val notificationFilters = MutableStateFlow<Pair<String?, Int>?>(null)
     private val notificationFilterMutex = Mutex()
     private fun notificationPreferences() = getApplication<Application>().getSharedPreferences("notification-filters", android.content.Context.MODE_PRIVATE)

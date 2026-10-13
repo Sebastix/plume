@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-10-13
+
+### Added
+- Open `nostr:` note and profile links from Android’s app chooser, whether Feather is already running or starting fresh. Preserve relay hints and the reader back stack; unsupported event types open through njump.
+
 ### Fixed
 - Retry post and reply delivery up to twice after relay timeouts, connection failures or missing acknowledgements, reusing the saved signed event to avoid duplicates. Preserve the draft if all three attempts fail.
 

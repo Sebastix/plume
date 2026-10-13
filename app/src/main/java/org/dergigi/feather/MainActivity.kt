@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         receiveImages(intent)
+        receiveNostrLink(intent)
         setContent {
             FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog(composerModel); IssueComposer(composerModel) }
         }
@@ -109,6 +110,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveImages(intent)
+        receiveNostrLink(intent)
+    }
+
+    private fun receiveNostrLink(link: Intent) {
+        if (link.action != Intent.ACTION_VIEW || link.data?.scheme != "nostr") return
+        composerModel.receiveNostrLink(link.dataString.orEmpty())
+        // Consume once: recreation must not reopen a link after navigating back.
+        setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
     }
 
     private fun receiveImages(shared: Intent) {
@@ -163,6 +172,26 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         onDispose { signer?.unregisterForegroundLauncher(launch) }
     }
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
+    val incomingLink by vm.incomingLink.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(incomingLink) {
+        val request = incomingLink ?: return@LaunchedEffect
+        val ref = request.second
+        val state = vm.state.value
+        if (!ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive).hides(ref)) {
+            if (ref.external != null) {
+                // Unsupported event/address types use HTTPS, never launch our own scheme again.
+                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))) }
+                catch (_: Exception) { vm.message.value = "No browser available to open this Nostr link." }
+            } else {
+                vm.closeReply()
+                val destination = ReaderEntry(if (ref.profile) "profile" else "thread", ref.id)
+                destination.reference = ref
+                navigation.push(destination)
+            }
+        }
+        vm.incomingLink.compareAndSet(request, null)
+    }
     val entry = navigation.current
     if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
