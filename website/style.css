@@ -18,3 +18,22 @@
 .phone-left{transform:rotateY(-15deg) scale(.95)}.phone-right{transform:rotateY(15deg) scale(.95)}.phone-center{position:relative;z-index:1}
 @media(max-width:650px){.hero{gap:34px;padding-block:24px 50px}.phone-showcase{perspective:650px;gap:8px;width:calc(100% + 24px)}.phone{flex-basis:calc((100% - 16px)/3)}.phone>a{border-width:2px}.phone figcaption{font-size:10px;margin-top:16px}.phone-left{transform:rotateY(-12deg) scale(.95)}.phone-right{transform:rotateY(12deg) scale(.95)}}
 @media(prefers-reduced-motion:reduce){.phone>a{transition:none}}
+
+/* Nostr development: the same issue icons used in the Android app. */
+.hero-contribute{display:inline-flex;align-items:center;gap:9px;margin-top:6px;font-size:13px;text-decoration:none;color:var(--blue)}
+.hero-contribute .app-icon{width:18px;height:18px}
+.nostr-development{padding-bottom:64px;scroll-margin-top:24px}
+.contribute-panel{padding:44px;border:1px solid var(--line);border-radius:32px;background:var(--mist)}
+.contribute-heading{max-width:730px}.contribute-heading h2{font-size:clamp(30px,4vw,48px);line-height:1.15;font-weight:500;letter-spacing:-1.6px;margin:16px 0 22px}.contribute-heading h2 span{color:var(--blue)}
+.contribute-heading>p:last-child{max-width:650px;font-size:17px;line-height:1.8;color:var(--muted)}
+.contribute-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin-top:38px}
+.contribute-grid .app-icon{width:30px;height:30px;color:var(--blue);margin-bottom:16px}
+.contribute-grid h3{font-size:18px;letter-spacing:-.3px;margin:0 0 12px;font-weight:600}
+.contribute-grid p,.mirror-details p{font-size:14px;line-height:1.85;color:var(--muted);margin:0}
+.contribute-bottom{margin-top:30px;border-top:1px solid var(--line);padding-top:2px}
+.contribute-note{font-size:12px;line-height:1.8;color:var(--muted);max-width:640px;margin:20px 0}
+.mirror-details{border-top:1px solid var(--line);padding-top:18px;font-size:13px}
+.mirror-details summary{cursor:pointer;padding:6px 0;color:var(--blue);width:fit-content}
+.mirror-details p{padding-top:12px;max-width:780px}.mirror-details a{overflow-wrap:anywhere;text-underline-offset:3px}
+@media(max-width:900px){.contribute-panel{padding:32px}.contribute-grid{gap:24px}}
+@media(max-width:650px){.contribute-panel{padding:26px 22px;border-radius:24px}.contribute-grid{grid-template-columns:1fr;gap:28px}.contribute-heading>p:last-child{font-size:15px}.nostr-development{padding-bottom:40px}.contribute-bottom .button{width:100%;font-size:13px;padding-inline:18px}header nav{gap:14px}}
