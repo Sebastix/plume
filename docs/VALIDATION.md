@@ -974,3 +974,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256: `90e2c77a875a30f442de504bb22deda9e0c7907ade6bce15285c165ba840e4ac`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
 
 - GitHub and Zapstore publication verified. Zapstore asset `bc664975bbe38c80b0ce26af8fcc276b52cc1cbefecfe78cec0a7be6ddd31a67` matches versionCode 91 and the APK hash; CDN returned HTTP 200.
+
+## 2026-10-13 — 0.49.0 release
+
+- Version 0.49.0 (92), source commit `726236d`. Public NIP-34 issue reporting from settings and the crash dialog, plus discoverable kind-1621 Issues feeds and Markdown detail.
+- Debug compilation and signed release build passed, including release lint and R8. Reviewed signature validation, explicit submission, draft persistence, bounded relay lifetimes and exact-event retries. No automated tests, live device checks or synthetic public issues.
+- APK SHA-256: `303b088e6ab4ab98fa91892dc9884791c5827c2adf8682e5ca4b3635c593d62e`. Mapping archived locally; signing certificate matches previous releases. Website unchanged.
+- GitHub APK digest verified. GitHub and both GRASP mirrors have the release source commit and tag.
+- Zapstore release and signed asset `b0c3741adaffd2a043bf5e8c5038ee0049211ca734e31bd748b92ff98d673015` verified: versionCode 92, matching APK hash/certificate, CDN HTTP 200.
