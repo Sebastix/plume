@@ -4,8 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-10-13
+
 ### Changed
-- Show a faster orange composer spinner specifically while mining proof of work for posts and replies.
+- Show a faster orange composer spinner specifically while mining proof of work for posts and replies; shorten the settings toggle to “PoW”.
 - Tap an active repost to undo it with a signed deletion request. Optimistically clear the icon, retry the same deletion up to three times, and restore the active state if delivery fails.
 - Reaction buttons immediately show the selected emoji or removal without a spinner, reverting to confirmed state if retries fail.
 - Reposts show the active icon immediately without a spinner, retry relay delivery up to three times using the same signed event, and quietly revert if delivery fails.
