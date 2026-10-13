@@ -87,7 +87,7 @@ class FeatherRepository(context: Context) {
     private val reactionStore = ReactionStore(context)
     private val reactionDeletions = ReactionDeletions(context)
     @Volatile private var deletedReactions: Set<Pair<String, String>> = emptySet()
-    private fun reactionDeleted(event: Event) = event.kind == 7 && (event.pubKey to event.id) in deletedReactions
+    private fun engagementDeleted(event: Event) = event.kind in listOf(6, 7, 16) && (event.pubKey to event.id) in deletedReactions
     private val muteCache = MuteCache(context)
     private val foregroundActive = MutableStateFlow(false)
     @Volatile private var publishingAuthor: String? = null
@@ -523,7 +523,7 @@ class FeatherRepository(context: Context) {
         // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
         // Keep these anchors when advancing the bounded window.
         val pinned = if (filter.until != null) previous.filter { it.id in visibleIds } else emptyList()
-        (matching + pinned).asSequence().filterNot(::reactionDeleted).distinctBy { it.id }
+        (matching + pinned).asSequence().filterNot(::engagementDeleted).distinctBy { it.id }
             .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit).toList()
     }
     private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
@@ -555,7 +555,7 @@ class FeatherRepository(context: Context) {
                 db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() })
             }
             val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
-            val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(::reactionDeleted).filterNot(feedFilter::hides)
+            val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
             feedDiscoveryPages = ProfileTab.entries.associateWith { candidate -> discoveryEvents.filter(candidate::matchesFeed) }
             feedDiscoveryKey = discoveryKey
             feedDiscoveryAt = discoveryNow
@@ -608,7 +608,7 @@ class FeatherRepository(context: Context) {
         val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
         val notifications = if (viewingNotifications && key != null) mutex.withLock {
             db.query<Event>(notificationKinds.map { kind -> Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100) })
-        }.distinctBy { it.id }.filterNot { it.pubKey == key || reactionDeleted(it) || contentFilter.hides(it) }
+        }.distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
             .filter { event -> event.kind !in listOf(9735, 9321) || zapActivity(event)?.let { it.sender != key && it.sender !in mutedAuthors } == true }
             .sortedByDescending { it.createdAt }.take(400)
         else state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
@@ -679,7 +679,7 @@ class FeatherRepository(context: Context) {
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
             val replies = activity.count { it.pubKey !in mutedAuthors && (replyTarget(it) == target.id || target.appAddress()?.let(it::commentsOnApp) == true) }
-            val reactions = activity.filter { it.kind == 7 && !reactionDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
+            val reactions = activity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
             val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
                 .mapNotNull { receipt ->
                     val amount = zapVerification.amountInSats(receipt, target, profiles[receipt.tagValue("p")] ?: state.value.profiles[receipt.tagValue("p")], active)
@@ -692,7 +692,7 @@ class FeatherRepository(context: Context) {
         }
         val sentReposts = key?.let { author ->
             val known = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), limit = 256)) }
-            (known + repostStore.records(author).filter { it.accepted }.map { it.event }).mapNotNull { repostTarget(it)?.id }.toSet()
+            (known + repostStore.records(author).filter { it.accepted }.map { it.event }).filterNot(::engagementDeleted).mapNotNull { repostTarget(it)?.id }.toSet()
         }.orEmpty()
         val ownReactions = key?.let { author ->
             val recent = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), limit = 256)) }
@@ -700,7 +700,7 @@ class FeatherRepository(context: Context) {
                 db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to engagementIds), limit = 512))
             }
             (reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + visibleReactions + activity.filter { it.kind == 7 && it.pubKey == author })
-                .filterNot(::reactionDeleted).distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+                .filterNot(::engagementDeleted).distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         }.orEmpty()
         val sentReactions = ownReactions.mapNotNull { event ->
             val target = reactionTarget(event)?.id ?: return@mapNotNull null
@@ -762,8 +762,10 @@ class FeatherRepository(context: Context) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect an Android signer first")
             require(signer.pubKey == author && target.kind in readableKinds)
-            val saved = repostStore.records(author).firstOrNull { repostTarget(it.event)?.id == target.id }
-            val known = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 1)) }.firstOrNull()
+            val previous = repostStore.records(author).firstOrNull { repostTarget(it.event)?.id == target.id }
+            val saved = previous?.takeUnless { engagementDeleted(it.event) }
+            val cached = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 256)) }
+            val known = cached.firstOrNull { !engagementDeleted(it) }
             if (saved?.accepted == true || known != null) {
                 _state.update { if (it.publicKey == author) it.copy(sentReposts = it.sentReposts + target.id) else it }
                 return@withLock
@@ -778,7 +780,9 @@ class FeatherRepository(context: Context) {
                 add(arrayOf("client", "Feather"))
             }.toTypedArray()
             val content = if (target.tags.any { it.firstOrNull() == "-" }) "" else target.toJson().takeIf { it.length <= 64_000 }.orEmpty()
-            val now = System.currentTimeMillis() / 1000
+            // A quick undo/repost must not recreate the just-deleted event ID.
+            val now = maxOf(System.currentTimeMillis() / 1000,
+                maxOf(previous?.event?.createdAt ?: 0, cached.maxOfOrNull { it.createdAt } ?: 0) + 1)
             val signed = saved?.event ?: signerRequests.run {
                 check(state.value.publicKey == author)
                 withTimeout(180_000) { signer.sign<Event>(now, kind, tags, content) }.also {
@@ -836,10 +840,10 @@ class FeatherRepository(context: Context) {
             require(validReactionChoice(choice))
             val known = mutex.withLock {
                 db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 100))
-                    .firstOrNull { !reactionDeleted(it) && reactionChoice(it) == choice && reactionTarget(it)?.id == target.id }
+                    .firstOrNull { !engagementDeleted(it) && reactionChoice(it) == choice && reactionTarget(it)?.id == target.id }
             }
             val previous = reactionStore.get(author, target.id, choice)
-            val saved = previous?.takeUnless { reactionDeleted(it.event) }
+            val saved = previous?.takeUnless { engagementDeleted(it.event) }
             if (known != null || saved?.accepted == true) {
                 recordReaction(author, target.id, choice)
                 return@withLock
@@ -987,7 +991,7 @@ class FeatherRepository(context: Context) {
             require(author == signer.pubKey)
             val cached = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 256)) }
             val reactions = (cached + reactionStore.records(author).map { it.event }).filter {
-                !reactionDeleted(it) && it.pubKey == author && it.kind == 7 && reactionTarget(it)?.id == target.id && reactionChoice(it) == choice
+                !engagementDeleted(it) && it.pubKey == author && it.kind == 7 && reactionTarget(it)?.id == target.id && reactionChoice(it) == choice
             }.distinctBy { it.id }
             if (reactions.isEmpty()) { changed.tryEmit(Unit); return@withLock }
             val ids = reactions.map { it.id }.toSet()
@@ -1010,6 +1014,43 @@ class FeatherRepository(context: Context) {
                 deletedReactions = reactionDeletions.deleted()
                 _state.update { current -> current.copy(deletedReactions = deletedReactions,
                     sentReactions = if (current.publicKey == author) current.sentReactions + (target.id to current.sentReactions[target.id].orEmpty().filter { it != choice }) else current.sentReactions) }
+                accept(deletion)
+                changed.tryEmit(Unit)
+            } finally { publishingAuthor = null; if (active) updateRoutingPool() }
+        }
+    }
+
+    internal suspend fun removeRepost(target: Event, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
+        reactionMutex.withLock {
+            ready.await()
+            val author = state.value.publicKey ?: error("Connect a signer first")
+            require(author == signer.pubKey)
+            val cached = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 256)) }
+            val reposts = (cached + repostStore.records(author).map { it.event }).filter {
+                !engagementDeleted(it) && it.pubKey == author && it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id
+            }.distinctBy { it.id }
+            if (reposts.isEmpty()) { changed.tryEmit(Unit); return@withLock }
+            val ids = reposts.map { it.id }.toSet()
+            val tags = (ids.sorted().map { arrayOf("e", it) } + reposts.map { it.kind }.distinct().sorted().map { arrayOf("k", it.toString()) }).toTypedArray()
+            val now = System.currentTimeMillis() / 1000
+            val deletion = reactionDeletions.pending(author, ids) ?: signerRequests.run {
+                check(state.value.publicKey == author) { "Account changed" }
+                withTimeout(180_000) { signer.sign<Event>(now, 5, tags, "") }.also {
+                    require(it.createdAt == now) { "Signer changed deletion timestamp" }
+                }
+            }
+            require(deletion.pubKey == author && deletion.kind == 5 && deletion.content.isEmpty() && deletion.tags.contentDeepEquals(tags) && deletion.verify())
+            check(state.value.publicKey == author)
+            reactionDeletions.put(deletion, accepted = false)
+            withTimeout(15_000) { foregroundActive.first { it } }
+            check(state.value.publicKey == author)
+            publishingAuthor = target.pubKey
+            try {
+                check(publishPostEvent(deletion, target)) { "Deletion not confirmed" }
+                reactionDeletions.put(deletion, accepted = true)
+                deletedReactions = reactionDeletions.deleted()
+                _state.update { current -> current.copy(deletedReactions = deletedReactions,
+                    sentReposts = if (current.publicKey == author) current.sentReposts - target.id else current.sentReposts) }
                 accept(deletion)
                 changed.tryEmit(Unit)
             } finally { publishingAuthor = null; if (active) updateRoutingPool() }

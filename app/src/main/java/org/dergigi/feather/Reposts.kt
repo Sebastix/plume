@@ -15,18 +15,18 @@ import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
 
-internal data class RepostActions(val pending: Set<String> = emptySet(), val repost: (Event) -> Unit = {}, val quote: (Event) -> Unit = {})
+internal data class RepostActions(val pending: Map<String, Boolean> = emptyMap(), val repost: (Event) -> Unit = {}, val quote: (Event) -> Unit = {})
 internal val LocalRepostActions = staticCompositionLocalOf { RepostActions() }
 
 @Composable
 internal fun RepostButton(note: Event, sent: Boolean) {
     val actions = LocalRepostActions.current
     val pending = note.id in actions.pending
-    val active = sent || pending
+    val active = actions.pending[note.id] ?: sent
     Box(Modifier.size(48.dp).clip(CircleShape).combinedClickable(enabled = !pending,
-        onClickLabel = if (active) "Already reposted" else "Repost", onLongClickLabel = "Quote post",
-        onClick = { if (!active) actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
-        Icon(painterResource(R.drawable.repost), if (active) "Reposted; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
+        onClickLabel = if (active) "Undo repost" else "Repost", onLongClickLabel = "Quote post",
+        onClick = { actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
+        Icon(painterResource(R.drawable.repost), if (active) "Undo repost; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
             tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -67,7 +67,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<String, Job>()
-    val reposting = MutableStateFlow<Set<String>>(emptySet())
+    val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
     private fun queueHasRoom(): Boolean {
@@ -81,7 +81,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null
         zapJobs.values.toList().forEach { it.cancel() }
         reactionJobs.values.toList().forEach { it.cancel() }
-        repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptySet()
+        repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptyMap()
         zapJobs.clear(); reactionJobs.clear()
         zapping.value = emptySet(); reacting.value = emptySet(); optimisticReactions.value = emptyMap()
     }
@@ -427,11 +427,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun repost(note: Event) {
-        if (note.id in reposting.value || note.id in state.value.sentReposts || !queueHasRoom()) return
+        if (note.id in reposting.value || !queueHasRoom()) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first"; return }
-        reposting.update { it + note.id }
+        val remove = note.id in state.value.sentReposts
+        reposting.update { it + (note.id to !remove) }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            try { repo.repost(note, connected, signerRequests) }
+            try { if (remove) repo.removeRepost(note, connected, signerRequests) else repo.repost(note, connected, signerRequests) }
             catch (_: TimeoutCancellationException) { /* Revert the optimistic icon quietly. */ }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { /* Keep the signed event for a later retry; revert the icon. */ }

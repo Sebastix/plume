@@ -34,7 +34,7 @@ internal data class ContentFilter(
 
     fun hides(event: Event): Boolean {
         if (!showSensitive && event.isSensitive()) return true
-        if (event.kind == 7 && (event.pubKey to event.id) in deletedReactions) return true
+        if (event.kind in listOf(6, 7, 16) && (event.pubKey to event.id) in deletedReactions) return true
         if (event.pubKey in authors) return true
         if (event.kind !in listOf(6, 16, 7, 9735, 9321)) return false
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.
