@@ -6,7 +6,7 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
-internal val readableKinds = listOf(1, 1111, 1621, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
+internal val readableKinds = listOf(1, 1111, 1621, 32267, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
 internal val profileKinds = listOf(1, 1111, 1621, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds + voiceKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
@@ -62,7 +62,7 @@ internal fun bookmarkReferences(event: Event): List<NostrContent.Reference> {
                 val kind = parts[0].toInt()
                 val author = Protocol.publicKey(parts[1]) ?: return@mapNotNull null
                 NostrContent.Reference(value, author = author, kind = kind, relays = listOfNotNull(relay),
-                    external = NAddress.create(kind, author, parts[2], relay = relay?.normalizeRelayUrl()))
+                    external = NAddress.create(kind, author, parts[2], relay = relay?.normalizeRelayUrl()).takeUnless { kind == 32267 })
             }.getOrNull()
             else -> null
         }

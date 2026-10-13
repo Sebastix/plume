@@ -209,3 +209,5 @@ Settings offers separate bug and feature-request icons. The previous-crash dialo
 Discover kind 1621 as an Issues category in main/profile tabs, after the fixed priority categories. Show subject, repository link and a bounded excerpt; render Markdown in detail. Query public issues from author relays and Feather’s two GRASP relays with author filters and existing pagination/mute/content rules; cache at most 300 issues.
 
 - Android `nostr:` VIEW intents open validated note/profile references in the reader stack on cold and warm starts. Consume intents once, preserve relay hints, and use HTTPS njump for unsupported references.
+
+- App listings (kind 32267) open a native reader detail with icon/name, summary, horizontally browsable screenshot gallery, Markdown description and icon-only external links. Installation stays an explicit Zapstore shortcut. App comments use NIP-22 address scope, including legacy Zapstore uppercase-only roots; nested replies retain that scope. Keep normal reply/reaction/zap controls and mute filtering. Catalog subscriptions and publishing include the Zapstore relay, with bounded comment and screenshot counts.

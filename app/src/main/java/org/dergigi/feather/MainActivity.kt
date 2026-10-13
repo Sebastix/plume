@@ -265,7 +265,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (destination.screen == "profile") vm.repo.profileTab(destination.tab)
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
         vm.repo.viewThread(destination.target.takeIf { destination.screen == "thread" },
-            clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.id == destination.target } })
+            clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.matchesThread(destination.target) } })
     }
     fun goHome() {
         navigation.entries.forEach { savedScreens.removeState(it.key) }
@@ -356,8 +356,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 val detailNote = if (screen == "thread") {
-                    (s.threadNotes.firstOrNull { it.id == threadId }
-                        ?: entry.notes[profileTab]?.firstOrNull { it.id == threadId })
+                    (s.threadNotes.firstOrNull { it.matchesThread(threadId) }
+                        ?: entry.notes[profileTab]?.firstOrNull { it.matchesThread(threadId) })
                         ?.takeUnless(contentFilter::hides)
                 } else null
                 if (detailNote != null) IconButton(onClick = {
@@ -731,7 +731,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         } else items(visibleNotes, key = { it.id }) { note ->
                             ProfileTabRow(tabSpace, note.id, profileViewport) {
                                 if (note.kind == 30617) ProjectCard(note)
-                                else if (note.kind == 32267) SoftwareAppCard(note)
+                                else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
                                 else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                     openNote(original)
                                 } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
@@ -893,6 +893,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when {
+            note.kind == 32267 -> SoftwareAppContent(note, onReference)
             note.kind == 1621 -> IssueContent(note, compact, onReference)
             note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
@@ -1002,6 +1003,10 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
 internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
     val filter = LocalContentFilter.current
     if (filter.hides(reference) || (note != null && filter.hides(note))) return
+    if (note?.kind == 32267) {
+        SoftwareAppCard(note) { onReference(reference) }
+        return
+    }
     if (note?.kind == 30023) {
         val profile = profiles[note.pubKey]
         Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {

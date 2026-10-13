@@ -27,10 +27,11 @@ object NostrContent {
             is NNote -> Reference(entity.hex)
             is NEvent -> Reference(entity.hex, relays = entity.relay.map { it.url }, author = entity.author, kind = entity.kind,
                 external = value.takeIf { entity.kind != null && entity.kind !in readableKinds })
-            is NAddress -> Reference(entity.author, author = entity.author, kind = entity.kind, external = value)
+            is NAddress -> if (entity.kind == 32267) Reference("${entity.kind}:${entity.author}:${entity.dTag}", author = entity.author, kind = entity.kind,
+                relays = (listOf(ZAPSTORE_RELAY) + entity.relay.map { it.url })) else Reference(entity.author, author = entity.author, kind = entity.kind, external = value)
             else -> return null
         }
-        result.takeIf { hex.matches(it.id) }?.let { it.copy(relays = it.relays.mapNotNull(Protocol::relay).distinct().take(2), author = it.author?.takeIf(hex::matches)) }
+        result.takeIf { hex.matches(it.id) || (it.kind == 32267 && it.addressFilter() != null) }?.let { it.copy(relays = it.relays.mapNotNull(Protocol::relay).distinct().take(2), author = it.author?.takeIf(hex::matches)) }
     }.getOrNull()
 
     fun tokens(text: String, event: Event): List<Token> = tokens.findAll(text).take(64).mapNotNull { match ->
@@ -75,14 +76,15 @@ object NostrContent {
         if (event.kind in listOf(1111, 1244)) {
             // NIP-22 lowercase tags identify the immediate parent; uppercase tags are root scope.
             val address = event.tags.firstOrNull { it.size >= 2 && it[0] == "a" }
+                ?: event.tags.firstOrNull { it.size >= 2 && it[0] == "A" && event.tagValue("K") == "32267" && event.tagValue("e") == null && event.tagValue("k") != "1111" }
             if (address != null) runCatching {
                 val parts = address[1].split(':', limit = 3)
                 require(parts.size == 3)
                 val kind = parts[0].toInt()
                 val author = Protocol.publicKey(parts[1]) ?: return@runCatching null
                 val relay = address.getOrNull(2)?.let(Protocol::relay)
-                Reference(address[1], author = author, kind = kind, relays = listOfNotNull(relay),
-                    external = NAddress.create(kind, author, parts[2], relay = null))
+                Reference(address[1], author = author, kind = kind, relays = (listOfNotNull(relay) + if (kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(),
+                    external = NAddress.create(kind, author, parts[2], relay = null).takeUnless { kind == 32267 })
             }.getOrNull()?.let { return it }
             val parent = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && hex.matches(it[1]) && it[1] != event.id }
             if (parent != null) {

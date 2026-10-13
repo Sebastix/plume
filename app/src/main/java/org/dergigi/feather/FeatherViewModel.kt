@@ -116,7 +116,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 paymentMutex.withLock {
                     check(signer.value === connected) { "Account changed" }
-                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, state.value.relays, connected, signerRequests, amountSats)
+                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats)
                 }
             }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }

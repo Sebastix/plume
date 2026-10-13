@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-10-13
+
+### Added
+- Native app listing details with app icon, description, screenshot gallery, publisher, website/source links and an explicit Zapstore shortcut.
+- Comment on apps, reply to existing comments, react and zap using Feather’s regular controls. Load NIP-22 discussions by the stable app address, including older Zapstore root comments, and route discussion activity through the Zapstore relay.
+- Open app naddr links and embedded app listings inside Feather.
+
+
 ## [0.50.0] - 2026-10-13
 
 ### Added
