@@ -1045,3 +1045,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build including lint/R8 passed. Reviewed background processing, cancellation, 250 MB video bound, 16 MB frame buffer, player lifecycle, MP4 rotation and WebM container selection. No automated tests, live device uploads or public test posts. Codec/container compatibility and device preview behavior remain for live testing.
 - APK SHA-256 `d6173f332b6861127686b0ebc51857b0cdcbaf5fed0472a328a15d1bd49ea49b`; signing certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
 - Signed Zapstore asset `327dc37826f1460ed2e88b53ed02e439c00aaff08e4f709d4788bd1258b22e85` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+## 2026-10-14 — 0.57.1 release
+
+- Version 0.57.1 (102), source `53d1c15`. Android SEND/SEND_MULTIPLE now accepts video shares and routes them through the existing current-draft/new-composer attachment queue.
+- Debug and signed release builds passed, including lint/R8. Packaged manifest verified to advertise image/* and video/*. No automated tests or live device checks.
+- APK SHA-256 `0e39bd60076bb745d4bf3f834a925d0c7c5c59a7409023475be4eaa7f6ca53c7`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
+- Signed Zapstore asset `6bec69b7716f087fa1509e287d0ddeaaa7f710ef8f85d7d173fefcac5906abd0` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
