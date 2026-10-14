@@ -211,6 +211,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val reacting by vm.reacting.collectAsStateWithLifecycle()
     val optimisticReactions by vm.optimisticReactions.collectAsStateWithLifecycle()
     val zapping by vm.zapping.collectAsStateWithLifecycle()
+    val zapCelebrations by vm.zapCelebrations.collectAsStateWithLifecycle()
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val confirmedPayments by vm.wallet.store.confirmedPayments.collectAsStateWithLifecycle()
     val recentZapAmounts by vm.wallet.store.recentAmounts.collectAsStateWithLifecycle()
@@ -325,7 +326,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
     }, LocalRepostActions provides RepostActions(reposting,
         repost = { note -> if (s.publicKey == null) showAccount = true else vm.repost(note) },
-        quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }) { note, amount ->
+        quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }, zapCelebrations) { note, amount ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
         else vm.zap(note, amount)

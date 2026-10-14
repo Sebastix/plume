@@ -1,6 +1,15 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +36,17 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, iconOnly: Boolean = false, enabled: Boolean = true, onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
     val zapActions = LocalZapActions.current
+    val celebration = zapActions.celebrations[note.id] ?: 0L
+    var seenCelebration by remember(note.id, publicKey) { mutableLongStateOf(celebration) }
+    val flash = remember(note.id, publicKey) { Animatable(1f) }
+    LaunchedEffect(celebration) {
+        val fresh = celebration > seenCelebration
+        seenCelebration = celebration
+        if (fresh) {
+            flash.snapTo(0f)
+            flash.animateTo(1f, tween(200, easing = LinearEasing))
+        }
+    }
     var picker by remember(note.id) { mutableStateOf(false) }
     var custom by remember(note.id) { mutableStateOf(false) }
     var input by remember(note.id) { mutableStateOf("") }
@@ -50,7 +70,20 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                 if (note.id in zapActions.pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
                 else Icon(painterResource(R.drawable.zap),
                     if (zapped) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
-                    Modifier.size(20.dp), tint = if (zapped) Color(0xFFFFB300) else tint)
+                    Modifier.size(20.dp), tint = if (flash.value < 1f) lerp(Color(0xFFFFF4BF), Color(0xFFFFB300), flash.value)
+                    else if (zapped) Color(0xFFFFB300) else tint)
+                if (!pending && flash.value < 1f) Canvas(Modifier.size(24.dp)) {
+                    val progress = flash.value
+                    val radius = (9f + 5f * progress).dp.toPx()
+                    val length = (2f * (1f - progress)).dp.toPx()
+                    for (degrees in listOf(-65, 40, 170)) {
+                        val angle = Math.toRadians(degrees.toDouble())
+                        val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
+                        drawLine(Color(0xFFFFC247).copy(alpha = 1f - progress),
+                            center + direction * radius, center + direction * (radius + length),
+                            strokeWidth = 1.dp.toPx(), cap = StrokeCap.Round)
+                    }
+                }
             }
             if (!iconOnly && counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = tint)
         }

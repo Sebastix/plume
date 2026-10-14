@@ -136,7 +136,8 @@ internal class ZapWallet(context: Context) {
             store.save(raw, owner)
         } finally { connection.secret.fill(0) }
     }
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long): Unit = withContext(Dispatchers.IO) {
+    /** True only when this call newly confirms payment; false for an already-paid journal entry. */
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long): Boolean = withContext(Dispatchers.IO) {
         require(amountSats in 1..MAX_ZAP_SATS) { "Invalid zap amount" }
         val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
@@ -187,7 +188,7 @@ internal class ZapWallet(context: Context) {
             val existing = store.payment(paymentId)
             if (existing?.optString("status") == "paid" && existing.optLong("sats", DEFAULT_ZAP_SATS) == amountSats) {
                 store.savePayment(paymentId, existing.put("author", signer.pubKey).put("note", note.id))
-                return@withContext
+                return@withContext false
             }
             if (existing?.optString("status") == "paid") {
                 // Preserve history before replacing the settled journal with a different explicit amount.
@@ -204,7 +205,7 @@ internal class ZapWallet(context: Context) {
                     paymentUncertain = false
                     if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats)
                         throw WalletFailure("Previous zap confirmed. No new payment was sent; select the new amount again to send it.")
-                    return@withContext
+                    return@withContext true
                 }
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
             }
@@ -288,6 +289,7 @@ internal class ZapWallet(context: Context) {
             }
             store.savePayment(paymentId, record.put("status", "paid"))
             paymentUncertain = false
+            true
 
         } catch (failure: Exception) {
             if (failure is CancellationException && failure !is TimeoutCancellationException) throw failure

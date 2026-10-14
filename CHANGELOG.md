@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-10-14
+
 ### Changed
+- Flash the zap bolt with three tiny gold sparks for 200 ms after a newly confirmed payment. Failures, uncertain payments and already-confirmed history do not trigger it.
 - Give newly added reactions a quick 120% pop and gentle settle, including selections from either emoji picker and custom emoji. Keep the button and count steady.
 - Animate repost taps with a quick clockwise turn, a slight overshoot and settle, while immediately showing the optimistic active state.
 

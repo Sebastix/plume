@@ -26,7 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.vitorpamplona.quartz.nip01Core.core.Event
 
-internal data class ZapActions(val pending: Set<String> = emptySet(), val confirmed: Set<String> = emptySet(), val amounts: List<Long> = defaultZapAmounts, val zap: (Event, Long) -> Unit = { _, _ -> })
+internal data class ZapActions(val pending: Set<String> = emptySet(), val confirmed: Set<String> = emptySet(), val amounts: List<Long> = defaultZapAmounts, val celebrations: Map<String, Long> = emptyMap(), val zap: (Event, Long) -> Unit = { _, _ -> })
 internal val LocalZapActions = staticCompositionLocalOf { ZapActions() }
 
 @OptIn(ExperimentalMaterial3Api::class)

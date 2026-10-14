@@ -63,6 +63,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         catch (_: Exception) { /* Keep any available name; omit unavailable balances. */ }
     }
     val zapping = MutableStateFlow<Set<String>>(emptySet())
+    internal val zapCelebrations = MutableStateFlow<Map<String, Long>>(emptyMap())
+    private var zapCelebrationSequence = 0L
     internal val signerRequests = SignerRequests()
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
@@ -83,6 +85,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         reactionJobs.values.toList().forEach { it.cancel() }
         repostJobs.values.toList().forEach { it.cancel() }; repostJobs.clear(); reposting.value = emptyMap()
         zapJobs.clear(); reactionJobs.clear()
+        zapCelebrations.value = emptyMap()
         zapping.value = emptySet(); reacting.value = emptySet(); optimisticReactions.value = emptyMap()
     }
     private var walletJob: Job? = null
@@ -116,7 +119,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 paymentMutex.withLock {
                     check(signer.value === connected) { "Account changed" }
-                    wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats)
+                    val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats)
+                    if (signer.value === connected && newlyConfirmed) {
+                        val sequence = ++zapCelebrationSequence
+                        zapCelebrations.update { previous -> (previous - note.id).entries.toList().takeLast(63)
+                            .associate { it.toPair() } + (note.id to sequence) }
+                    }
                 }
             }
             catch (_: TimeoutCancellationException) { message.value = "Zap not confirmed. Check your wallet; tap again to check payment status." }
