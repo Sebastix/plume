@@ -37,3 +37,8 @@
 .mirror-details p{padding-top:12px;max-width:780px}.mirror-details a{overflow-wrap:anywhere;text-underline-offset:3px}
 @media(max-width:900px){.contribute-panel{padding:32px}.contribute-grid{gap:24px}}
 @media(max-width:650px){.contribute-panel{padding:26px 22px;border-radius:24px}.contribute-grid{grid-template-columns:1fr;gap:28px}.contribute-heading>p:last-child{font-size:15px}.nostr-development{padding-bottom:40px}.contribute-bottom .button{width:100%;font-size:13px;padding-inline:18px}header nav{gap:14px}}
+
+/* Repository marks share the header's monochrome treatment and full touch targets. */
+.source-links{display:inline-flex;align-items:center;gap:4px}.source-link{width:44px;height:44px;justify-content:center}header nav .ngit-link .app-icon{width:28px;height:28px}
+@media(max-width:400px){header.wrap{padding-inline:16px}.brand{font-size:23px;gap:5px}header nav{gap:8px;font-size:11px}.source-links{gap:0}}
+@media(max-width:360px){header.wrap{padding-inline:12px;gap:8px}.brand{font-size:18px}.brand img{width:28px;height:28px}header nav{gap:6px}}

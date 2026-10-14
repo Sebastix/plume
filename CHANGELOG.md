@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Add an ngit / GRASP icon beside GitHub in the website header, linking to Feather’s code and issues on GitWorkshop.
+
 ## [0.59.1] - 2026-10-14
 
 ### Fixed

@@ -7,3 +7,7 @@ The Highlights tab uses Google's Material Symbols ink_highlighter icon, adapted
 from SVG to Android VectorDrawable. Copyright Google LLC, Apache License 2.0.
 Source: https://github.com/google/material-design-icons
 License: https://www.apache.org/licenses/LICENSE-2.0
+
+ngit header mark: adapted to monochrome from https://ngit.dev/favicon.svg
+Source: https://ngit.dev (ngit-docs, MIT licensed). The mark identifies the
+Nostr/GRASP repository link; it remains the ngit project's brand.
