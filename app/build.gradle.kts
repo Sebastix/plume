@@ -29,8 +29,8 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 102
-        versionName = "0.57.1"
+        versionCode = 103
+        versionName = "0.57.2"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         buildConfigField("String", "GIFS_NOSTR_BUILD_API_KEY", "\"$gifApiKey\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
