@@ -48,6 +48,7 @@ data class FeedState(
     val threadId: String? = null,
     val threadNotes: List<Event> = emptyList(),
     val conversation: Conversation? = null,
+    val threadContextLoading: Boolean = false,
     val deletedNotes: Set<String> = emptySet(),
     val profileEvents: List<Event> = emptyList(),
     val profileTabsFor: String? = null,
@@ -114,6 +115,9 @@ class FeatherRepository(context: Context) {
         _state.update { it.copy(proofOfWork = enabled) }
     }
     val state: StateFlow<FeedState> = _state.asStateFlow()
+    private val threadProgress = ThreadProgress(scope) { target, loading ->
+        _state.update { if (it.threadId == target) it.copy(threadContextLoading = loading) else it }
+    }
     private val client = NostrClient(RelayTransport(), scope)
     private val ready = CompletableDeferred<Unit>()
     private val verified = object : LinkedHashMap<String, Boolean>(1024, .75f, true) {
@@ -151,6 +155,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var viewedThread: String? = null
     @Volatile private var threadContext: Conversation? = null
     @Volatile private var threadParents: List<String> = emptyList()
+    @Volatile private var threadExpanded: Set<String> = emptySet()
     private val profileQueries = ProfileRelayQuery()
     private var profileSweep: Job? = null
     private var profileSweepKey: Triple<String, ProfileTab, List<String>>? = null
@@ -199,12 +204,14 @@ class FeatherRepository(context: Context) {
             if (forFilters?.any { it.match(event) } == true) accept(event)
         }
         override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+            threadProgress.completed(relay.url, forFilters)
             unavailableUntil.remove(Protocol.relay(relay.url) ?: relay.url)
             if (viewingNotifications && forFilters?.any { it.authors == null && it.tags?.get("p") == listOf(state.value.publicKey) && it.kinds?.any { kind -> kind in notificationKinds } == true } == true)
                 _state.update { it.copy(notificationsLoading = false) }
             if (forFilters?.any { it.kinds?.any { kind -> kind in profileKinds } == true } == true) _state.update { it.copy(loading = false) }
         }
         override fun onClosed(message: String, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
+            threadProgress.completed(relay.url, forFilters)
             unavailable(relay.url)
         }
     }
@@ -489,9 +496,11 @@ class FeatherRepository(context: Context) {
         val addressFilters = (references.filter { it.id in embeddedIds } + threadContext?.takeIf { it.target == viewedThread }?.missing.orEmpty())
             .distinctBy { it.id }.mapNotNull { it.addressFilter() }.take(24)
         if (addressFilters.isEmpty()) client.unsubscribe("embedded")
-        else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
-            it.normalizeRelayUrl() to addressFilters
-        }, listener)
+        else {
+            val routes = routingPool.filter { it != "wss://purplepag.es" }.associate { it.normalizeRelayUrl() to addressFilters }
+            routes.forEach { (relay, filters) -> threadProgress.sent(relay.url, filters) }
+            client.subscribe("embedded", routes, listener)
+        }
         eventLookupChanges.trySend(Unit)
     }
 
@@ -567,7 +576,10 @@ class FeatherRepository(context: Context) {
             relay.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))
         }
         if (!active || routes.isEmpty()) client.unsubscribe("event-ids")
-        else client.subscribe("event-ids", routes, listener)
+        else {
+            routes.forEach { (relay, filters) -> threadProgress.sent(relay.url, filters) }
+            client.subscribe("event-ids", routes, listener)
+        }
     }
 
     internal suspend fun cacheSearchProfile(event: Event) = withContext(Dispatchers.IO) {
@@ -722,7 +734,7 @@ class FeatherRepository(context: Context) {
                 deletedAddresses[event.pubKey to address]?.let { event.createdAt <= it }
             } == true
         }.map { it.id }.toSet()
-        val view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes)
+        val view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, threadExpanded)
         return pool.values.toList() to view
     }
 
@@ -914,8 +926,11 @@ class FeatherRepository(context: Context) {
         profileAuthors = authors
         if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || feed != selectedFeed || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
         threadContext = conversation
+        if (thread != null && conversation != null) threadProgress.expect(thread,
+            conversation.rows.firstOrNull { it.ancestor && it.gap == ThreadGap.MISSING }?.reference
+                ?.takeIf { it.kind == null || it.kind in readableKinds })
         val replyRows = conversation?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { it.event }
-        threadParents = (replyRows.filter { it.id in visibleIds } + replyRows.take(6)).map { it.id }.distinct().take(11)
+        threadParents = (threadExpanded.toList().takeLast(4) + replyRows.filter { it.id in visibleIds }.map { it.id } + replyRows.take(6).map { it.id }).distinct().take(11)
         emojiPackRequests = packs
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
@@ -1334,7 +1349,7 @@ class FeatherRepository(context: Context) {
             }
         }, listener)
     }
-    fun viewThread(id: String?, clicked: Event? = null, retained: List<Event> = emptyList()) {
+    fun viewThread(id: String?, clicked: Event? = null, retained: List<Event> = emptyList(), expanded: List<String> = emptyList()) {
         if (viewedThread == id) return
         val cached = state.value
         val root = clicked?.takeIf { it.matchesThread(id) && it.kind in readableKinds }
@@ -1346,14 +1361,21 @@ class FeatherRepository(context: Context) {
         historyJob?.cancel()
         viewedThread = id
         threadContext = null; threadParents = emptyList()
+        threadExpanded = expanded.takeLast(64).toSet()
         // Hand off the already rendered event synchronously; no disk or relay round trip.
         _state.update { it.copy(threadId = id, conversation = null, threadNotes = (listOfNotNull(root) + retained).distinctBy { it.id }.take(320).takeIf { id != null }.orEmpty(),
             loading = id != null && root == null) }
+        threadProgress.begin(id)
         changed.tryEmit(Unit)
         scope.launch {
             if (viewedThread == null) { client.unsubscribe("thread"); client.unsubscribe("thread-deletions") }
             if (active) subscribeFeed()
         }
+    }
+    fun expandThread(parent: String) {
+        if (viewedThread == null || parent !in state.value.threadNotes.map { it.id }) return
+        threadExpanded = (threadExpanded + parent).toList().takeLast(64).toSet()
+        changed.tryEmit(Unit)
     }
     private fun threadBranchAuthors(): List<String> = threadContext?.takeIf { it.target == viewedThread }?.rows.orEmpty()
         .mapNotNull { it.event?.takeIf { e -> e.id in threadParents }?.pubKey }.distinct().take(4)

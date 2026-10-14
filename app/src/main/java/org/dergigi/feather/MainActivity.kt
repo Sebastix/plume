@@ -270,7 +270,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
         vm.repo.viewThread(destination.target.takeIf { destination.screen == "thread" },
             clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.matchesThread(destination.target) } },
-            destination.notes.values.flatten().takeIf { destination.screen == "thread" }.orEmpty())
+            destination.notes.values.flatten().takeIf { destination.screen == "thread" }.orEmpty(), destination.expandedThreadParents)
     }
     fun goHome() {
         navigation.entries.forEach { savedScreens.removeState(it.key) }
@@ -443,35 +443,19 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
                 SideEffect { if (threadView != null) entry.conversation = threadView }
                 val groupFeed = screen in listOf("feed", "profile") && profileTab == ProfileTab.POSTS
-                val groupedRows by key(profileTab) { produceState(visibleNotes.map { ConversationRow(it.id, it, divider = true) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed) {
+                val groupedRows by key(profileTab) { produceState(visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed) {
                     value = withContext(Dispatchers.Default) {
                         if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
-                        else visibleNotes.map { ConversationRow(it.id, it, divider = true) }
+                        else visibleNotes.map { ConversationRow(it.id, it) }
                     }
                 } }
                 val displayRows = if (screen == "thread") threadView?.rows ?: visibleNotes.firstOrNull { it.matchesThread(threadId) }
-                    ?.let { listOf(ConversationRow(it.id, it, focused = true, divider = true)) }.orEmpty()
+                    ?.let { listOf(ConversationRow(it.id, it, focused = true)) }.orEmpty()
                     else groupedRows
                 val displayedEvents = displayRows.mapNotNull { it.event }.filterNot(contentFilter::hides)
-                LaunchedEffect(entry.key, threadView != null) {
-                    val anchor = entry.threadRestoreAnchor
-                    if (screen == "thread" && threadView != null && anchor != null) {
-                        val restored = displayRows.indexOfFirst { it.key == anchor.first }
-                        val selected = displayRows.indexOfFirst { it.focused }.coerceAtLeast(0)
-                        activeListState.scrollToItem(if (restored >= 0) restored else selected, if (restored >= 0) anchor.second else 0)
-                        entry.threadRestoreAnchor = null
-                        entry.threadPositioned = true
-                    }
-                }
-                LaunchedEffect(entry.key, threadView != null, displayRows.firstOrNull { it.focused }?.key) {
-                    if (screen == "thread" && threadView != null && !entry.threadPositioned && entry.threadRestoreAnchor == null) {
-                        val selected = displayRows.indexOfFirst { it.focused }
-                        if (selected >= 0) {
-                            if (!activeListState.isScrollInProgress) activeListState.scrollToItem(selected)
-                            entry.threadPositioned = true
-                        }
-                    }
-                }
+                val threadViewport = entry.threadViewport.takeIf { screen == "thread" }
+                SideEffect { threadViewport?.update(entry, displayRows, threadView != null) }
+                LaunchedEffect(threadViewport) { threadViewport?.observe(entry) }
                 val preparing = screen != "thread" && preparedNotes.first !== preparation
                 val waitingForPage = screen == "feed" && (!activePage || s.feedTab != profileTab)
                 val pendingContent = preparing || waitingForPage || s.loading
@@ -620,7 +604,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         )
                     },
                 ) {
-                    LazyColumn(Modifier.fillMaxSize().onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed" && homeToolbar == null) 64.dp else 0.dp, bottom = 24.dp + if (homeToolbar != null) 136.dp else 0.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().then(threadViewport?.viewportModifier() ?: Modifier).onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed" && homeToolbar == null) 64.dp else 0.dp, bottom = 24.dp + if (homeToolbar != null) 136.dp else 0.dp)) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
@@ -767,21 +751,28 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             }
                         } else items(displayRows, key = { it.key }) { row ->
                             val note = row.event
-                            ProfileTabRow(tabSpace, row.key, profileViewport) {
-                                if (note == null) {
-                                    ConversationGap(row, onOpen = { reference -> openReference(reference) }, onInfo = { title, detail -> statusTitle = title; statusReport = detail })
-                                } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
-                                if (note.kind == 30617) ProjectCard(note)
-                                else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
-                                else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
-                                    openNote(original)
-                                } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
-                                    compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
-                                    showParent = if (screen == "thread") row.focused && threadView?.rows?.any { it.ancestor } != true else !row.above)
+                            Column(threadViewport?.rowModifier(row.key) ?: Modifier) {
+                                ProfileTabRow(tabSpace, row.key, profileViewport) {
+                                    if (note == null) {
+                                        ConversationGap(row, onOpen = { reference -> openReference(reference) }, onInfo = { title, detail -> statusTitle = title; statusReport = detail })
+                                    } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
+                                    if (note.kind == 30617) ProjectCard(note)
+                                    else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
+                                    else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                                        openNote(original)
+                                    } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
+                                        compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
+                                        showParent = if (screen == "thread") row.focused else !row.above,
+                                        parentLoading = screen == "thread" && row.focused && s.threadId == threadId && s.threadContextLoading,
+                                        onMore = if (screen == "thread") ({
+                                            entry.expandedThreadParents = (entry.expandedThreadParents + note.id).distinct().takeLast(64)
+                                            vm.repo.expandThread(note.id)
+                                        }) else null)
+                                    }
                                 }
-                                if (row.divider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                             }
                         }
+                        if (threadViewport != null && displayRows.isNotEmpty()) item("thread-end-space") { threadViewport.EndSpace() }
                         if (screen == "profile") item("profile-tab-minimum") {
                             Spacer(Modifier.fillMaxWidth().height(tabMinimum))
                         }
@@ -909,7 +900,7 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null,
-    threadRow: ConversationRow? = null, showParent: Boolean = true) {
+    threadRow: ConversationRow? = null, showParent: Boolean = true, parentLoading: Boolean = false, onMore: (() -> Unit)? = null) {
     if (LocalContentFilter.current.hides(note)) return
     if (note.kind in listOf(9735, 9321)) {
         ZapActivityCard(note, state, onReference)
@@ -930,7 +921,10 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     Column(Modifier.fillMaxWidth().then(if (threaded) Modifier.drawBehind {
         val x = 42.dp.toPx()
         if (threadRow.above) drawLine(rail, Offset(x, 0f), Offset(x, 18.dp.toPx()), strokeWidth = 2.dp.toPx())
-        if (threadRow.below) drawLine(rail, Offset(x, 54.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+        if (threadRow.below || threadRow.more) drawLine(rail, Offset(x, 54.dp.toPx()),
+            Offset(x, if (threadRow.more) size.height - 48.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
+        if (threadRow.below && threadRow.more) drawLine(rail, Offset(x, size.height - 24.dp.toPx()),
+            Offset(x, size.height), strokeWidth = 2.dp.toPx())
     } else Modifier).semantics { if (threadRow?.focused == true) stateDescription = "Selected note" }
         .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
         if (repost != null) {
@@ -949,7 +943,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             NoteTimestamp(note)
         }
         Column(Modifier.padding(start = if (inset) 48.dp else 0.dp)) {
-        if (showParent) ReplyContext(note, state.embedded, state.profiles, onReference)
+        if (showParent) ReplyContext(note, state.embedded, state.profiles, onReference, parentLoading)
         Spacer(Modifier.height(12.dp))
         when {
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
@@ -1020,15 +1014,18 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) { rightActions() }
             }
         }
-        if (threadRow?.more == true) IconButton(onClick = onOpen) {
-            Icon(painterResource(R.drawable.thread_more), "Open more replies in this conversation", tint = MaterialTheme.colorScheme.primary)
-        }
         } // Surrounding replies stay beside the avatar rail; the selected note uses the full width.
+        if (threadRow?.more == true) IconButton(onClick = onMore ?: onOpen,
+            modifier = Modifier.offset(x = (-6).dp).size(48.dp)) {
+            Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation", Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
 @Composable
 private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit) {
+    val rail = MaterialTheme.colorScheme.outlineVariant
     val title = when (row.gap) {
         ThreadGap.HIDDEN -> "Parent note hidden"
         ThreadGap.DELETED -> "Note deleted by its author"
@@ -1036,7 +1033,12 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
         ThreadGap.CYCLE -> "Invalid reply chain"
         else -> "Earlier note unavailable"
     }
-    Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 4.dp, bottom = 4.dp)) {
+    Row(Modifier.fillMaxWidth().drawBehind {
+        if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT)) {
+            val x = 42.dp.toPx()
+            drawLine(rail, Offset(x, 42.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+        }
+    }.padding(start = 18.dp, top = 4.dp, bottom = 4.dp)) {
         IconButton(onClick = {
             if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT) && row.reference != null) onOpen(NostrContent.navigable(row.reference))
             else onInfo(title, when (row.gap) {
@@ -1058,14 +1060,14 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
 /** Parent navigation is separate from the author's profile and never blocks the reply body. */
 @Composable
 private fun ReplyContext(note: Event, embedded: Map<String, Event>, profiles: Map<String, Profile>,
-    onReference: (NostrContent.Reference) -> Unit) {
+    onReference: (NostrContent.Reference) -> Unit, loading: Boolean = false) {
     val reference = remember(note.id) { NostrContent.replyReference(note) } ?: return
     val parent = embedded[reference.id]
     val filter = LocalContentFilter.current
     if (filter.hides(reference) || (parent != null && filter.hides(parent))) return
     val author = parent?.pubKey ?: reference.author
     val name = profiles[author]?.name ?: FeatherRepository.shortKey(author ?: reference.id)
-    ReplyContextRow(parent, name, parent?.kind ?: reference.kind) { onReference(reference) }
+    ReplyContextRow(parent, name, parent?.kind ?: reference.kind, loading) { onReference(reference) }
 }
 
 /** Text and links stay selectable; mention labels update when metadata arrives. */

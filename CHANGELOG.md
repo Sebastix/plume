@@ -4,6 +4,16 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.59.1] - 2026-10-14
+
+### Fixed
+- Keep the opened note in place while ancestors load, including short conversations. Apply initial/restored positions by event key and reserve only the space needed below the reading anchor.
+
+### Changed
+- Keep the selected note’s single-line parent summary, with a small muted spinner while earlier context is loading. Stop the indicator on relay completion or a bounded timeout.
+- Use vertical continuation dots on the avatar connector. Reveal more reply branches in place, retaining expansions when returning to the conversation.
+- Remove horizontal separators between feed/profile notes and conversation branches. Use spacing and vertical thread connectors to distinguish entries.
+
 ## [0.59.0] - 2026-10-14
 
 ### Added

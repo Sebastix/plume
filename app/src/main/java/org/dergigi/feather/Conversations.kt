@@ -96,7 +96,6 @@ data class ConversationRow(
     val below: Boolean = false,
     val focused: Boolean = false,
     val ancestor: Boolean = false,
-    val divider: Boolean = false,
     val more: Boolean = false,
 )
 
@@ -108,7 +107,7 @@ data class Conversation(
 )
 
 /** Bounded graph projection. Run off-main; never infer ancestry from time, author, or root tags. */
-internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>): Conversation {
+internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>, expanded: Set<String> = emptySet()): Conversation {
     val byId = events.associateBy { it.id }
     val byAddress = events.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         .mapNotNull { e -> ThreadRelations.address(e)?.let { it to e } }.distinctBy { it.first }.toMap()
@@ -146,31 +145,40 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
         if (blocked(event)) {
             rows += ConversationRow("hidden:${event.id}", gap = if (event.id in deleted) ThreadGap.DELETED else ThreadGap.HIDDEN,
                 focused = event.id == focus.id, ancestor = event.id != focus.id)
-        } else rows += ConversationRow(event.id, event, above = index > 0 && !blocked(chain[index - 1]),
+        } else rows += ConversationRow(event.id, event, above = if (index > 0) !blocked(chain[index - 1]) else gap?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT),
             below = index < chain.lastIndex && !blocked(chain[index + 1]), focused = event.id == focus.id,
-            ancestor = event.id != focus.id, divider = event.id == focus.id)
+            ancestor = event.id != focus.id)
     }
     val children = events.filter { it.id !in used && !blocked(it) && it.kind in listOf(1, 1111, 1244) }
         .groupBy { parents[it.id]?.id }
     fun replies(parent: Event): List<Event> = (children[parent.id].orEmpty() + ThreadRelations.address(parent)?.let { children[it] }.orEmpty())
         .distinctBy { it.id }.filter { it.id !in used }
         .sortedWith(compareBy<Event> { it.pubKey != parent.pubKey }.thenBy { it.createdAt }.thenBy { it.id })
-    fun branch(first: Event, gapRow: ConversationRow? = null) {
+    fun branch(first: Event, gapRow: ConversationRow? = null, depth: Int = 0) {
+        if (depth >= 32 || rows.size >= 320) return
         gapRow?.let { rows += it }
         val branch = mutableListOf<Event>()
         var next: Event? = first
-        while (next != null && branch.size < (if (branch.all { it.pubKey == focus.pubKey } && next.pubKey == focus.pubKey) 24 else 3) && used.add(next.id)) {
+        var expandedLimit = 0
+        while (next != null && rows.size + branch.size < 320 && branch.size < maxOf(expandedLimit, if (branch.all { it.pubKey == focus.pubKey } && next.pubKey == focus.pubKey) 24 else 3) && used.add(next.id)) {
             branch += next
+            if (next.id in expanded) expandedLimit = branch.size + 3
             next = replies(next).firstOrNull()
         }
         branch.forEachIndexed { index, event -> rows += ConversationRow(event.id, event,
-            above = index > 0, below = index < branch.lastIndex, divider = index == branch.lastIndex,
+            above = index > 0 || gapRow?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT), below = index < branch.lastIndex,
             more = index == branch.lastIndex && (next != null || replies(event).isNotEmpty())) }
         // Side branches remain discoverable from the parent's note, never silently joined.
-        branch.dropLast(1).forEach { parent ->
+        branch.forEach { parent ->
             if (replies(parent).isNotEmpty()) {
-                val index = rows.indexOfFirst { it.event?.id == parent.id }
-                rows[index] = rows[index].copy(more = true)
+                if (parent.id in expanded && depth < 31 && rows.size < 320) {
+                    replies(parent).forEach { if (it.id !in used) branch(it, depth = depth + 1) }
+                    val index = rows.indexOfFirst { it.event?.id == parent.id }
+                    rows[index] = rows[index].copy(more = replies(parent).isNotEmpty())
+                } else {
+                    val index = rows.indexOfFirst { it.event?.id == parent.id }
+                    rows[index] = rows[index].copy(more = true)
+                }
             }
         }
     }
@@ -219,7 +227,7 @@ internal fun feedConversations(notes: List<Event>, candidates: List<Event>, filt
                 chain += next; shown += next.id
             }
             chain.forEachIndexed { i, e -> add(ConversationRow(e.id, e, above = i > 0, below = i < chain.lastIndex,
-                divider = i == chain.lastIndex, more = chain.size > 1 && i == chain.lastIndex)) }
+                more = chain.size > 1 && i == chain.lastIndex)) }
         }
     }
 }

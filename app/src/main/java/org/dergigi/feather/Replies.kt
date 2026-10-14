@@ -428,7 +428,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
 
 /** Shared, single-line parent summary for displayed replies and the composer. */
 @Composable
-internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.kind, onClick: (() -> Unit)? = null) {
+internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.kind, loading: Boolean = false, onClick: (() -> Unit)? = null) {
     val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
     val summary by produceState("" to kind, parent?.id, kind, detectedTypes) {
         value = withContext(Dispatchers.Default) {
@@ -456,7 +456,9 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).then(
         if (onClick == null) Modifier else Modifier.clickable(onClickLabel = "Open parent note", onClick = onClick)),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (summary.second in videoKinds) Icon(Icons.Default.PlayArrow, description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        if (loading) CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = "Loading earlier conversation" },
+            strokeWidth = 1.5.dp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+        else if (summary.second in videoKinds) Icon(Icons.Default.PlayArrow, description, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         else Icon(painterResource(when (summary.second) {
             in voiceKinds -> R.drawable.voice
             20 -> R.drawable.photos

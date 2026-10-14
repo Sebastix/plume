@@ -27,8 +27,10 @@ internal class ReaderEntry(
     // Event objects are shared with the repository, never serialized into saved instance state.
     val notes = mutableMapOf<ProfileTab, List<Event>>()
     var conversation: Conversation? = null
+    val threadViewport = ThreadViewport()
     var threadPositioned = index != 0 || offset != 0
     var threadRestoreAnchor: Pair<String, Int>? = null
+    var expandedThreadParents: List<String> = emptyList()
     var tabs: List<ProfileTab> = emptyList()
     var bookmarks: List<Pair<Event, NostrContent.Reference>> = emptyList()
     var people: List<Pair<Event, NostrContent.Reference>> = emptyList()
@@ -42,7 +44,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
         if (entry.screen == current.screen && entry.target == current.target) return
         entries.add(entry)
         // Bound retained event references; older destinations still restore from the repository.
-        entries.dropLast(8).forEach { it.notes.clear(); it.conversation = null; it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
+        entries.dropLast(8).forEach { it.notes.clear(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
     }
     fun back() { if (entries.size > 1) entries.removeAt(entries.lastIndex) }
     fun home() { entries.clear(); entries.add(ReaderEntry("feed")) }
@@ -54,6 +56,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putInt("index", entry.list.firstVisibleItemIndex); putInt("offset", entry.list.firstVisibleItemScrollOffset)
                 putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar)
                 putBoolean("threadPositioned", entry.threadPositioned)
+                putStringArrayList("threadExpanded", ArrayList(entry.expandedThreadParents))
                 if (entry.screen == "thread") {
                     val anchor = entry.list.layoutInfo.visibleItemsInfo.firstOrNull()?.key as? String
                     putString("threadAnchor", anchor ?: entry.threadRestoreAnchor?.first)
@@ -73,6 +76,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
                     entry.threadPositioned = bundle.getBoolean("threadPositioned")
+                    entry.expandedThreadParents = bundle.getStringArrayList("threadExpanded").orEmpty().takeLast(64)
                     entry.threadRestoreAnchor = bundle.getString("threadAnchor")?.let { it to bundle.getInt("threadAnchorOffset") }
                     entry.tabs = bundle.getStringArrayList("feedTabs").orEmpty().mapNotNull { name -> ProfileTab.entries.find { it.name == name } }
                     if (entry.screen == "feed") ProfileTab.entries.forEach { category ->
