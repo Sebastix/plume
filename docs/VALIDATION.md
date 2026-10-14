@@ -1066,3 +1066,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug compilation and signed release build including lint/R8 passed. Reviewed local tap triggers, independent icon-only transforms, bounded/account-cleared celebration state, and wallet return paths: failures/uncertain outcomes throw; already-paid history returns false; newly confirmed payments return true. No automated tests, live payments or device animation checks.
 - APK SHA-256 `e8795680387180071338324573f27947c2cb1805880357ad10f9aa29760b01c3`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
 - Signed Zapstore asset `907ffc7ac6f609b84a22d425eafa037d68a2b85f3d6c49a2d59beab06f3ddc3e` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+
+## 2026-10-14 — 0.58.1 release
+
+- Version 0.58.1 (105), source `c178e3e`. Central cache-first exact-ID resolution checks complete verified copies in memory and SQLite, deduplicates thread/embedded requests, and removes fulfilled IDs even when supplied by another subscription. Discovery filters remain separate. The design specification and contributor rules now require this behavior.
+- Signed release build including lint/R8 passed. Source audit found one exact-ID relay filter construction site, behind the shared cache check. Reviewed serialized cache access, conflated background lookup work, 25-ID request/128-event memory bounds, background unsubscribe/resume, eviction versus verification memo entries, and exact older-article IDs without replacing newer addressable records. No automated tests or device/network-traffic measurements were run.
+- APK SHA-256 `04e5f9d79c61657ec83211dcea7cd1c140c28de3a29d58e9243a41e3d9236670`; 15,623,877 bytes. Certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP release tags verified.
+- Signed Zapstore release `55e59ce896338095567946ff6c9147cd1afb859b6c707684902dcb5000e7be96` and asset `c0b274a248975e8b3a4a9d19b282e8242f7ef9e57824249fd8d0d7f02d814691` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+- Thread redesign remains separate. The existing `checkpoint/pre-thread-redesign` tag still points to `36f4056` (0.58.0 plus validation).
