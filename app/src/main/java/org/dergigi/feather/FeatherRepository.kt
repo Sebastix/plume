@@ -17,6 +17,7 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 import com.vitorpamplona.quartz.nip01Core.store.IEventStore
 import com.vitorpamplona.quartz.nip01Core.store.sqlite.EventStore
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -116,6 +117,15 @@ class FeatherRepository(context: Context) {
     private val verified = object : LinkedHashMap<String, Boolean>(1024, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) = size > 2048
     }
+    // Full verified events, not a record of IDs that might since have been evicted.
+    // Accessed under mutex, alongside the disk cache.
+    private val exactEventCache = object : LinkedHashMap<String, Event>(128, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Event>?) = size > 128
+    }
+    private val eventLookupChanges = Channel<Unit>(Channel.CONFLATED)
+    // Repository monitor owns network state; all readers share this one subscription.
+    private var pendingEventLookups: Map<String, Set<String>> = emptyMap()
+    private val eventIdPattern = Regex("[0-9a-f]{64}")
     @Volatile private var active = false
     private var notificationTimeout: Job? = null
     @Volatile private var viewingNotifications = false
@@ -214,6 +224,17 @@ class FeatherRepository(context: Context) {
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
         scope.launch { changed.sample(250).collect { snapshot() } }
+        scope.launch {
+            ready.await()
+            for (ignored in eventLookupChanges) {
+                try { reconcileEventLookups() }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    // A failed cache read must not turn into a redundant network request.
+                    _state.update { it.copy(error = "Could not read cached event: ${e.message ?: e.javaClass.simpleName}") }
+                }
+            }
+        }
     }
     fun foreground() {
         active = true
@@ -238,7 +259,8 @@ class FeatherRepository(context: Context) {
             }
         }
     }
-    fun background() { active = false; stopProfileSweep(); foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
+    @Synchronized
+    fun background() { active = false; stopProfileSweep(); foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); pendingEventLookups = emptyMap(); client.unsubscribe("event-ids"); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         historyJob?.cancel()
         val profile = viewedProfile.takeIf { viewedThread == null && viewedHashtag == null }
@@ -446,14 +468,81 @@ class FeatherRepository(context: Context) {
                 }
             }, listener)
         }
-        val ids = embeddedIds.filter { ':' !in it && it !in state.value.embedded }
         // Keep address filters live while visible so replacement article versions arrive.
         val addressFilters = references.filter { it.id in embeddedIds }.mapNotNull { it.addressFilter() }.take(24)
-        val filters = (if (ids.isEmpty()) emptyList() else listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))) + addressFilters
-        if (filters.isEmpty()) client.unsubscribe("embedded")
+        if (addressFilters.isEmpty()) client.unsubscribe("embedded")
         else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
-            it.normalizeRelayUrl() to filters
+            it.normalizeRelayUrl() to addressFilters
         }, listener)
+        eventLookupChanges.trySend(Unit)
+    }
+
+    /** Exact IDs are immutable. Always resolve complete memory/disk copies before relay I/O. */
+    private suspend fun cachedEventsLocked(ids: List<String>): Map<String, Event> {
+        val wanted = ids.filter(eventIdPattern::matches).distinct()
+        if (wanted.isEmpty()) return emptyMap()
+        val wantedIds = wanted.toHashSet()
+        val s = state.value
+        val memory = sequenceOf(
+            exactEventCache.values.asSequence(), s.embedded.values.asSequence(), s.threadNotes.asSequence(),
+            s.notes.asSequence(), s.profileEvents.asSequence(), s.hashtagNotes.asSequence(),
+            s.notifications.asSequence(), s.feedPreviews.values.asSequence().flatten(),
+            olderEvents.asSequence(), listOfNotNull(galleryNote).asSequence(),
+        ).flatten().filter { it.id in wantedIds }.associateBy { it.id }
+        val missing = wanted.filterNot(memory::containsKey)
+        val disk = if (missing.isEmpty()) emptyList() else db.query<Event>(Filter(ids = missing, limit = missing.size))
+        return (memory + disk.associateBy { it.id }).also { found ->
+            found.forEach { (id, event) -> exactEventCache[id] = event }
+        }
+    }
+
+    /** At most one thread root and 24 visible references, deduplicated across all readers. */
+    private fun wantedEventLookups(): Map<String, Set<String>> {
+        val result = linkedMapOf<String, Set<String>>()
+        viewedThread?.takeIf(eventIdPattern::matches)?.let { id -> result[id] = threadRelays(id).toSet() }
+        val embeddedRelays = routingPool.filter { it != "wss://purplepag.es" }.toSet()
+        embeddedIds.asSequence().filter(eventIdPattern::matches).take(24).forEach { id ->
+            result[id] = result[id].orEmpty() + embeddedRelays
+        }
+        return result
+    }
+
+    private suspend fun reconcileEventLookups() = mutex.withLock {
+        if (!active) return@withLock
+        val wanted = wantedEventLookups()
+        val cached = cachedEventsLocked(wanted.keys.toList())
+        synchronized(this) {
+            if (!active) return@synchronized
+            // Navigation/routing may have changed while SQLite was reading. Reconcile the latest intent.
+            if (wanted != wantedEventLookups()) { eventLookupChanges.trySend(Unit); return@synchronized }
+            pendingEventLookups = wanted.filterKeys { it !in cached }
+            sendEventLookups()
+        }
+        // Let every consumer render the same cached copy, even if it came from another screen.
+        val readable = cached.filterValues { it.kind in readableKinds }
+        if (readable.any { (id, event) -> state.value.embedded[id]?.id != event.id }) {
+            _state.update { s -> s.copy(embedded = (s.embedded + readable).entries.toList().takeLast(128).associate { it.toPair() }) }
+            changed.tryEmit(Unit)
+        }
+    }
+
+    /** Called under the cache mutex after validation, including deliveries on discovery subscriptions. */
+    private fun completeEventLookup(event: Event) = synchronized(this) {
+        if (event.id !in pendingEventLookups) return@synchronized
+        exactEventCache[event.id] = event
+        pendingEventLookups = pendingEventLookups - event.id
+        sendEventLookups()
+        changed.tryEmit(Unit)
+    }
+
+    @Synchronized
+    private fun sendEventLookups() {
+        val routes = pendingEventLookups.values.flatten().distinct().sorted().associate { relay ->
+            val ids = pendingEventLookups.filterValues { relay in it }.keys.sorted()
+            relay.normalizeRelayUrl() to listOf(Filter(ids = ids, kinds = readableKinds, limit = ids.size))
+        }
+        if (!active || routes.isEmpty()) client.unsubscribe("event-ids")
+        else client.subscribe("event-ids", routes, listener)
     }
 
     internal suspend fun cacheSearchProfile(event: Event) = withContext(Dispatchers.IO) {
@@ -474,9 +563,15 @@ class FeatherRepository(context: Context) {
         if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         mutex.withLock {
             val cached = verified[event.id]
-            if (cached == false || (cached == true && !history)) return cached
-            if (cached == null) {
-                if (!event.verify()) return false
+            if (cached == false) return false
+            val requested = synchronized(this) { event.id in pendingEventLookups }
+            // A repeated claimed ID is not proof that this payload is the verified copy.
+            // Discard duplicates; never promote their unchecked contents into the lookup cache.
+            if (cached == true && !history && !requested) return true
+            if (!event.verify()) return false
+            // An explicit miss can outlive the stored copy (cache eviction). Re-cache it even
+            // when its ID remains in the small verification memo.
+            if (cached == null || requested) {
                 // Quartz rolls back rejected rows and distinguishes normal NIP-01
                 // replacement/duplicate outcomes from actual storage failures.
                 val outcome = try { db.batchInsert(listOf(event)).single() }
@@ -490,7 +585,16 @@ class FeatherRepository(context: Context) {
                     is IEventStore.InsertOutcome.Rejected -> {
                         val duplicate = outcome.reason.startsWith("duplicate:")
                         verified[event.id] = duplicate
-                        if (!duplicate) return false
+                        if (!duplicate) {
+                            if (outcome.reason.startsWith("replaced:")) {
+                                // An exact link can intentionally name an older article version.
+                                // Retain that verified copy for the lookup without replacing the
+                                // newer addressable record used by discovery.
+                                verified.remove(event.id)
+                                completeEventLookup(event)
+                            }
+                            return false
+                        }
                     }
                     is IEventStore.InsertOutcome.Failed -> {
                         // Do not mark failed writes as cached: a later relay delivery can retry.
@@ -500,6 +604,7 @@ class FeatherRepository(context: Context) {
                 }
                 if (outcome == IEventStore.InsertOutcome.Accepted && ++inserts % 200 == 0) trimCacheLocked()
             }
+            completeEventLookup(event)
             if (history) olderEvents = (olderEvents + event).distinctBy { it.id }
                 .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).takeLast(600)
         }
@@ -567,9 +672,11 @@ class FeatherRepository(context: Context) {
             .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal })
         val feedPreviews = previews.mapValues { it.value.take(40) }
         val threadNotes = thread?.let { id ->
-            val rootFilter = openedReference?.takeIf { it.id == id }?.addressFilter()
-                ?: Filter(kinds = readableKinds, ids = listOf(id))
-            val root = mutex.withLock { db.query<Event>(rootFilter).firstOrNull() }
+            val addressFilter = openedReference?.takeIf { it.id == id }?.addressFilter()
+            val root = mutex.withLock {
+                if (addressFilter != null) db.query<Event>(addressFilter).firstOrNull()
+                else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
+            }
                 ?: state.value.threadNotes.find { it.matchesThread(id) }
             val commentFilters = threadCommentFilters(root, id)
             val cached = if (commentFilters.isEmpty()) emptyList() else mutex.withLock { db.query<Event>(commentFilters) }
@@ -627,7 +734,7 @@ class FeatherRepository(context: Context) {
         val bioQuotes = bioRefs.filter { !it.profile && it.external == null }.take(3)
         val repostIds = visible.mapNotNull(::repostTarget).map { it.id }.distinct().take(24)
         val reposts = if (repostIds.isEmpty()) emptyList() else mutex.withLock {
-            db.query<Event>(Filter(ids = repostIds, kinds = listOf(1), limit = 24))
+            cachedEventsLocked(repostIds).values.filter { it.kind in readableKinds }
         }
         val readingContent = visible + reposts.filterNot(contentFilter::hides)
         val readingTab = if (profile != null) tab else feed
@@ -641,8 +748,7 @@ class FeatherRepository(context: Context) {
         val quoteIds = (notificationRefs.filter { !it.profile } + bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap { listOfNotNull(NostrContent.replyReference(it)) + NostrContent.quotes(it) }).map { it.id }.filter { ':' !in it }.distinct().take(24)
         val addressRefs = (bookmarkRefs + refs).distinctBy { it.id }.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
         val embedded = mutex.withLock {
-            val byId = if (quoteIds.isEmpty()) emptyMap() else
-                db.query<Event>(Filter(ids = quoteIds, kinds = readableKinds, limit = 24)).associateBy { it.id }
+            val byId = cachedEventsLocked(quoteIds).filterValues { it.kind in readableKinds }
             val byAddress = addressRefs.mapNotNull { ref ->
                 db.query<Event>(ref.addressFilter()!!).sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
                     .firstOrNull()?.let { ref.id to it }
@@ -1172,16 +1278,21 @@ class FeatherRepository(context: Context) {
             add(Filter(kinds = listOf(1111), tags = mapOf("a" to listOf(address)), limit = 100))
         }
     }
-    private fun subscribeThread(id: String) {
-        discoverRelays()
+    private fun threadRelays(id: String): List<String> {
         val root = state.value.threadNotes.find { it.matchesThread(id) }
         val author = root?.pubKey
         val issue = state.value.threadNotes.find { it.id == id }?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true
-        val routes = ((state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool } +
+        return ((state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool } +
             if (issue) IssueReports.RELAYS else emptyList()) +
             if (root?.isAppDiscussion() == true || openedReference?.kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()
-        val filters = listOf(openedReference?.takeIf { it.id == id }?.addressFilter() ?: Filter(ids = listOf(id), kinds = readableKinds)) + threadCommentFilters(root, id)
-        client.subscribe("thread", routes.associate { it.normalizeRelayUrl() to filters }, listener)
+    }
+    private fun subscribeThread(id: String) {
+        discoverRelays()
+        val root = state.value.threadNotes.find { it.matchesThread(id) }
+        // An address may have a newer version. Replies are new events. Neither is an ID lookup.
+        val filters = listOfNotNull(openedReference?.takeIf { it.id == id }?.addressFilter()) + threadCommentFilters(root, id)
+        if (filters.isEmpty()) client.unsubscribe("thread")
+        else client.subscribe("thread", threadRelays(id).associate { it.normalizeRelayUrl() to filters }, listener)
     }
     fun viewHashtag(tag: String?) {
         if (viewedHashtag == tag) return

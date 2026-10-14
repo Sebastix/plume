@@ -4,6 +4,14 @@ October 10, 2026
 
 Feather is a native Android reader for Nostr. It should feel immediate, quiet, and beautiful: a clean page, a soft blue feather, and room for people’s words. Its small feature set is the foundation of its speed and identity.
 
+## Never fetch an event we already have
+
+A Nostr event is immutable and identified by its content hash. A complete, verified event already on this device satisfies every request for that exact ID. Read it from memory or the persistent event cache; never ask a relay for that ID again while a local copy is retained. This applies throughout Feather, including conversations, quoted notes, reposts, bookmarks, notifications, galleries, and deep links. Navigation, refresh, reconnection, and app restarts are not reasons to re-fetch cached IDs.
+
+All exact-ID lookups go through one shared, bounded cache-first path. Batch-check the local cache off the UI thread, request only missing IDs, and share in-flight requests between consumers. Remove resolved IDs from the subscription as soon as a verified event arrives, including when it arrives through a different subscription. Clear exact-ID network requests on backgrounding and re-check local copies before resuming. A remembered ID or verification result without the full event is not a cache hit; an evicted event may be fetched again. A cache-read failure must not silently bypass the cache and create a network request.
+
+Discovery is separate: new replies, reactions, zap receipts, deletion requests, and newer replaceable/addressable versions have different event IDs. Continue bounded discovery for those updates without re-requesting known IDs. Broad discovery filters can incidentally return an already-known event; validate/deduplicate it locally. An event in flight when another relay supplies it can still arrive. Do not confuse these deliveries with explicitly requesting a cached ID. Resolving an address such as an article’s `naddr` may discover a newer version; resolving a specific event ID always returns that immutable version.
+
 ## Convention over configuration
 
 Feather should work as soon as it opens. Choose sensible shared defaults and use the conventions already attached to a Nostr identity. Every new preference is a cost in attention, interface complexity, and maintenance. Prefer automatic behavior; add a setting only when a meaningful device or accessibility constraint requires it. No setup wizard, relay editor, or technical dashboard belongs in the reading experience.

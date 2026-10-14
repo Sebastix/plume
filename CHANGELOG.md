@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.58.1] - 2026-10-14
+
+### Fixed
+- Resolve exact event IDs from shared memory and disk caches before requesting relays. Share missing-ID requests across threads and embedded notes, remove resolved IDs promptly, and re-check the cache after backgrounding. Opening a cached note no longer fetches its root again; discovery of new replies and activity continues separately.
+
+### Changed
+- Make never re-fetching a locally retained, verified event a core design principle for all future features.
+
 ## [0.58.0] - 2026-10-14
 
 ### Changed
