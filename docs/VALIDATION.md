@@ -1093,3 +1093,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Brief manual emulator check with a public short reply: the selected note remained at the top after its parent was available above it; scrolling upward revealed that parent and its image. No app runtime exception appeared. Remaining multi-step loading/expansion and real-device gesture behavior still need user testing. Screenshots remained local and were not published.
 - APK SHA-256 `3896203768ad35041370c82a7e68183f5dafa9a956182db3d67a0bfa8f38de48`; 15,640,793 bytes. Certificate matches prior releases; mapping archived locally. GitHub asset digest and the source/tag on both GRASP mirrors verified.
 - Signed Zapstore release `da7de12632fdb5e72612dc77b420a80a0468254704fbb3b3e8e8e89ac9d77a20` and asset `41c8ec0c4e2a8dc88b430bff7f9fab579a88ed5fb401c97d11384635a62b780f` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+
+## 2026-10-14 — 0.59.2 release
+
+- Version 0.59.2 (108), source `5b4cd8e`. Continuation dots share the existing action row in the avatar gutter and use the connector color. The selected note’s parent summary fades/collapses when a connected, visible parent event is rendered above it; unresolved or filtered/deleted gaps do not trigger removal.
+- Debug and signed release builds passed, including lint/R8. Reviewed 48dp continuation hit targets, separation from reply taps, wrapped action-row alignment, stable event keys, initial cached-parent visibility and existing same-pass thread height/anchor handling. No automated tests or device interaction checks were run; animation feel remains for device testing.
+- APK SHA-256 `b7c4ef76f241d897e5362e78a960b7e90cd092c65763eacb36398a8937e25bdf`; 15,640,793 bytes. Embedded source commit and version verified; signing certificate matches prior releases. Mapping archived locally. GitHub asset digest and the source/tag on both GRASP mirrors verified.
+- Signed Zapstore release `b2c9299fd1fd79af37759fb3e6a7c4c0d50a36739c46745d06dae4c6e4e05390` and asset `e4ab27a92dc08a54a348fda694c28d860f2744a8c56aa6e72926110a4ce4f92f` verified with matching hash, certificate and versionCode; CDN HTTP 200. No website deployment as part of this app release.
