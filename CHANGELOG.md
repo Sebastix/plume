@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.59.4] - 2026-10-14
+
 ### Changed
 - Render thread roots at normal post width in conversations and feed previews. Connect the root's reply-icon tip to the next avatar, keeping the icon fixed as counts change and the line clear of text and media; keep replies indented.
 
