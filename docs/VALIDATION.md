@@ -1059,3 +1059,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including lint/R8. Packaged debug manifest verified to advertise generic shares. No automated tests or live file-explorer checks.
 - APK SHA-256 `13e6f5f7708d6e0a14f5b7531a5d7d63dea344c68793291a57b72cd6b2f520b0`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
 - Signed Zapstore asset `190523d5668f36e256c8abea8915c517beb12c395eef9e11f36d7d3d886b907d` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+## 2026-10-14 — 0.58.0 release
+
+- Version 0.58.0 (104), source `b235e81`. Repost clockwise spin/settle (380 ms), reaction pop (260 ms), and confirmed-zap flash with three tiny sparks (200 ms).
+- Debug compilation and signed release build including lint/R8 passed. Reviewed local tap triggers, independent icon-only transforms, bounded/account-cleared celebration state, and wallet return paths: failures/uncertain outcomes throw; already-paid history returns false; newly confirmed payments return true. No automated tests, live payments or device animation checks.
+- APK SHA-256 `e8795680387180071338324573f27947c2cb1805880357ad10f9aa29760b01c3`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
+- Signed Zapstore asset `907ffc7ac6f609b84a22d425eafa037d68a2b85f3d6c49a2d59beab06f3ddc3e` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
