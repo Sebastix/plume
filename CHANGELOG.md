@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.57.1] - 2026-10-14
+
 ### Fixed
 - Accept video files shared from other Android apps, using the same upload queue as shared images. Attach to the current post/reply draft or open the new-note composer when none is open.
 
