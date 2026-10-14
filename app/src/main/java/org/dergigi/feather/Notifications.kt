@@ -76,8 +76,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
     }
     val events = state.notifications.takeIf { state.notificationsFor == owner }.orEmpty()
-    val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions) {
-        ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive)
+    val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions, state.deletedNotes) {
+        ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes)
     }
     val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter, selectedTypes) {
         value = withContext(Dispatchers.Default) {

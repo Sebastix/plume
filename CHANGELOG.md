@@ -4,6 +4,20 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-10-14
+
+### Added
+- Connected conversation view with ancestors above the selected note, grouped reply branches below it, avatar connectors, and compact continuation controls. Give the selected note larger text and full reading width.
+- Short self-thread previews in Posts feeds and profiles, assembled from events already available locally.
+- Explicit gaps for unavailable, hidden, deleted, excessively deep or cyclic ancestry, with supported missing parents openable. Preserve verified deletion state across retained reader screens.
+
+### Changed
+- Resolve threads through the shared cache-first path, with bounded ancestor/branch discovery and separate queries for new replies and deletion requests. Keep existing article, app, voice-reply and NIP-22 comment behavior.
+- Preserve conversation positions when parents arrive, when returning from a branch, and when Android restores the reader. Wrap compact reply actions when space is limited.
+
+### Fixed
+- Distinguish immediate replies from root references, legacy positional tags, mentions and quotes. Count direct replies without treating every root-scoped descendant as a direct reply.
+
 ## [0.58.1] - 2026-10-14
 
 ### Fixed

@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -179,7 +180,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         val request = incomingLink ?: return@LaunchedEffect
         val ref = request.second
         val state = vm.state.value
-        if (!ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive).hides(ref)) {
+        if (!ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes).hides(ref)) {
             if (ref.external != null) {
                 // Unsupported event/address types use HTTPS, never launch our own scheme again.
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))) }
@@ -219,7 +220,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
     }
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
-    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive) }
+    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes) }
     val context = LocalContext.current
     val scrollScope = rememberCoroutineScope()
     val mediaStore = (context.applicationContext as FeatherApplication).media
@@ -268,7 +269,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (destination.screen == "profile") vm.repo.profileTab(destination.tab)
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
         vm.repo.viewThread(destination.target.takeIf { destination.screen == "thread" },
-            clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.matchesThread(destination.target) } })
+            clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.matchesThread(destination.target) } },
+            destination.notes.values.flatten().takeIf { destination.screen == "thread" }.orEmpty())
     }
     fun goHome() {
         navigation.entries.forEach { savedScreens.removeState(it.key) }
@@ -361,7 +363,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val detailNote = if (screen == "thread") {
                     (s.threadNotes.firstOrNull { it.matchesThread(threadId) }
                         ?: entry.notes[profileTab]?.firstOrNull { it.matchesThread(threadId) })
-                        ?.takeUnless(contentFilter::hides)
+                        ?.takeUnless { contentFilter.hides(it) || it.id in s.conversation?.deleted.orEmpty() }
                 } else null
                 if (detailNote != null) IconButton(onClick = {
                     val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
@@ -432,12 +434,44 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val notes = if (screen == "thread") {
                     // StateFlow already holds the handoff even if lifecycle collection resumes next frame.
                     val current = vm.repo.state.value
-                    (current.threadNotes.takeIf { current.threadId == threadId && it.size >= entry.notes[profileTab].orEmpty().size } ?: entry.notes[profileTab]).orEmpty()
+                    (current.threadNotes.takeIf { current.threadId == threadId } ?: entry.notes[profileTab]).orEmpty()
                 } else preparedNotes.second
                 // Re-check retained/handoff state synchronously when a list changes. These are
                 // bounded in-memory key checks; no parsing, disk, or network work on main.
                 val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
                 SideEffect { entry.notes[profileTab] = visibleNotes }
+                val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
+                SideEffect { if (threadView != null) entry.conversation = threadView }
+                val groupFeed = screen in listOf("feed", "profile") && profileTab == ProfileTab.POSTS
+                val groupedRows by key(profileTab) { produceState(visibleNotes.map { ConversationRow(it.id, it, divider = true) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed) {
+                    value = withContext(Dispatchers.Default) {
+                        if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
+                        else visibleNotes.map { ConversationRow(it.id, it, divider = true) }
+                    }
+                } }
+                val displayRows = if (screen == "thread") threadView?.rows ?: visibleNotes.firstOrNull { it.matchesThread(threadId) }
+                    ?.let { listOf(ConversationRow(it.id, it, focused = true, divider = true)) }.orEmpty()
+                    else groupedRows
+                val displayedEvents = displayRows.mapNotNull { it.event }.filterNot(contentFilter::hides)
+                LaunchedEffect(entry.key, threadView != null) {
+                    val anchor = entry.threadRestoreAnchor
+                    if (screen == "thread" && threadView != null && anchor != null) {
+                        val restored = displayRows.indexOfFirst { it.key == anchor.first }
+                        val selected = displayRows.indexOfFirst { it.focused }.coerceAtLeast(0)
+                        activeListState.scrollToItem(if (restored >= 0) restored else selected, if (restored >= 0) anchor.second else 0)
+                        entry.threadRestoreAnchor = null
+                        entry.threadPositioned = true
+                    }
+                }
+                LaunchedEffect(entry.key, threadView != null, displayRows.firstOrNull { it.focused }?.key) {
+                    if (screen == "thread" && threadView != null && !entry.threadPositioned && entry.threadRestoreAnchor == null) {
+                        val selected = displayRows.indexOfFirst { it.focused }
+                        if (selected >= 0) {
+                            if (!activeListState.isScrollInProgress) activeListState.scrollToItem(selected)
+                            entry.threadPositioned = true
+                        }
+                    }
+                }
                 val preparing = screen != "thread" && preparedNotes.first !== preparation
                 val waitingForPage = screen == "feed" && (!activePage || s.feedTab != profileTab)
                 val pendingContent = preparing || waitingForPage || s.loading
@@ -507,11 +541,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) }
                 }
                 val mediaNotes = if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS)
-                    bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else visibleNotes
+                    bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else if (screen == "thread" || groupFeed) displayedEvents else visibleNotes
                 val mediaEmbeds = remember(s.embedded, contentFilter) { s.embedded.filterValues { !contentFilter.hides(it) } }
                 PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, mediaEmbeds, mediaKeys)
                 val currentBookmarks by rememberUpdatedState(bookmarkRows)
-                val currentNotes by rememberUpdatedState(visibleNotes)
+                val currentNotes by rememberUpdatedState(if (screen == "thread" || groupFeed) displayedEvents else visibleNotes)
                 LaunchedEffect(activeListState, screen, activePage) {
                     if (!activePage) return@LaunchedEffect
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
@@ -668,12 +702,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (activePage && s.loading))) item("progress") {
+                        if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             }
                         }
-                        if ((activePage && s.error != null) || (visibleNotes.isEmpty() && !emptyLoading && (hiddenContent || screen == "thread"))) item("status") {
+                        if (((activePage && s.error != null) || (visibleNotes.isEmpty() && !emptyLoading && (hiddenContent || screen == "thread"))) && (screen != "thread" || displayRows.isEmpty())) item("status") {
                             Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                 val title = when {
                                     activePage && s.error != null -> "Could not load notes"
@@ -731,14 +765,21 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     }
                                 }
                             }
-                        } else items(visibleNotes, key = { it.id }) { note ->
-                            ProfileTabRow(tabSpace, note.id, profileViewport) {
+                        } else items(displayRows, key = { it.key }) { row ->
+                            val note = row.event
+                            ProfileTabRow(tabSpace, row.key, profileViewport) {
+                                if (note == null) {
+                                    ConversationGap(row, onOpen = { reference -> openReference(reference) }, onInfo = { title, detail -> statusTitle = title; statusReport = detail })
+                                } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
                                 if (note.kind == 30617) ProjectCard(note)
                                 else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
                                 else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
                                     openNote(original)
-                                } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } }, compact = screen != "thread")
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
+                                } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
+                                    compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
+                                    showParent = if (screen == "thread") row.focused && threadView?.rows?.any { it.ancestor } != true else !row.above)
+                                }
+                                if (row.divider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 20.dp))
                             }
                         }
                         if (screen == "profile") item("profile-tab-minimum") {
@@ -865,8 +906,10 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null) {
+private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null,
+    threadRow: ConversationRow? = null, showParent: Boolean = true) {
     if (LocalContentFilter.current.hides(note)) return
     if (note.kind in listOf(9735, 9321)) {
         ZapActivityCard(note, state, onReference)
@@ -881,7 +924,15 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     var truncated by remember(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
     val articleDetail = note.kind == 30023 && !compact
-    Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = 24.dp)) {
+    val threaded = threadRow != null && note.kind in listOf(1, 1111, 1244, 1222)
+    val inset = threaded && !threadRow.focused
+    val rail = MaterialTheme.colorScheme.outlineVariant
+    Column(Modifier.fillMaxWidth().then(if (threaded) Modifier.drawBehind {
+        val x = 42.dp.toPx()
+        if (threadRow.above) drawLine(rail, Offset(x, 0f), Offset(x, 18.dp.toPx()), strokeWidth = 2.dp.toPx())
+        if (threadRow.below) drawLine(rail, Offset(x, 54.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+    } else Modifier).semantics { if (threadRow?.focused == true) stateDescription = "Selected note" }
+        .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
         if (repost != null) {
             RepostAttribution(repost, state) { onReference(NostrContent.Reference(repost.pubKey, profile = true)) }
             Spacer(Modifier.height(12.dp))
@@ -897,7 +948,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             }
             NoteTimestamp(note)
         }
-        ReplyContext(note, state.embedded, state.profiles, onReference)
+        Column(Modifier.padding(start = if (inset) 48.dp else 0.dp)) {
+        if (showParent) ReplyContext(note, state.embedded, state.profiles, onReference)
         Spacer(Modifier.height(12.dp))
         when {
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
@@ -922,7 +974,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val richContent = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
         val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
-        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         quotes.forEachIndexed { index, reference ->
             if (content.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
@@ -931,10 +983,10 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        if (note.kind !in listOf(7, 30030)) Row(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (note.kind !in listOf(7, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            val leftActions: @Composable () -> Unit = {
             // Keep a little breathing room inside the text edge, independent of reply counts.
             Row(Modifier.offset(x = (-12).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start)) {
@@ -945,13 +997,59 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             }
             RepostButton(note, note.id in state.sentReposts)
             }
+            val expandAction: @Composable () -> Unit = {
             if (compact && (expanded || truncated)) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {
                 Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     if (expanded) "Show less" else "Read more", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+            }
+            val rightActions: @Composable () -> Unit = {
                 OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
                 NoteZap(note, counts, state.publicKey)
+            }
+            if (inset) {
+                // Preserve full touch targets when the avatar rail narrows a reply on small screens.
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { leftActions() }
+                    expandAction()
+                    Row(verticalAlignment = Alignment.CenterVertically) { rightActions() }
+                }
+            } else Row(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { leftActions() }
+                expandAction()
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) { rightActions() }
+            }
+        }
+        if (threadRow?.more == true) IconButton(onClick = onOpen) {
+            Icon(painterResource(R.drawable.thread_more), "Open more replies in this conversation", tint = MaterialTheme.colorScheme.primary)
+        }
+        } // Surrounding replies stay beside the avatar rail; the selected note uses the full width.
+    }
+}
+
+@Composable
+private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit) {
+    val title = when (row.gap) {
+        ThreadGap.HIDDEN -> "Parent note hidden"
+        ThreadGap.DELETED -> "Note deleted by its author"
+        ThreadGap.LIMIT -> "Earlier conversation"
+        ThreadGap.CYCLE -> "Invalid reply chain"
+        else -> "Earlier note unavailable"
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 4.dp, bottom = 4.dp)) {
+        IconButton(onClick = {
+            if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT) && row.reference != null) onOpen(NostrContent.navigable(row.reference))
+            else onInfo(title, when (row.gap) {
+                ThreadGap.HIDDEN -> "This part of the conversation is hidden by your content settings or mute list."
+                ThreadGap.DELETED -> "A signed deletion request from the author removes this note from the conversation."
+                else -> "The reply references form a loop. Feather stopped following them."
+            })
+        }) {
+            when (row.gap) {
+                ThreadGap.HIDDEN -> Icon(painterResource(R.drawable.account_hidden), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                ThreadGap.DELETED -> Icon(Icons.Default.Delete, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                ThreadGap.CYCLE -> Icon(Icons.Default.Warning, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> Icon(painterResource(R.drawable.thread_more), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

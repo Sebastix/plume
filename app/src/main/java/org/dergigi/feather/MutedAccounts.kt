@@ -28,11 +28,13 @@ internal data class ContentFilter(
     val embedded: Map<String, Event> = emptyMap(),
     val deletedReactions: Set<Pair<String, String>> = emptySet(),
     val showSensitive: Boolean = false,
+    val deletedNotes: Set<String> = emptySet(),
 ) {
     fun hides(reference: NostrContent.Reference): Boolean =
-        reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.let(::hides) == true
+        reference.id in deletedNotes || reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.let(::hides) == true
 
     fun hides(event: Event): Boolean {
+        if (event.id in deletedNotes) return true
         if (!showSensitive && event.isSensitive()) return true
         if (event.kind in listOf(6, 7, 16) && (event.pubKey to event.id) in deletedReactions) return true
         if (event.pubKey in authors) return true
@@ -40,7 +42,7 @@ internal data class ContentFilter(
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.
         val author = event.tags.lastOrNull { it.size >= 2 && it[0] == "p" }?.get(1)
         val id = event.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)
-        return author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.let { it.pubKey in authors || (!showSensitive && it.isSensitive()) } == true
+        return id in deletedNotes || author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.let { it.id in deletedNotes || it.pubKey in authors || (!showSensitive && it.isSensitive()) } == true
     }
 }
 internal val LocalContentFilter = staticCompositionLocalOf { ContentFilter() }

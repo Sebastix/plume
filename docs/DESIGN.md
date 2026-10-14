@@ -48,6 +48,24 @@ Render Nostr profile mentions as tappable names and quoted text notes as quiet p
 
 Resolve metadata for visible notes and a few upcoming items, including quote authors and profile mentions. Bound requests to 160 profile identities and 24 quoted notes at once; include a metadata indexer within the existing twelve-route budget. Keep metadata requests alive through routing changes. Cache parsed reference lists so scrolling and relay updates do not repeatedly decode the same identifiers.
 
+## Conversations follow real reply edges
+
+Opening a note keeps that note as the focus: show its ancestor chain above it and separate reply branches below it. Use quiet vertical connectors between avatars, compact surrounding replies, and larger full-width text/media for the selected note. Do not indent repeatedly at every depth; deep conversations must remain readable on a phone. Remove the redundant one-line parent preview when the actual parent chain is present. Keep the existing profile, timestamp, media, reply, repost, reaction and zap interactions.
+
+Use one parent resolver for rendering, reply classification and counts. For NIP-10, prefer an explicit `reply` marker, then a lone `root`; for old positional tags, use the last unmarked `e` as the immediate parent and the first as the root. Exclude marked mentions and explicit quotes. For NIP-22 comments and voice replies, lowercase tags identify the immediate parent and uppercase tags identify the root scope. Prefer an address when a comment supplies both an address and a particular version of that addressable event. Preserve the existing legacy Zapstore uppercase-only app-comment convention. Quotes are separate previews, never conversation edges. An ancestor is not necessarily a direct parent, and sharing a root does not make two replies siblings.
+
+Order direct reply branches with the selected author's continuations first, then by time and event ID. Preview up to three notes along an ordinary branch, or up to 24 consecutive posts from the selected author. An accessible ellipsis opens the parent or continuation when a preview has more branches. The Posts feed/profile can show a connected self-thread preview of up to three notes using already available events; it must not start a crawl across the whole feed. Keep feed anchors in chronological order and render each event once per projection.
+
+Resolve ancestors from verified memory/disk copies before asking relays. All missing exact IDs use the shared lookup path: one selected event, up to eight missing parents and 24 visible embedded references. Bound each conversation to 320 retained candidate events, 31 ancestors above the selected note, and discovery of children for at most 12 parent IDs at a time. Query NIP-10 root references and NIP-22 root/address scopes separately from immediate-parent joins. Use visible branch parents plus a small initial preview for further discovery; reuse the existing relay budget and author/hint routing. Graph construction and cache joins run off-main. This is a bounded view of discovered replies, not a promise of exhaustive network-wide history.
+
+Missing, muted, sensitive, deleted and cyclic ancestry must not produce invented links or silently join unrelated branches. Stop at that boundary, use a distinct accessible gap control, and keep supported missing/earlier references openable. Honor deletion requests only after verifying the event and matching the original author's key; address deletions apply only through their timestamp. Retain a bounded set of verified deleted-note IDs so navigating back cannot resurrect the same note from an older UI snapshot. Unsupported parent kinds keep an external link.
+
+Stable event keys preserve the reading anchor as earlier notes arrive. Each navigation entry keeps its graph and scroll state; reopening a branch never resets its parent screen. Save the visible note key/offset for Android recreation, fall back to the selected note if that anchor is no longer available, and never replace a known selected note with a whole-page loading state. Pull-to-refresh discovers new replies and deletion requests without refetching cached event IDs.
+
+References: [NIP-10](https://github.com/nostr-protocol/nips/blob/master/10.md), [NIP-22](https://github.com/nostr-protocol/nips/blob/master/22.md), and [Twitter's grouped conversation design](https://blog.x.com/en_us/a/2015/making-conversations-easier-to-follow-on-the-tweet-page). Adapt the grouping and visual continuity to Feather's minimal controls and Nostr's signed event graph.
+
+Rollback checkpoint: `checkpoint/cache-first-before-threads` preserves 0.58.1, including the cache-first lookup fix, before this redesign.
+
 ## Native and economical
 
 Build with Kotlin, Jetpack Compose, Material 3, and Quartz. Use Coil for images and Android Media3 for video. Reuse platform controls and protocol implementations. Do not build a custom UI renderer or drawing framework.

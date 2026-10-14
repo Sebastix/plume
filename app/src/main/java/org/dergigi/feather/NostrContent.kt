@@ -73,35 +73,24 @@ object NostrContent {
     }
 
     fun replyReference(event: Event): Reference? {
+        ThreadRelations.parent(event)?.let { return navigable(it) }
         if (event.kind in listOf(1111, 1244)) {
-            // NIP-22 lowercase tags identify the immediate parent; uppercase tags are root scope.
-            val address = event.tags.firstOrNull { it.size >= 2 && it[0] == "a" }
-                ?: event.tags.firstOrNull { it.size >= 2 && it[0] == "A" && event.tagValue("K") == "32267" && event.tagValue("e") == null && event.tagValue("k") != "1111" }
-            if (address != null) runCatching {
-                val parts = address[1].split(':', limit = 3)
-                require(parts.size == 3)
-                val kind = parts[0].toInt()
-                val author = Protocol.publicKey(parts[1]) ?: return@runCatching null
-                val relay = address.getOrNull(2)?.let(Protocol::relay)
-                Reference(address[1], author = author, kind = kind, relays = (listOfNotNull(relay) + if (kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(),
-                    external = NAddress.create(kind, author, parts[2], relay = null).takeUnless { kind == 32267 })
-            }.getOrNull()?.let { return it }
-            val parent = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && hex.matches(it[1]) && it[1] != event.id }
-            if (parent != null) {
-                val kind = event.tagValue("k")?.toIntOrNull()
-                return Reference(parent[1], relays = listOfNotNull(parent.getOrNull(2)?.let(Protocol::relay)),
-                    author = parent.getOrNull(3)?.takeIf(hex::matches) ?: event.tagValue("p")?.takeIf(hex::matches),
-                    kind = kind, external = NNote.create(parent[1]).takeIf { kind != null && kind !in readableKinds })
-            }
             val scope = event.tags.firstOrNull { it.size >= 2 && it[0] == "i" }
             val url = scope?.let { MediaContent.secureUrl(it[1]) ?: MediaContent.secureUrl(it.getOrNull(2)) }
             return url?.let { Reference(it, external = it) }
         }
-        val target = replyTarget(event)?.takeIf { hex.matches(it) && it != event.id } ?: return null
-        val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" && it[1] == target }
-        return Reference(target, relays = listOfNotNull(tag?.getOrNull(2)?.let(Protocol::relay)),
-            author = tag?.getOrNull(4)?.takeIf(hex::matches))
+        return null
     }
+
+    /** Preserve unsupported parent links without treating them as readable thread events. */
+    internal fun navigable(ref: Reference): Reference = ref.copy(
+        relays = (ref.relays + if (ref.kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(),
+        external = if (ref.kind != null && ref.kind !in readableKinds) {
+            val address = ref.id.split(':', limit = 3)
+            if (address.size == 3) NAddress.create(ref.kind, address[1], address[2], relay = null)
+            else NNote.create(ref.id)
+        } else ref.external,
+    )
 
     fun quotes(event: Event): List<Reference> {
         val parent = replyReference(event)?.id

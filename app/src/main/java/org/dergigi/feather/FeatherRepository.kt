@@ -47,6 +47,8 @@ data class FeedState(
     val feedPreviews: Map<ProfileTab, List<Event>> = emptyMap(),
     val threadId: String? = null,
     val threadNotes: List<Event> = emptyList(),
+    val conversation: Conversation? = null,
+    val deletedNotes: Set<String> = emptySet(),
     val profileEvents: List<Event> = emptyList(),
     val profileTabsFor: String? = null,
     val profileTabs: List<ProfileTab> = emptyList(),
@@ -147,6 +149,8 @@ class FeatherRepository(context: Context) {
     @Volatile private var viewedHashtag: String? = null
     @Volatile private var hashtagUntil: Long? = null
     @Volatile private var viewedThread: String? = null
+    @Volatile private var threadContext: Conversation? = null
+    @Volatile private var threadParents: List<String> = emptyList()
     private val profileQueries = ProfileRelayQuery()
     private var profileSweep: Job? = null
     private var profileSweepKey: Triple<String, ProfileTab, List<String>>? = null
@@ -263,6 +267,18 @@ class FeatherRepository(context: Context) {
     fun background() { active = false; stopProfileSweep(); foregroundActive.value = false; blocktime.stop(); zapVerification.stop(); discoveryJob?.cancel(); historyJob?.cancel(); refreshTimeout?.cancel(); pendingEventLookups = emptyMap(); client.unsubscribe("event-ids"); client.disconnect(); _state.update { it.copy(connected = emptySet(), loading = false) } }
     fun refresh() {
         historyJob?.cancel()
+        if (viewedThread != null) {
+            _state.update { it.copy(loading = true, error = null) }
+            scope.launch {
+                ready.await()
+                if (active) {
+                    client.unsubscribe("thread")
+                    client.unsubscribe("thread-deletions")
+                    changed.tryEmit(Unit); subscribeFeed()
+                }
+            }
+            return
+        }
         val profile = viewedProfile.takeIf { viewedThread == null && viewedHashtag == null }
         if (profile != null) {
             profileUntil = null; profileLimit = 100
@@ -348,6 +364,7 @@ class FeatherRepository(context: Context) {
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
             emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
+            threadBranchAuthors().flatMap { relayLists[it]?.read.orEmpty().take(1) + relayLists[it]?.write.orEmpty().take(1) }.distinct().take(3) +
             own?.read.orEmpty() + own?.write.orEmpty() +
             profileAuthors.take(12).flatMap { relayLists[it]?.write.orEmpty().take(1) }).distinct().filter(::healthy)
         val authors = (listOfNotNull(s.publicKey, viewedProfile, threadAuthor) + profileAuthors.take(64) + s.following.take(999) + s.notes.take(40).map { it.pubKey }.takeIf { s.publicKey == null }.orEmpty()).distinct()
@@ -469,7 +486,8 @@ class FeatherRepository(context: Context) {
             }, listener)
         }
         // Keep address filters live while visible so replacement article versions arrive.
-        val addressFilters = references.filter { it.id in embeddedIds }.mapNotNull { it.addressFilter() }.take(24)
+        val addressFilters = (references.filter { it.id in embeddedIds } + threadContext?.takeIf { it.target == viewedThread }?.missing.orEmpty())
+            .distinctBy { it.id }.mapNotNull { it.addressFilter() }.take(24)
         if (addressFilters.isEmpty()) client.unsubscribe("embedded")
         else client.subscribe("embedded", routingPool.filter { it != "wss://purplepag.es" }.associate {
             it.normalizeRelayUrl() to addressFilters
@@ -496,10 +514,17 @@ class FeatherRepository(context: Context) {
         }
     }
 
-    /** At most one thread root and 24 visible references, deduplicated across all readers. */
+    /** One thread root, eight missing parents and 24 visible embeds; one shared request path. */
     private fun wantedEventLookups(): Map<String, Set<String>> {
         val result = linkedMapOf<String, Set<String>>()
         viewedThread?.takeIf(eventIdPattern::matches)?.let { id -> result[id] = threadRelays(id).toSet() }
+        val thread = viewedThread
+        threadContext?.takeIf { it.target == thread }?.missing.orEmpty().take(8).forEach { ref ->
+            if (eventIdPattern.matches(ref.id) && (ref.kind == null || ref.kind in readableKinds) && ref.author !in state.value.mutedAuthors) {
+                result[ref.id] = (thread?.let(::threadRelays).orEmpty() + ref.relays + relayLists[ref.author]?.write.orEmpty())
+                    .filter { it in routingPool }.toSet()
+            }
+        }
         val embeddedRelays = routingPool.filter { it != "wss://purplepag.es" }.toSet()
         embeddedIds.asSequence().filter(eventIdPattern::matches).take(24).forEach { id ->
             result[id] = result[id].orEmpty() + embeddedRelays
@@ -632,6 +657,75 @@ class FeatherRepository(context: Context) {
             .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit).toList()
     }
     private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
+
+    /** Resolve ancestry locally first, then project a bounded graph around the selected event. */
+    private suspend fun loadConversation(id: String, mutedAuthors: Set<String>): Pair<List<Event>, Conversation?> {
+        val addressFilter = openedReference?.takeIf { it.id == id }?.addressFilter()
+        val focus = mutex.withLock {
+            if (addressFilter != null) db.query<Event>(addressFilter).firstOrNull()
+            else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
+        } ?: state.value.threadNotes.find { it.matchesThread(id) } ?: return emptyList<Event>() to null
+        val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
+        val ancestors = linkedMapOf(focus.id to focus)
+        var cursor = focus
+        for (depth in 0 until 32) {
+            val ref = ThreadRelations.parent(cursor) ?: break
+            if (ref.id in ancestors || ref.author in mutedAuthors || filter.hides(cursor) || (ref.kind != null && ref.kind !in readableKinds)) break
+            val parent = mutex.withLock {
+                ref.addressFilter()?.let { db.query<Event>(it).firstOrNull() } ?: cachedEventsLocked(listOf(ref.id))[ref.id]
+            } ?: break
+            if (filter.hides(parent)) { ancestors[parent.id] = parent; break }
+            ancestors[parent.id] = parent; cursor = parent
+        }
+        val cached = mutex.withLock { db.query<Event>(ThreadRelations.discovery(focus, id, threadParents)) }
+        val retained = state.value.threadNotes.takeIf { state.value.threadId == id }.orEmpty()
+        val pool = (ancestors.values + retained.filter { it.id in visibleIds } + cached + retained).distinctBy { it.id }.take(320).associateByTo(linkedMapOf()) { it.id }
+        val missingParents = (threadContext?.takeIf { it.target == id }?.missing.orEmpty() + pool.values.mapNotNull(ThreadRelations::parent))
+            .filter { it.id !in pool && it.author !in mutedAuthors && (it.kind == null || it.kind in readableKinds) }.distinctBy { it.id }.take(32)
+        val resolvedParents = mutex.withLock {
+            cachedEventsLocked(missingParents.map { it.id }).values.toList() + missingParents.mapNotNull { ref ->
+                ref.addressFilter()?.let { db.query<Event>(it).firstOrNull() }
+            }
+        }
+        val withParents = (ancestors.values + resolvedParents + pool.values).distinctBy { it.id }.take(320)
+        pool.clear(); withParents.forEach { pool[it.id] = it }
+        // Root-tagged replies arrive together. Parent-only legacy threads need a few local joins.
+        var parents = listOf(focus)
+        repeat(3) {
+            val ids = parents.filterNot(filter::hides).map { it.id }.distinct().take(32)
+            if (ids.isNotEmpty()) {
+                val children = mutex.withLock { db.query<Event>(Filter(kinds = listOf(1, 1111, 1244), tags = mapOf("e" to ids), limit = 200)) }
+                children.forEach { if (pool.size < 320) pool.putIfAbsent(it.id, it) }
+                val parentKeys = parents.flatMap { listOfNotNull(it.id, ThreadRelations.address(it)) }.toSet()
+                parents = pool.values.filter { ThreadRelations.parent(it)?.id in parentKeys }
+            }
+        }
+        val addresses = pool.values.mapNotNull(ThreadRelations::address).distinct()
+        val deletions = mutex.withLock {
+            db.query<Event>(listOf(Filter(kinds = listOf(5), tags = mapOf("e" to pool.keys.toList()), limit = 256)) +
+                if (addresses.isEmpty()) emptyList() else listOf(Filter(kinds = listOf(5), tags = mapOf("a" to addresses), limit = 256)))
+        }
+        val deletedIds = mutableSetOf<Pair<String, String>>()
+        val deletedAddresses = mutableMapOf<Pair<String, String>, Long>()
+        deletions.forEach { deletion -> deletion.tags.forEach { tag ->
+            val value = tag.getOrNull(1)
+            if (value != null) when {
+                tag[0] == "e" && value in pool -> deletedIds += deletion.pubKey to value
+                tag[0] == "a" && value in addresses -> {
+                    val key = deletion.pubKey to value
+                    deletedAddresses[key] = maxOf(deletedAddresses[key] ?: Long.MIN_VALUE, deletion.createdAt)
+                }
+            }
+        } }
+        val deleted = pool.values.filter { event ->
+            (event.pubKey to event.id) in deletedIds || ThreadRelations.address(event)?.let { address ->
+                deletedAddresses[event.pubKey to address]?.let { event.createdAt <= it }
+            } == true
+        }.map { it.id }.toSet()
+        val view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes)
+        return pool.values.toList() to view
+    }
+
     private suspend fun snapshotContents() {
         deletedReactions = reactionDeletions.deleted()
         val key = _state.value.publicKey
@@ -659,7 +753,7 @@ class FeatherRepository(context: Context) {
             val discoveredFeed = mutex.withLock {
                 db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() })
             }
-            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
+            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
             val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
             feedDiscoveryPages = ProfileTab.entries.associateWith { candidate -> discoveryEvents.filter(candidate::matchesFeed) }
             feedDiscoveryKey = discoveryKey
@@ -671,21 +765,7 @@ class FeatherRepository(context: Context) {
         }).sortedWith(compareBy<ProfileTab> { it.orderPriority }
             .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal })
         val feedPreviews = previews.mapValues { it.value.take(40) }
-        val threadNotes = thread?.let { id ->
-            val addressFilter = openedReference?.takeIf { it.id == id }?.addressFilter()
-            val root = mutex.withLock {
-                if (addressFilter != null) db.query<Event>(addressFilter).firstOrNull()
-                else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
-            }
-                ?: state.value.threadNotes.find { it.matchesThread(id) }
-            val commentFilters = threadCommentFilters(root, id)
-            val cached = if (commentFilters.isEmpty()) emptyList() else mutex.withLock { db.query<Event>(commentFilters) }
-            listOfNotNull(root) + cached.filter { comment ->
-                comment.id != root?.id && (root?.appAddress()?.let(comment::commentsOnApp) == true ||
-                    if (comment.kind in listOf(1111, 1244)) replyTarget(comment) == (root?.id ?: id)
-                    else comment.tags.any { tag -> tag.size >= 2 && tag[0] == "e" && tag[1] == id && (tag.size < 4 || tag[3] != "mention") })
-            }.distinctBy { it.id }.sortedWith(compareBy<Event> { it.createdAt }.thenBy { it.id })
-        }.orEmpty()
+        val (threadNotes, conversation) = thread?.let { loadConversation(it, mutedAuthors) } ?: (emptyList<Event>() to null)
         val profile = viewedProfile
         val tab = profileTab
         val profileCeiling = profileUntil
@@ -712,7 +792,7 @@ class FeatherRepository(context: Context) {
         val hashtagNotes = hashtag?.let { tag ->
             timeline(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
         }.orEmpty()
-        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive)
+        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
         val notifications = if (viewingNotifications && key != null) mutex.withLock {
             db.query<Event>(notificationKinds.map { kind -> Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100) })
         }.distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
@@ -743,7 +823,7 @@ class FeatherRepository(context: Context) {
             collections.flatMap(::bookmarkReferences).filter { it.id in visibleIds }.take(24) else emptyList()
         val peopleRefs = if (readingTab == ProfileTab.PEOPLE)
             collections.flatMap(::peopleReferences).filter { it.id in visibleIds }.distinctBy { it.id }.take(32) else emptyList()
-        val refs = (peopleRefs + bookmarkRefs + bioRefs + readingContent.filter { it.kind !in listOf(3, 30000) }.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
+        val refs = (conversation?.missing.orEmpty() + peopleRefs + bookmarkRefs + bioRefs + readingContent.filter { it.kind !in listOf(3, 30000) }.flatMap(NostrContent::references)).distinctBy { it.id }.take(64)
         val notificationRefs = if (viewingNotifications) visible.mapNotNull(::notificationTarget) else emptyList()
         val quoteIds = (notificationRefs.filter { !it.profile } + bookmarkRefs.filter { it.external == null } + bioQuotes + readingContent.flatMap { listOfNotNull(NostrContent.replyReference(it)) + NostrContent.quotes(it) }).map { it.id }.filter { ':' !in it }.distinct().take(24)
         val addressRefs = (bookmarkRefs + refs).distinctBy { it.id }.filter { it.addressFilter() != null }.take((24 - quoteIds.size).coerceAtLeast(0))
@@ -784,7 +864,7 @@ class FeatherRepository(context: Context) {
         }
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
-            val replies = activity.count { it.pubKey !in mutedAuthors && (replyTarget(it) == target.id || target.appAddress()?.let(it::commentsOnApp) == true) }
+            val replies = activity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
             val reactions = activity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
             val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
                 .mapNotNull { receipt ->
@@ -833,6 +913,9 @@ class FeatherRepository(context: Context) {
         embeddedIds = quoteIds + addressRefs.map { it.id }
         profileAuthors = authors
         if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || feed != selectedFeed || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
+        threadContext = conversation
+        val replyRows = conversation?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { it.event }
+        threadParents = (replyRows.filter { it.id in visibleIds } + replyRows.take(6)).map { it.id }.distinct().take(11)
         emojiPackRequests = packs
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
@@ -840,9 +923,9 @@ class FeatherRepository(context: Context) {
         relayLists = lists
         val previous = _state.value.following
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, conversation = if (viewedThread == thread && it.threadId == thread) conversation else it.conversation, deletedNotes = (it.deletedNotes + conversation?.deleted.orEmpty()).toList().takeLast(512).toSet(), hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
         if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
-        else if (active) subscribeReadingData()
+        else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
     }
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
@@ -1251,7 +1334,7 @@ class FeatherRepository(context: Context) {
             }
         }, listener)
     }
-    fun viewThread(id: String?, clicked: Event? = null) {
+    fun viewThread(id: String?, clicked: Event? = null, retained: List<Event> = emptyList()) {
         if (viewedThread == id) return
         val cached = state.value
         val root = clicked?.takeIf { it.matchesThread(id) && it.kind in readableKinds }
@@ -1262,27 +1345,25 @@ class FeatherRepository(context: Context) {
             ?: cached.notes.find { it.id == id }
         historyJob?.cancel()
         viewedThread = id
+        threadContext = null; threadParents = emptyList()
         // Hand off the already rendered event synchronously; no disk or relay round trip.
-        _state.update { it.copy(threadId = id, threadNotes = listOfNotNull(root).takeIf { id != null }.orEmpty(),
+        _state.update { it.copy(threadId = id, conversation = null, threadNotes = (listOfNotNull(root) + retained).distinctBy { it.id }.take(320).takeIf { id != null }.orEmpty(),
             loading = id != null && root == null) }
         changed.tryEmit(Unit)
         scope.launch {
-            if (viewedThread == null) client.unsubscribe("thread")
+            if (viewedThread == null) { client.unsubscribe("thread"); client.unsubscribe("thread-deletions") }
             if (active) subscribeFeed()
         }
     }
-    private fun threadCommentFilters(root: Event?, id: String): List<Filter> = buildList {
-        if (root != null || ':' !in id) add(Filter(kinds = listOf(1, 1111, 1244), tags = mapOf("e" to listOf(root?.id ?: id)), limit = 100))
-        root?.appAddress()?.let { address ->
-            add(Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(address)), limit = 200))
-            add(Filter(kinds = listOf(1111), tags = mapOf("a" to listOf(address)), limit = 100))
-        }
-    }
+    private fun threadBranchAuthors(): List<String> = threadContext?.takeIf { it.target == viewedThread }?.rows.orEmpty()
+        .mapNotNull { it.event?.takeIf { e -> e.id in threadParents }?.pubKey }.distinct().take(4)
+
     private fun threadRelays(id: String): List<String> {
         val root = state.value.threadNotes.find { it.matchesThread(id) }
         val author = root?.pubKey
         val issue = state.value.threadNotes.find { it.id == id }?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true
-        return ((state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty()).distinct().filter { it in routingPool } +
+        val branchRelays = threadBranchAuthors().flatMap { relayLists[it]?.read.orEmpty() + relayLists[it]?.write.orEmpty() }
+        return ((state.value.relays + openedReference?.takeIf { it.id == id }?.relays.orEmpty() + relayLists[author]?.read.orEmpty() + relayLists[author]?.write.orEmpty() + branchRelays).distinct().filter { it in routingPool } +
             if (issue) IssueReports.RELAYS else emptyList()) +
             if (root?.isAppDiscussion() == true || openedReference?.kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()
     }
@@ -1290,9 +1371,17 @@ class FeatherRepository(context: Context) {
         discoverRelays()
         val root = state.value.threadNotes.find { it.matchesThread(id) }
         // An address may have a newer version. Replies are new events. Neither is an ID lookup.
-        val filters = listOfNotNull(openedReference?.takeIf { it.id == id }?.addressFilter()) + threadCommentFilters(root, id)
+        val filters = listOfNotNull(openedReference?.takeIf { it.id == id }?.addressFilter()) + ThreadRelations.discovery(root, id, threadParents)
         if (filters.isEmpty()) client.unsubscribe("thread")
         else client.subscribe("thread", threadRelays(id).associate { it.normalizeRelayUrl() to filters }, listener)
+        val known = state.value.threadNotes.takeIf { state.value.threadId == id }.orEmpty()
+        if (known.isEmpty()) client.unsubscribe("thread-deletions")
+        else {
+            val addresses = known.mapNotNull(ThreadRelations::address).distinct().sorted()
+            val deletions = listOf(Filter(kinds = listOf(5), tags = mapOf("e" to known.map { it.id }.distinct().take(320).sorted()), limit = 256)) +
+                if (addresses.isEmpty()) emptyList() else listOf(Filter(kinds = listOf(5), tags = mapOf("a" to addresses), limit = 256))
+            client.subscribe("thread-deletions", threadRelays(id).associate { it.normalizeRelayUrl() to deletions }, listener)
+        }
     }
     fun viewHashtag(tag: String?) {
         if (viewedHashtag == tag) return

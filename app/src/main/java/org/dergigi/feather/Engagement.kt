@@ -20,12 +20,8 @@ data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zapSats:
     val zappedByAccount: String? = null)
 
 internal fun replyTarget(event: Event): String? {
-    if (event.kind in listOf(1111, 1244)) return event.tagValue("e")?.let(Protocol::publicKey)
-    if (event.kind != 1) return null
-    val tags = event.tags.filter { it.size >= 2 && it[0] == "e" }
-    val marked = tags.firstOrNull { it.getOrNull(3) == "reply" }
-        ?: tags.firstOrNull { it.getOrNull(3) == "root" }
-    return (marked ?: tags.lastOrNull { it.size < 4 || it[3].isEmpty() })?.get(1)
+    if (event.kind in listOf(1111, 1244)) event.tagValue("e")?.let(Protocol::publicKey)?.takeUnless { it == event.id }?.let { return it }
+    return ThreadRelations.parent(event)?.id
 }
 
 /** Only resolve providers for receipts we actually have; never block the feed snapshot on HTTP. */
