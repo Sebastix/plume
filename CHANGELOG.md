@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Animate repost taps with a quick clockwise turn, a slight overshoot and settle, while immediately showing the optimistic active state.
+
 ## [0.57.2] - 2026-10-14
 
 ### Fixed

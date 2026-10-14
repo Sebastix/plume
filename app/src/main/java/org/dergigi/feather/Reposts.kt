@@ -1,6 +1,9 @@
 package org.dergigi.feather
 
 import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import org.json.JSONObject
+import kotlinx.coroutines.launch
 
 internal data class RepostActions(val pending: Map<String, Boolean> = emptyMap(), val repost: (Event) -> Unit = {}, val quote: (Event) -> Unit = {})
 internal val LocalRepostActions = staticCompositionLocalOf { RepostActions() }
@@ -23,10 +28,23 @@ internal fun RepostButton(note: Event, sent: Boolean) {
     val actions = LocalRepostActions.current
     val pending = note.id in actions.pending
     val active = actions.pending[note.id] ?: sent
+    val rotation = remember(note.id) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
     Box(Modifier.size(48.dp).clip(CircleShape).combinedClickable(enabled = !pending,
         onClickLabel = if (active) "Undo repost" else "Repost", onLongClickLabel = "Quote post",
-        onClick = { actions.repost(note) }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
-        Icon(painterResource(R.drawable.repost), if (active) "Undo repost; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp),
+        onClick = {
+            actions.repost(note)
+            scope.launch {
+                rotation.snapTo(0f)
+                rotation.animateTo(360f, keyframes {
+                    durationMillis = 380
+                    0f at 0 using FastOutSlowInEasing
+                    378f at 280 using FastOutSlowInEasing
+                    360f at 380
+                })
+            }
+        }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
+        Icon(painterResource(R.drawable.repost), if (active) "Undo repost; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp).graphicsLayer { rotationZ = rotation.value },
             tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
