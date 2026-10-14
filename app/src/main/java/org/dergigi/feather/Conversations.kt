@@ -100,6 +100,8 @@ data class ConversationRow(
     val focused: Boolean = false,
     val ancestor: Boolean = false,
     val more: Boolean = false,
+    // A real root has no reply parent; an unresolved or hidden parent is still a reply.
+    val root: Boolean = false,
 )
 
 data class Conversation(
@@ -152,7 +154,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
                 focused = event.id == focus.id, ancestor = event.id != focus.id)
         } else rows += ConversationRow(event.id, event, above = if (index > 0) !blocked(chain[index - 1]) else gap?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT),
             below = index < chain.lastIndex && !blocked(chain[index + 1]), focused = event.id == focus.id,
-            ancestor = event.id != focus.id)
+            ancestor = event.id != focus.id, root = parents[event.id] == null)
     }
     val children = events.filter { it.id !in used && !blocked(it) && it.kind in listOf(1, 1111, 1244) }
         .groupBy { parents[it.id]?.id }
@@ -188,6 +190,13 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
         }
     }
     replies(focus).forEach { if (it.id !in used) branch(it) }
+    // When opening the root itself, connect its reply action to the first direct reply.
+    // Other branches remain separate, and orphaned root-scoped replies never imply an edge.
+    val rootIndex = rows.indexOfFirst { it.focused && it.root && it.event?.kind in listOf(1, 1222) }
+    if (rootIndex >= 0 && rows.getOrNull(rootIndex + 1)?.event?.let { ThreadRelations.repliesTo(it, focus) } == true) {
+        rows[rootIndex] = rows[rootIndex].copy(below = true)
+        rows[rootIndex + 1] = rows[rootIndex + 1].copy(above = true)
+    }
     // Root-tagged replies whose immediate parent is absent are separate, explicitly broken chains.
     events.asSequence().filter { it.id !in used && !blocked(it) && ThreadRelations.root(it)?.id?.let { root -> root == focus.id || root == ThreadRelations.address(focus) } == true }
         .sortedWith(compareBy<Event> { it.createdAt }.thenBy { it.id }).take(12).forEach { orphan ->
@@ -232,7 +241,7 @@ internal fun feedConversations(notes: List<Event>, candidates: List<Event>, filt
                 chain += next; shown += next.id
             }
             chain.forEachIndexed { i, e -> add(ConversationRow(e.id, e, above = i > 0, below = i < chain.lastIndex,
-                more = chain.size > 1 && i == chain.lastIndex)) }
+                more = chain.size > 1 && i == chain.lastIndex, root = ThreadRelations.parent(e) == null)) }
         }
     }
 }

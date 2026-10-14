@@ -71,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -933,12 +934,17 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
     val articleDetail = note.kind == 30023 && !compact
     val threaded = threadRow != null && note.kind in listOf(1, 1111, 1244, 1222)
-    val inset = threaded && !threadRow.focused
+    val inset = threaded && !threadRow.focused && !threadRow.root
+    val rootReply = threaded && threadRow.root
+    val replyConnector = rootReply && threadRow.below && !threadRow.more
+    val replyIconSize = 20.dp
     val rail = MaterialTheme.colorScheme.outlineVariant
     Column(Modifier.fillMaxWidth().then(if (threaded) Modifier.drawBehind {
-        val x = 42.dp.toPx()
+        val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 42.dp.toPx() else 42.dp.toPx()
         if (threadRow.above) drawLine(rail, Offset(x, 0f), Offset(x, 18.dp.toPx()), strokeWidth = 2.dp.toPx())
-        if (threadRow.below || threadRow.more) drawLine(rail, Offset(x, 54.dp.toPx()),
+        // A full-width root connects from its reply action below, keeping the rail out of its content.
+        val railStart = if (threadRow.root) size.height - (if (threadRow.more) 60.dp else 12.dp).toPx() else 54.dp.toPx()
+        if (!replyConnector && (threadRow.below || threadRow.more)) drawLine(rail, Offset(x, railStart),
             Offset(x, if (threadRow.more) size.height - 48.dp.toPx() else size.height), strokeWidth = 2.dp.toPx())
         if (threadRow.below && threadRow.more) drawLine(rail, Offset(x, size.height - 24.dp.toPx()),
             Offset(x, size.height), strokeWidth = 2.dp.toPx())
@@ -998,7 +1004,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
-        } // Surrounding replies stay beside the avatar rail; the selected note uses the full width.
+        } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
         if (note.kind !in listOf(7, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
@@ -1006,12 +1012,18 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             val leftActions: @Composable () -> Unit = {
             // Keep a little breathing room inside the text edge, independent of reply counts.
             // A continuation control owns the gutter beside this row; keep their tap areas separate.
-            Row(Modifier.offset(x = if (more) 0.dp else (-12).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
+            // conversation.xml's tail is (2, 22) in a 24-unit viewport. Pin it to the avatar axis
+            // (18dp inside the content edge); counts occupy space only after the fixed icon slot.
+            val replyOffset = if (rootReply) 18.dp - 12.dp - (24.dp - replyIconSize) / 2 - replyIconSize * (2f / 24f)
+                else if (more) 0.dp else (-12).dp
+            Row((if (rootReply) Modifier.padding(start = replyOffset) else Modifier.offset(x = replyOffset))
+                .widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start)) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies", Modifier.size(replyIconSize), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (counts.replies > 0) Text(counts.replies.toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (counts.replies > 0) Text(counts.replies.toString(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             RepostButton(note, note.id in state.sentReposts)
             }
@@ -1025,7 +1037,13 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
                 NoteZap(note, counts, state.publicKey)
             }
-            Box(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp)) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp)
+                .then(if (replyConnector) Modifier.drawBehind {
+                    val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 18.dp.toPx() else 18.dp.toPx()
+                    // All actions are vertically centered, even if large text makes this row taller.
+                    val tipY = size.height / 2f + replyIconSize.toPx() * (22f / 24f - .5f)
+                    drawLine(rail, Offset(x, tipY), Offset(x, size.height + 12.dp.toPx()), strokeWidth = 2.dp.toPx())
+                } else Modifier)) {
                 if (inset || more) {
                     // Preserve full touch targets when the avatar rail narrows a reply on small screens.
                     FlowRow(Modifier.fillMaxWidth().padding(start = 48.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1062,7 +1080,7 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
     }
     Row(Modifier.fillMaxWidth().drawBehind {
         if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT)) {
-            val x = 42.dp.toPx()
+            val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 42.dp.toPx() else 42.dp.toPx()
             drawLine(rail, Offset(x, 42.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
         }
     }.padding(start = 18.dp, top = 4.dp, bottom = 4.dp)) {
