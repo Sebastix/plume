@@ -46,10 +46,10 @@ internal class BlossomUpload(private val context: Context) {
 
     suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (String) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
-        val video = context.contentResolver.getType(uri)?.startsWith("video/") == true
-        val label = if (video) "video" else "image"
-        val maxBytes = (if (video) 250L else 20L) * 1024 * 1024
-        selectedSize(uri)?.let { require(it <= maxBytes) { "${label.replaceFirstChar(Char::uppercase)} exceeds ${maxBytes / 1024 / 1024} MB" } }
+        // MIME types from file providers are hints, not reliable media identification.
+        // Stage at most the video limit, then inspect the bytes before signing or uploading.
+        val stagingLimit = 250L * 1024 * 1024
+        selectedSize(uri)?.let { require(it <= stagingLimit) { "Attachment exceeds 250 MB" } }
         onProgress(ImageUploadProgress(stage = "Clearing temporary files"))
         context.cacheDir.listFiles()?.filter { it.name.startsWith("blossom-") && it.name.endsWith(".image") }?.forEach { it.delete() }
         onProgress(ImageUploadProgress(stage = "Creating temporary file"))
@@ -57,9 +57,9 @@ internal class BlossomUpload(private val context: Context) {
         val file = File.createTempFile("blossom-", ".image", context.cacheDir)
         try {
             var size = 0L
-            onProgress(ImageUploadProgress(stage = "Opening $label"))
+            onProgress(ImageUploadProgress(stage = "Opening attachment"))
             context.contentResolver.openInputStream(uri)?.use { input ->
-                onProgress(ImageUploadProgress(stage = "Reading $label"))
+                onProgress(ImageUploadProgress(stage = "Reading attachment"))
                 var reportedSize = 0L
                 original.outputStream().use { output ->
                     val buffer = ByteArray(65536)
@@ -68,25 +68,26 @@ internal class BlossomUpload(private val context: Context) {
                         val read = input.read(buffer)
                         if (read < 0) break
                         size += read
-                        require(size <= maxBytes) { "${label.replaceFirstChar(Char::uppercase)} exceeds ${maxBytes / 1024 / 1024} MB" }
+                        require(size <= stagingLimit) { "Attachment exceeds 250 MB" }
                         output.write(buffer, 0, read)
                         if (size - reportedSize >= 256 * 1024) {
-                            onProgress(ImageUploadProgress(size, stage = "Reading $label"))
+                            onProgress(ImageUploadProgress(size, stage = "Reading attachment"))
                             reportedSize = size
                         }
                     }
                 }
-            } ?: error("Could not read selected $label")
-            require(size > 0) { "Selected $label is empty" }
+            } ?: error("Could not read selected attachment")
+            require(size > 0) { "Selected attachment is empty" }
+            onProgress(ImageUploadProgress(size, stage = "Checking media format"))
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(original.absolutePath, bounds)
+            val image = bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true
+            val label = if (image) "image" else "video"
+            val maxBytes = (if (image) 20L else 250L) * 1024 * 1024
+            require(size <= maxBytes) { "${label.replaceFirstChar(Char::uppercase)} exceeds ${maxBytes / 1024 / 1024} MB" }
             onProgress(ImageUploadProgress(size, stage = "Removing metadata"))
-            val mime = if (video) {
-                VideoPrivacy.clean(original, file)
-            } else {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(original.absolutePath, bounds)
-                require(bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true) { "Unsupported image format" }
-                ImagePrivacy.clean(original, file, bounds.outMimeType!!)
-            }
+            val mime = if (image) ImagePrivacy.clean(original, file, bounds.outMimeType!!)
+                else VideoPrivacy.clean(original, file) // Rejects files without a real video track.
             original.delete()
             currentCoroutineContext().ensureActive()
             size = file.length()

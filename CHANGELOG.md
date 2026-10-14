@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Accept generic file and mixed-media shares from Android file explorers. Detect images/videos from file contents instead of trusting provider MIME labels; validate media before upload authorization or sending any bytes to Blossom.
+
 ## [0.57.1] - 2026-10-14
 
 ### Fixed

@@ -30,6 +30,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="video/*" />
+                <!-- File explorers also share media as generic or mixed files. -->
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
     </application>

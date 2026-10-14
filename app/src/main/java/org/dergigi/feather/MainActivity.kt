@@ -121,8 +121,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun receiveMedia(shared: Intent) {
-        if (shared.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE) ||
-            (shared.type?.startsWith("image/") != true && shared.type?.startsWith("video/") != true)) return
+        // File managers may label videos application/octet-stream or mixed selections */*.
+        // Accept URI attachments here; the background uploader validates the actual media.
+        if (shared.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) return
         try {
             val streams = if (shared.action == Intent.ACTION_SEND_MULTIPLE)
                 IntentCompat.getParcelableArrayListExtra(shared, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
