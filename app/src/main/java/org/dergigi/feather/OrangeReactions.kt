@@ -1,6 +1,10 @@
 package org.dergigi.feather
 
 import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -16,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -49,6 +54,20 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
     enabled: Boolean = true,
     onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val actions = LocalReactionActions.current
+    val scale = remember(note.id) { Animatable(1f) }
+    val scope = rememberCoroutineScope()
+    fun popReaction() {
+        scope.launch {
+            scale.snapTo(1f)
+            scale.animateTo(1f, keyframes {
+                durationMillis = 260
+                1f at 0 using FastOutSlowInEasing
+                1.2f at 90 using FastOutSlowInEasing
+                .96f at 190 using FastOutSlowInEasing
+                1f at 260
+            })
+        }
+    }
     val visibleReactions = actions.optimistic[note.id].orEmpty().fold(sent) { reactions, change -> change.applyTo(reactions) }
     val latestEnabled by rememberUpdatedState(enabled)
     var picker by remember(note.id) { mutableStateOf(false) }
@@ -64,10 +83,10 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
             .combinedClickable(enabled = enabled,
                 onClickLabel = if (latestReaction != null) "Remove your reaction" else "React with an orange heart", onLongClickLabel = "Choose a reaction",
-                onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else actions.react(note, defaultReactions.first()) },
+                onClick = { if (latestReaction != null) actions.remove(note, latestReaction) else { actions.react(note, defaultReactions.first()); popReaction() } },
                 onLongClick = { menuChoices = (visibleReactions + actions.choices).distinctBy { it.key }.take(6); picker = true })
             .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(24.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value }, contentAlignment = Alignment.Center) {
                 if (latestReaction != null) {
                     Box(Modifier.size(24.dp).semantics {
                         contentDescription = "Your reaction: ${latestReaction.description}; tap to remove; hold to choose another emoji"
@@ -91,7 +110,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                     val alreadySent = choice in visibleReactions
                     IconButton(enabled = enabled && (alreadySent || validReactionChoice(choice)), onClick = {
                         picker = false
-                        if (alreadySent) actions.remove(note, choice) else actions.react(note, choice)
+                        if (alreadySent) actions.remove(note, choice) else { actions.react(note, choice); popReaction() }
                     }, modifier = Modifier.size(48.dp)) {
                         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
                             Text(if (choice.image == null) choice.display else "◌", fontSize = 24.sp,
@@ -120,7 +139,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
             SearchableEmojiPicker(recent, actions.customEmojis, Modifier.fillMaxWidth().height(height)) { choice ->
                 if (latestEnabled && validReactionChoice(choice)) {
                     fullPicker = false
-                    if (choice in latestSent) latestActions.remove(note, choice) else latestActions.react(note, choice)
+                    if (choice in latestSent) latestActions.remove(note, choice) else { latestActions.react(note, choice); popReaction() }
                 }
             }
         }
