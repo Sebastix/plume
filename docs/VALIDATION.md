@@ -1052,3 +1052,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Debug and signed release builds passed, including lint/R8. Packaged manifest verified to advertise image/* and video/*. No automated tests or live device checks.
 - APK SHA-256 `0e39bd60076bb745d4bf3f834a925d0c7c5c59a7409023475be4eaa7f6ca53c7`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
 - Signed Zapstore asset `6bec69b7716f087fa1509e287d0ddeaaa7f710ef8f85d7d173fefcac5906abd0` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+
+## 2026-10-14 — 0.57.2 release
+
+- Version 0.57.2 (103), source `9e2bffc`. Generic and mixed file shares now reach the composer; upload classification inspects actual image/video contents instead of provider MIME labels before signing or uploading.
+- Debug and signed release builds passed, including lint/R8. Packaged debug manifest verified to advertise generic shares. No automated tests or live file-explorer checks.
+- APK SHA-256 `13e6f5f7708d6e0a14f5b7531a5d7d63dea344c68793291a57b72cd6b2f520b0`; certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP tags verified.
+- Signed Zapstore asset `190523d5668f36e256c8abea8915c517beb12c395eef9e11f36d7d3d886b907d` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
