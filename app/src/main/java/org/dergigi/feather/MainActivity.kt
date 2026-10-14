@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        receiveImages(intent)
+        receiveMedia(intent)
         receiveNostrLink(intent)
         setContent {
             FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog(composerModel); IssueComposer(composerModel) }
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        receiveImages(intent)
+        receiveMedia(intent)
         receiveNostrLink(intent)
     }
 
@@ -120,9 +120,9 @@ class MainActivity : ComponentActivity() {
         setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
     }
 
-    private fun receiveImages(shared: Intent) {
+    private fun receiveMedia(shared: Intent) {
         if (shared.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE) ||
-            shared.type?.startsWith("image/") != true) return
+            (shared.type?.startsWith("image/") != true && shared.type?.startsWith("video/") != true)) return
         try {
             val streams = if (shared.action == Intent.ACTION_SEND_MULTIPLE)
                 IntentCompat.getParcelableArrayListExtra(shared, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
@@ -130,10 +130,10 @@ class MainActivity : ComponentActivity() {
             val clips = shared.clipData
             val uris = (streams + (0 until (clips?.itemCount ?: 0)).mapNotNull { clips?.getItemAt(it)?.uri })
                 .distinct().filter { it.scheme == "content" }
-            if (uris.isEmpty()) composerModel.message.value = "No readable image was shared."
-            else composerModel.receiveSharedImages(uris)
+            if (uris.isEmpty()) composerModel.message.value = "No readable image or video was shared."
+            else composerModel.receiveSharedMedia(uris)
         } catch (_: Exception) {
-            composerModel.message.value = "Could not read shared images."
+            composerModel.message.value = "Could not read shared media."
         }
         // Do not replay uploads when this activity is recreated. Android retains the URI grants for the task.
         setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) {
     val connectedSigner by vm.signer.collectAsStateWithLifecycle()
-    LaunchedEffect(connectedSigner) { vm.processSharedImages() }
+    LaunchedEffect(connectedSigner) { vm.processSharedMedia() }
     val appState by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(appState.pendingMuteList?.id, connectedSigner) { vm.loadMutes(appState.pendingMuteList) }
     val signerScope = rememberCoroutineScope()
