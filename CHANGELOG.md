@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.59.3] - 2026-10-14
+
 ### Changed
 - Describe connected conversation threads, in-place reply expansion, and preserved reading position on the website.
 
