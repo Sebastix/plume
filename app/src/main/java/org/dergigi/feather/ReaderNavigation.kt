@@ -31,6 +31,7 @@ internal class ReaderEntry(
     var threadPositioned = index != 0 || offset != 0
     var threadRestoreAnchor: Pair<String, Int>? = null
     var expandedThreadParents: List<String> = emptyList()
+    var threadAncestorLimit = INITIAL_THREAD_ANCESTORS
     var tabs: List<ProfileTab> = emptyList()
     var bookmarks: List<Pair<Event, NostrContent.Reference>> = emptyList()
     var people: List<Pair<Event, NostrContent.Reference>> = emptyList()
@@ -57,6 +58,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar)
                 putBoolean("threadPositioned", entry.threadPositioned)
                 putStringArrayList("threadExpanded", ArrayList(entry.expandedThreadParents))
+                putInt("threadAncestorLimit", entry.threadAncestorLimit)
                 if (entry.screen == "thread") {
                     val anchor = entry.list.layoutInfo.visibleItemsInfo.firstOrNull()?.key as? String
                     putString("threadAnchor", anchor ?: entry.threadRestoreAnchor?.first)
@@ -77,6 +79,8 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     bundle.getBoolean("toolbar")).also { entry ->
                     entry.threadPositioned = bundle.getBoolean("threadPositioned")
                     entry.expandedThreadParents = bundle.getStringArrayList("threadExpanded").orEmpty().takeLast(64)
+                    entry.threadAncestorLimit = bundle.getInt("threadAncestorLimit", INITIAL_THREAD_ANCESTORS)
+                        .coerceIn(INITIAL_THREAD_ANCESTORS, MAX_THREAD_ANCESTORS)
                     entry.threadRestoreAnchor = bundle.getString("threadAnchor")?.let { it to bundle.getInt("threadAnchorOffset") }
                     entry.tabs = bundle.getStringArrayList("feedTabs").orEmpty().mapNotNull { name -> ProfileTab.entries.find { it.name == name } }
                     if (entry.screen == "feed") ProfileTab.entries.forEach { category ->

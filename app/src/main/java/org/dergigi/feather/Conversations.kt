@@ -87,6 +87,9 @@ internal object ThreadRelations {
 
 enum class ThreadGap { MISSING, HIDDEN, DELETED, LIMIT, CYCLE }
 
+internal const val INITIAL_THREAD_ANCESTORS = 31
+internal const val MAX_THREAD_ANCESTORS = 255
+
 data class ConversationRow(
     val key: String,
     val event: Event? = null,
@@ -107,7 +110,9 @@ data class Conversation(
 )
 
 /** Bounded graph projection. Run off-main; never infer ancestry from time, author, or root tags. */
-internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>, expanded: Set<String> = emptySet()): Conversation {
+internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>, expanded: Set<String> = emptySet(),
+    ancestorLimit: Int = INITIAL_THREAD_ANCESTORS): Conversation {
+    val parentLimit = ancestorLimit.coerceIn(INITIAL_THREAD_ANCESTORS, MAX_THREAD_ANCESTORS)
     val byId = events.associateBy { it.id }
     val byAddress = events.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         .mapNotNull { e -> ThreadRelations.address(e)?.let { it to e } }.distinctBy { it.first }.toMap()
@@ -120,7 +125,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     val ancestors = mutableListOf<Event>()
     var cursor = focus
     var gap: ConversationRow? = null
-    for (depth in 0..31) {
+    for (depth in 0..parentLimit) {
         if (blocked(cursor)) break
         val ref = parents[cursor.id] ?: break
         val parent = resolve(ref)
@@ -128,7 +133,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             ref.id in used || parent?.id in used -> ThreadGap.CYCLE
             ref.id in deleted || parent?.id in deleted -> ThreadGap.DELETED
             ref.author in filter.authors || parent?.let(filter::hides) == true -> ThreadGap.HIDDEN
-            depth == 31 -> ThreadGap.LIMIT
+            depth == parentLimit -> ThreadGap.LIMIT
             parent == null -> ThreadGap.MISSING
             else -> null
         }
@@ -189,7 +194,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             if (orphan.id in used) return@forEach
             var first = orphan
             val seen = mutableSetOf(orphan.id)
-            for (depth in 0..31) {
+            for (depth in 0..parentLimit) {
                 val ref = parents[first.id] ?: return@forEach
                 val parent = resolve(ref)
                 if (parent?.id in used) return@forEach // An already displayed parent's other branch.
@@ -197,7 +202,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
                     parent?.id in seen -> ThreadGap.CYCLE
                     ref.id in deleted || parent?.id in deleted -> ThreadGap.DELETED
                     ref.author in filter.authors || parent?.let(filter::hides) == true -> ThreadGap.HIDDEN
-                    depth == 31 -> ThreadGap.LIMIT
+                    depth == parentLimit -> ThreadGap.LIMIT
                     parent == null -> ThreadGap.MISSING
                     else -> null
                 }

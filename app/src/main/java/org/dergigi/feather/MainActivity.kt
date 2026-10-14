@@ -272,7 +272,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
         vm.repo.viewThread(destination.target.takeIf { destination.screen == "thread" },
             clicked ?: destination.notes.values.firstNotNullOfOrNull { notes -> notes.find { it.matchesThread(destination.target) } },
-            destination.notes.values.flatten().takeIf { destination.screen == "thread" }.orEmpty(), destination.expandedThreadParents)
+            destination.notes.values.flatten().takeIf { destination.screen == "thread" }.orEmpty(), destination.expandedThreadParents,
+            destination.threadAncestorLimit)
     }
     fun goHome() {
         navigation.entries.forEach { savedScreens.removeState(it.key) }
@@ -761,7 +762,16 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             Column(threadViewport?.rowModifier(row.key) ?: Modifier) {
                                 ProfileTabRow(tabSpace, row.key, profileViewport) {
                                     if (note == null) {
-                                        ConversationGap(row, onOpen = { reference -> openReference(reference) }, onInfo = { title, detail -> statusTitle = title; statusReport = detail })
+                                        ConversationGap(row, onOpen = { reference -> openReference(reference) },
+                                            onInfo = { title, detail -> statusTitle = title; statusReport = detail },
+                                            loading = row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT) && row.reference != null &&
+                                                s.threadId == threadId && s.threadContextLoading && row.reference.id == s.threadLoadingParent,
+                                            onLoadParent = if (screen == "thread") ({
+                                                if (row.gap == ThreadGap.LIMIT && entry.threadAncestorLimit >= MAX_THREAD_ANCESTORS) {
+                                                    statusTitle = "Earlier conversation"
+                                                    statusReport = "This view has reached its limit of $MAX_THREAD_ANCESTORS earlier notes."
+                                                } else vm.repo.loadThreadParent(row)?.let { entry.threadAncestorLimit = it }
+                                            }) else null)
                                     } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
                                     if (note.kind == 30617) ProjectCard(note)
                                     else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
@@ -1040,7 +1050,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
 }
 
 @Composable
-private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit) {
+private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit,
+    loading: Boolean = false, onLoadParent: (() -> Unit)? = null) {
     val rail = MaterialTheme.colorScheme.outlineVariant
     val title = when (row.gap) {
         ThreadGap.HIDDEN -> "Parent note hidden"
@@ -1055,19 +1066,24 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
             drawLine(rail, Offset(x, 42.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
         }
     }.padding(start = 18.dp, top = 4.dp, bottom = 4.dp)) {
-        IconButton(onClick = {
-            if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT) && row.reference != null) onOpen(NostrContent.navigable(row.reference))
+        IconButton(enabled = !loading, onClick = {
+            if (row.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT) && row.reference != null) {
+                if (onLoadParent != null && (row.reference.kind == null || row.reference.kind in readableKinds)) onLoadParent()
+                else onOpen(NostrContent.navigable(row.reference))
+            }
             else onInfo(title, when (row.gap) {
                 ThreadGap.HIDDEN -> "This part of the conversation is hidden by your content settings or mute list."
                 ThreadGap.DELETED -> "A signed deletion request from the author removes this note from the conversation."
                 else -> "The reply references form a loop. Feather stopped following them."
             })
         }) {
-            when (row.gap) {
+            if (loading) CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = "Loading earlier conversation" },
+                strokeWidth = 1.5.dp, color = rail)
+            else when (row.gap) {
                 ThreadGap.HIDDEN -> Icon(painterResource(R.drawable.account_hidden), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.DELETED -> Icon(Icons.Default.Delete, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.CYCLE -> Icon(Icons.Default.Warning, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Icon(painterResource(R.drawable.thread_more), title, tint = rail)
+                else -> Icon(painterResource(R.drawable.thread_more), "Load earlier conversation", tint = rail)
             }
         }
     }

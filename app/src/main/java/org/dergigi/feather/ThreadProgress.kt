@@ -4,13 +4,14 @@ import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 import kotlinx.coroutines.*
 
 /** Observe existing context requests; never creates another subscription or retries a lookup. */
-internal class ThreadProgress(private val scope: CoroutineScope, private val changed: (String?, Boolean) -> Unit) {
+internal class ThreadProgress(private val scope: CoroutineScope, private val changed: (String?, String?, Boolean) -> Unit) {
     private var target: String? = null
     private var reference: NostrContent.Reference? = null
     private val waiting = mutableSetOf<String>()
     private val finished = mutableSetOf<String>()
     private var timeout: Job? = null
     private var generation = 0
+    private var loading = false
 
     @Synchronized
     fun begin(id: String?) {
@@ -29,10 +30,25 @@ internal class ThreadProgress(private val scope: CoroutineScope, private val cha
         restart(ref != null)
     }
 
+    /** Explicit retries share an active lookup rather than starting it again. */
+    @Synchronized
+    fun retry(id: String, ref: NostrContent.Reference): Boolean {
+        if (target != id || (loading && reference?.id == ref.id)) return false
+        reference = ref
+        restart(true)
+        return true
+    }
+
+    @Synchronized
+    fun failed(id: String, ref: NostrContent.Reference) {
+        if (target == id && reference?.id == ref.id) finish()
+    }
+
     private fun restart(loading: Boolean) {
         timeout?.cancel(); waiting.clear(); finished.clear()
         val version = ++generation
-        changed(target, loading)
+        this.loading = loading
+        changed(target, reference?.id, loading)
         if (loading) timeout = scope.launch {
             delay(15_000)
             synchronized(this@ThreadProgress) { if (generation == version) finish() }
@@ -59,6 +75,7 @@ internal class ThreadProgress(private val scope: CoroutineScope, private val cha
 
     private fun finish() {
         timeout?.cancel(); timeout = null
-        changed(target, false)
+        loading = false
+        changed(target, reference?.id, false)
     }
 }

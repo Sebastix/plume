@@ -7,6 +7,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Changed
 - Describe connected conversation threads, in-place reply expansion, and preserved reading position on the website.
 
+### Fixed
+- Load parents from the thread’s upper ellipsis in place, retaining the focused note, reading position, and Back history. Check cached events first and preserve expanded ancestry when returning to the thread.
+
 ## [0.59.2] - 2026-10-14
 
 ### Changed
