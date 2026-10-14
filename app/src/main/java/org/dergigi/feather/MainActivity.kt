@@ -14,6 +14,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
@@ -749,8 +751,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     }
                                 }
                             }
-                        } else items(displayRows, key = { it.key }) { row ->
+                        } else itemsIndexed(displayRows, key = { _, row -> row.key }) { rowIndex, row ->
                             val note = row.event
+                            // The graph's preceding connected event is the immediate parent. A gap,
+                            // hidden event or deletion is not a rendered parent, even after loading ends.
+                            val parentRendered = row.above && displayRows.getOrNull(rowIndex - 1)?.event?.let {
+                                !contentFilter.hides(it) && it.id !in threadView?.deleted.orEmpty()
+                            } == true
                             Column(threadViewport?.rowModifier(row.key) ?: Modifier) {
                                 ProfileTabRow(tabSpace, row.key, profileViewport) {
                                     if (note == null) {
@@ -762,7 +769,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         openNote(original)
                                     } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
                                         compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
-                                        showParent = if (screen == "thread") row.focused else !row.above,
+                                        showParent = if (screen == "thread") row.focused && !parentRendered else !row.above,
                                         parentLoading = screen == "thread" && row.focused && s.threadId == threadId && s.threadContextLoading,
                                         onMore = if (screen == "thread") ({
                                             entry.expandedThreadParents = (entry.expandedThreadParents + note.id).distinct().takeLast(64)
@@ -943,7 +950,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             NoteTimestamp(note)
         }
         Column(Modifier.padding(start = if (inset) 48.dp else 0.dp)) {
-        if (showParent) ReplyContext(note, state.embedded, state.profiles, onReference, parentLoading)
+        AnimatedVisibility(showParent,
+            enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Top),
+            exit = fadeOut(tween(140)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Top)) {
+            ReplyContext(note, state.embedded, state.profiles, onReference, parentLoading)
+        }
         Spacer(Modifier.height(12.dp))
         when {
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
@@ -977,12 +988,15 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         LinkPreviews(body)
             }
         }
+        } // Surrounding replies stay beside the avatar rail; the selected note uses the full width.
         if (note.kind !in listOf(7, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
+            val more = threadRow?.more == true
             val leftActions: @Composable () -> Unit = {
             // Keep a little breathing room inside the text edge, independent of reply counts.
-            Row(Modifier.offset(x = (-12).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
+            // A continuation control owns the gutter beside this row; keep their tap areas separate.
+            Row(Modifier.offset(x = if (more) 0.dp else (-12).dp).widthIn(min = 56.dp).heightIn(min = 48.dp).clip(CircleShape).clickable(onClickLabel = "Reply to note", onClick = { reply(note) }).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start)) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                     Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1001,24 +1015,26 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
                 NoteZap(note, counts, state.publicKey)
             }
-            if (inset) {
-                // Preserve full touch targets when the avatar rail narrows a reply on small screens.
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { leftActions() }
+            Box(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp)) {
+                if (inset || more) {
+                    // Preserve full touch targets when the avatar rail narrows a reply on small screens.
+                    FlowRow(Modifier.fillMaxWidth().padding(start = 48.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(verticalAlignment = Alignment.CenterVertically) { leftActions() }
+                        expandAction()
+                        Row(verticalAlignment = Alignment.CenterVertically) { rightActions() }
+                    }
+                } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { leftActions() }
                     expandAction()
-                    Row(verticalAlignment = Alignment.CenterVertically) { rightActions() }
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) { rightActions() }
                 }
-            } else Row(Modifier.fillMaxWidth().padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { leftActions() }
-                expandAction()
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) { rightActions() }
+                // Share the actions' height. Bottom alignment also keeps the rail gap aligned if counts wrap.
+                if (more) IconButton(onClick = onMore ?: onOpen,
+                    modifier = Modifier.align(Alignment.BottomStart).size(48.dp)) {
+                    Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation",
+                        Modifier.offset(x = (-6).dp).size(24.dp), tint = rail)
+                }
             }
-        }
-        } // Surrounding replies stay beside the avatar rail; the selected note uses the full width.
-        if (threadRow?.more == true) IconButton(onClick = onMore ?: onOpen,
-            modifier = Modifier.offset(x = (-6).dp).size(48.dp)) {
-            Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation", Modifier.size(24.dp),
-                tint = rail)
         }
     }
 }

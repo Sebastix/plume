@@ -4,9 +4,13 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.59.2] - 2026-10-14
+
 ### Changed
 - Use ngit / GRASP as the website header’s repository link, opening Feather’s code and issues on GitWorkshop.
 - Match thread continuation dots to the connecting line’s color in light and dark mode.
+- Place thread continuation dots beside the note actions in the avatar gutter, without an extra row.
+- Fade and collapse the selected note’s parent summary once its parent is rendered above it; keep the summary when the parent is unavailable.
 
 ## [0.59.1] - 2026-10-14
 
