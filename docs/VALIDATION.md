@@ -1075,3 +1075,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256 `04e5f9d79c61657ec83211dcea7cd1c140c28de3a29d58e9243a41e3d9236670`; 15,623,877 bytes. Certificate matches prior releases. Mapping archived locally. GitHub digest and both GRASP release tags verified.
 - Signed Zapstore release `55e59ce896338095567946ff6c9147cd1afb859b6c707684902dcb5000e7be96` and asset `c0b274a248975e8b3a4a9d19b282e8242f7ef9e57824249fd8d0d7f02d814691` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
 - Thread redesign remains separate. The existing `checkpoint/pre-thread-redesign` tag still points to `36f4056` (0.58.0 plus validation).
+
+## 2026-10-14 — 0.59.0 release
+
+- Version 0.59.0 (106), source `325d6f5`. Connected ancestor chains, focused-note layout, grouped reply branches, cache-only self-thread previews in Posts, explicit ancestry gaps, direct-reply counts and conversation scroll restoration.
+- Debug compilation and the signed release build passed, including lint/R8. Reviewed NIP-10 marked/positional replies, NIP-22 parent versus root scopes, addressable parents, legacy app comments, quote exclusion, author-matched deletion requests, muted/sensitive ancestry, cycle/depth bounds, stable row keys and independent navigation state. No automated tests or live device interaction checks were run; no Android device was connected.
+- Exact-ID network requests still have one construction site behind the shared cache check. Thread work is bounded to 320 candidate events, 31 displayed ancestors, eight missing-parent lookups, 12 discovery parent IDs and 512 retained deleted-note IDs. Existing connection limits remain in place. Actual relay coverage, visual layout and scroll behavior remain for device testing; no exhaustive-history or measured-performance claim is made.
+- APK SHA-256 `5237e8ba1b8764218626caaeb90811e4f793f40f50e5b6fb47872ea7e23dbc7c`; 15,624,405 bytes. Certificate matches prior releases; mapping archived locally. GitHub asset digest and both GRASP release tags verified.
+- Signed Zapstore release `44897c97e199972893843e860fdaf7c4b078a6d174e7cacfef2086c719bca532` and asset `44ab4c94423c4f28ab47b304e34337ab4a3dfea27a0df2f42fa5fbfcb219d4da` verified with matching hash, certificate and versionCode; CDN HTTP 200. Website unchanged.
+- Rollback tag `checkpoint/cache-first-before-threads` points to `068420b` (0.58.1 plus verification), verified on GitHub and both GRASP mirrors. It retains the cache-first fix without the thread redesign.
