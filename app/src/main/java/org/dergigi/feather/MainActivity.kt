@@ -1018,7 +1018,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         if (threadRow?.more == true) IconButton(onClick = onMore ?: onOpen,
             modifier = Modifier.offset(x = (-6).dp).size(48.dp)) {
             Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation", Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                tint = rail)
         }
     }
 }
@@ -1051,7 +1051,7 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
                 ThreadGap.HIDDEN -> Icon(painterResource(R.drawable.account_hidden), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.DELETED -> Icon(Icons.Default.Delete, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.CYCLE -> Icon(Icons.Default.Warning, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Icon(painterResource(R.drawable.thread_more), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> Icon(painterResource(R.drawable.thread_more), title, tint = rail)
             }
         }
     }

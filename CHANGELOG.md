@@ -6,6 +6,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Changed
 - Use ngit / GRASP as the website header’s repository link, opening Feather’s code and issues on GitWorkshop.
+- Match thread continuation dots to the connecting line’s color in light and dark mode.
 
 ## [0.59.1] - 2026-10-14
 
