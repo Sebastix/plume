@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Apply verified author deletions across main feeds, profile feeds, cached navigation and embedded content. Discover deletion requests for visible notes on bounded relay subscriptions, persist bounded public deletion history across restarts, and prevent retained feed snapshots or stale relay copies from resurrecting deleted content. Keep cached-text reveal exclusive to threads.
+
 ## [0.63.0] - 2026-10-15
 
 ### Added

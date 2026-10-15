@@ -1166,3 +1166,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including its standard lint/R8 pipeline. No tests or emulator runs for this release; the user performs device validation. Updated AGENTS.md to retain that workflow. Earlier debug-build evidence for the deleted-note implementation above predates that instruction.
 - APK SHA-256 `fd6caa156789cd0f1d126ef667baa01edb49c4690436fd8e6c37a07d8598b316`; 15,674,873 bytes. Packaged version, embedded commit and existing signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
 - Signed Zapstore release `c03ce0e9d46c20bc30c3d54414823f9dda78a1d06cf2166d7d08b10a01ea8842` and asset `f9a8d377bec32adfed9b9cd26251b7473f2ee06f39ffe2577fe5a7a0a85faa09` retrieved and verified after retrying an empty asset lookup. Hash, versionCode and certificate match; CDN returns HTTP 200 with matching size. No website deployment.
+
+## Unreleased — shared note deletion handling
+
+- Source review covered signature and author matching, address timestamp cutoffs, startup restoration, retained timeline/pagination copies, embedded originals, muted/deleted thread reveal, and bounded visible-note deletion discovery. Deletion requests are separate new events; original event IDs are not re-fetched.
+- No build, tests or emulator runs, per the requested device-validation workflow. Release remains pending an explicit request.

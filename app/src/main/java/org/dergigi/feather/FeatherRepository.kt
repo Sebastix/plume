@@ -96,6 +96,8 @@ class FeatherRepository(context: Context) {
     private val repostStore = RepostStore(context)
     private val reactionStore = ReactionStore(context)
     private val reactionDeletions = ReactionDeletions(context)
+    private val noteDeletions = NoteDeletions(context)
+    @Volatile private var deletionTargets: List<Event> = emptyList()
     @Volatile private var deletedReactions: Set<Pair<String, String>> = emptySet()
     private fun engagementDeleted(event: Event) = event.kind in listOf(6, 7, 16) && (event.pubKey to event.id) in deletedReactions
     private val muteCache = MuteCache(context)
@@ -242,7 +244,10 @@ class FeatherRepository(context: Context) {
             }
         })
         scope.launch {
-            try { recentThreads.load(); trimCache(); ready.complete(Unit); snapshot() }
+            try {
+                noteDeletions.load(mutex.withLock { db.query<Event>(Filter(kinds = listOf(5), limit = 512)) })
+                recentThreads.load(); trimCache(); ready.complete(Unit); snapshot()
+            }
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
         scope.launch { ready.await(); changed.sample(250).collect { snapshot() } }
@@ -482,6 +487,17 @@ class FeatherRepository(context: Context) {
             it.normalizeRelayUrl() to packs.map { pack -> pack.filter() }
         }, listener)
 
+        val deletionNotes = deletionTargets
+        if (deletionNotes.isEmpty()) client.unsubscribe("visible-deletions")
+        else {
+            val filters = listOf(Filter(kinds = listOf(5), tags = mapOf("e" to deletionNotes.map { it.id }.sorted()), limit = 256)) +
+                deletionNotes.mapNotNull(ThreadRelations::address).distinct().sorted().takeIf { it.isNotEmpty() }
+                    ?.let { listOf(Filter(kinds = listOf(5), tags = mapOf("a" to it), limit = 256)) }.orEmpty()
+            val routes = (deletionNotes.flatMap { relayLists[it.pubKey]?.write.orEmpty() } + routingPool)
+                .distinct().filter { it != "wss://purplepag.es" && healthy(it) }.take(8)
+            client.subscribe("visible-deletions", routes.associate { it.normalizeRelayUrl() to filters }, listener)
+        }
+
         val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + profileAuthors).distinct().take(160)
         val metadata = routingPool.associate { url ->
             url.normalizeRelayUrl() to targets.chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) }
@@ -624,6 +640,17 @@ class FeatherRepository(context: Context) {
             // Discard duplicates; never promote their unchecked contents into the lookup cache.
             if (cached == true && !history && !requested) return true
             if (!event.verify()) return false
+            if (event.kind == 5) {
+                noteDeletions.put(event)
+                val originals = cachedEventsLocked(event.tags.filter { it.size > 1 && it[0] == "e" }.map { it[1] }).values
+                rememberDeleted(originals + cachedViewEvents() + exactEventCache.values)
+                changed.tryEmit(Unit)
+                threadChanges.tryEmit(Unit)
+            } else if (noteDeletions.hides(event)) {
+                rememberDeleted(listOf(event))
+                changed.tryEmit(Unit)
+                return false
+            }
             // An explicit miss can outlive the stored copy (cache eviction). Re-cache it even
             // when its ID remains in the small verification memo.
             if (cached == null || requested) {
@@ -680,13 +707,25 @@ class FeatherRepository(context: Context) {
         if (viewedThread != null && event.kind in (readableKinds + 5)) threadChanges.tryEmit(Unit)
         return true
     }
+    private fun cachedViewEvents(): List<Event> = state.value.let {
+        it.notes + it.profileEvents + it.hashtagNotes + it.notifications + it.threadNotes +
+            it.embedded.values + it.feedPreviews.values.flatten() + olderEvents + listOfNotNull(galleryNote)
+    }
+
+    private fun rememberDeleted(events: Collection<Event>) {
+        val deleted = events.filter(noteDeletions::hides).map { it.id }
+        if (deleted.isNotEmpty()) _state.update {
+            it.copy(deletedNotes = (it.deletedNotes + deleted).toList().takeLast(4096).toSet())
+        }
+    }
+
     private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
         val filters = filter.activityFilters()
-        val matching = (db.query<Event>(filters) + previous + olderEvents).filter { event -> filters.any { it.match(event) } }
+        val matching = (db.query<Event>(filters) + previous + olderEvents).filter { event -> !noteDeletions.hides(event) && filters.any { it.match(event) } }
         // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
         // Keep these anchors when advancing the bounded window.
         val pinned = if (filter.until != null) previous.filter { it.id in visibleIds } else emptyList()
-        (matching + pinned).asSequence().filterNot(::engagementDeleted).distinctBy { it.id }
+        (matching + pinned).asSequence().filterNot(noteDeletions::hides).filterNot(::engagementDeleted).distinctBy { it.id }
             .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit).toList()
     }
     private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
@@ -737,7 +776,7 @@ class FeatherRepository(context: Context) {
                 replyRows.take(6).map { it.id }).distinct().take(11)
             _state.update { it.copy(threadNotes = notes, conversation = view,
                 loading = if (view != null) false else it.loading,
-                deletedNotes = (it.deletedNotes + view?.deleted.orEmpty()).toList().takeLast(512).toSet()) }
+                deletedNotes = (it.deletedNotes + view?.deleted.orEmpty()).toList().takeLast(4096).toSet()) }
             if (view != null) threadProgress.expect(request.id,
                 (threadRequestedParent ?: view.rows.firstOrNull { it.ancestor && it.gap == ThreadGap.MISSING }?.reference)
                     ?.takeIf { it.kind == null || it.kind in readableKinds })
@@ -832,6 +871,7 @@ class FeatherRepository(context: Context) {
                 deletedAddresses[event.pubKey to address]?.let { event.createdAt <= it }
             } == true
         }.map { it.id }.toSet()
+        rememberDeleted(pool.values)
         var view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, request.expanded, ancestorLimit)
         // A tapped branch gap gets a slot in the existing eight-parent lookup budget.
         if (requestedParent != null && view.rows.any { it.gap == ThreadGap.MISSING && it.reference?.id == requestedParent.id }) {
@@ -842,6 +882,7 @@ class FeatherRepository(context: Context) {
 
     private suspend fun snapshotContents() {
         deletedReactions = reactionDeletions.deleted()
+        rememberDeleted(cachedViewEvents())
         val key = _state.value.publicKey
         val thread = viewedThread
         val ancestorLimit = threadAncestorLimit
@@ -870,7 +911,7 @@ class FeatherRepository(context: Context) {
                 db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() })
             }
             val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
-            val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
+            val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(noteDeletions::hides).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
             feedDiscoveryPages = ProfileTab.entries.associateWith { candidate -> discoveryEvents.filter(candidate::matchesFeed) }
             feedDiscoveryKey = discoveryKey
             feedDiscoveryAt = discoveryNow
@@ -1025,6 +1066,8 @@ class FeatherRepository(context: Context) {
         val customEmojis = (ownReactions.mapNotNull(::reactionChoice).filter { it.image != null } + collection)
             .distinctBy { it.key }.take(1024)
 
+        rememberDeleted(embedded.values + all + profileEvents + hashtagNotes + notifications)
+        deletionTargets = (visible + reposts + embedded.values).distinctBy { it.id }.filterNot(noteDeletions::hides).take(48)
         val packsChanged = emojiPackRequests != packs
         val readingChanged = references != refs || profileAuthors != authors || packsChanged
         references = refs
