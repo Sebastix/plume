@@ -1190,3 +1190,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including standard lint/R8. No tests or emulator runs; device validation remains with the user.
 - APK SHA-256 `aa78b57d5ecb012e101fe512e71296c96dc93acff7912935b2a0d58596e54ff8`; 15,658,493 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
 - Signed Zapstore release `d4de69e114d5b8b3f57da39df2ad392d5a24f3dfe1e2d6f49c3f6e860d83d4d6` and asset `6546bd1c61d98be335ee3af0fa3510dff2ca898bbbb73f717a743bacd7d1792c` retrieved and verified after retrying empty asset lookups. Hash, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## Unreleased — audio playback speed
+
+- Added shared widget speed selection and a Media3 media-session custom speed-cycle command up to 3×. Reviewed controller synchronization, trusted-controller command availability and installed Media3 1.11.1 API signatures. Android controls follow the platform media-button preferences mechanism.
+- No build, tests or emulator runs; awaiting release request and user device validation.

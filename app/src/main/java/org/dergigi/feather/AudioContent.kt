@@ -18,12 +18,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+internal val audioSpeeds = listOf(.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f)
+internal fun audioSpeedLabel(speed: Float) = "${speed.toString().removeSuffix(".0")}×"
 
 internal val voiceKinds = listOf(1222, 1244)
 internal data class AudioInfo(val url: String?, val mime: String?, val title: String?, val description: String,
@@ -47,6 +52,13 @@ internal fun audioInfo(event: Event): AudioInfo {
 class AudioPlayback internal constructor(private val context: Context) {
     var player by mutableStateOf<androidx.media3.session.MediaController?>(null)
         private set
+    var speed by mutableFloatStateOf(1f)
+        private set
+    internal fun setSpeed(value: Float) {
+        if (value !in audioSpeeds) return
+        speed = value
+        player?.setPlaybackSpeed(value)
+    }
     var activeId by mutableStateOf<String?>(null)
         private set
     var requested by mutableStateOf(false)
@@ -73,10 +85,14 @@ class AudioPlayback internal constructor(private val context: Context) {
             try {
                 val controller = future.get()
                 player = controller
+                // Preserve a speed chosen before playback; reconnecting adopts the service's speed.
+                if (controller.currentMediaItem == null) controller.setPlaybackSpeed(speed)
+                speed = controller.playbackParameters.speed
                 controller.addListener(object : Player.Listener {
                     override fun onEvents(player: Player, events: Player.Events) {
                         requested = player.playWhenReady && player.playbackState != Player.STATE_ENDED
                         activeId = player.currentMediaItem?.mediaId
+                        speed = player.playbackParameters.speed
                     }
                 })
                 toggleConnected(controller, id, info, author)
@@ -122,6 +138,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
     var duration by remember(id, data.duration) { mutableLongStateOf(data.duration) }
     var buffering by remember(id) { mutableStateOf(false) }
     var dragging by remember(id) { mutableStateOf<Float?>(null) }
+    var speedMenu by remember(id) { mutableStateOf(false) }
     LaunchedEffect(player, media.active) {
         if (player == null) { position = 0; buffering = false; return@LaunchedEffect }
         while (media.active) {
@@ -159,9 +176,24 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                     Slider(value = dragging ?: if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
                         onValueChange = { dragging = it }, onValueChangeFinished = { dragging?.let { player?.seekTo((it * duration).toLong()) }; dragging = null },
                         enabled = player != null && duration > 0, modifier = Modifier.weight(1f))
-                    Text(if (duration > 0) "${audioTime(position)} / ${audioTime(duration)}" else audioTime(position),
-                        style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp))
+                    Box {
+                        TextButton(enabled = audio != null && !audio.connecting,
+                            onClick = { speedMenu = true },
+                            modifier = Modifier.semantics { contentDescription = "Playback speed ${audioSpeedLabel(audio?.speed ?: 1f)}" }) {
+                            Text(audioSpeedLabel(audio?.speed ?: 1f), style = MaterialTheme.typography.labelMedium)
+                        }
+                        DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
+                            audioSpeeds.forEach { speed ->
+                                DropdownMenuItem(text = { Text(audioSpeedLabel(speed)) },
+                                    trailingIcon = { if (audio?.speed == speed) Icon(Icons.Default.Check, "Selected") },
+                                    onClick = { audio?.setSpeed(speed); speedMenu = false })
+                            }
+                        }
+                    }
                 }
+                Text(if (duration > 0) "${audioTime(position)} / ${audioTime(duration)}" else audioTime(position),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.End).padding(horizontal = 8.dp))
             }
         }
     }

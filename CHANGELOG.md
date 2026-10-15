@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Audio playback-speed menu with 0.75×, 1×, 1.25×, 1.5×, 1.75×, 2×, 2.5× and 3× presets. Add a synchronized speed-cycle action to Android media controls for podcasts and voice notes.
+
 ## [0.63.2] - 2026-10-15
 
 ### Changed
