@@ -10,6 +10,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -119,7 +121,21 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     // the pill near its edges instead of revealing nonexistent pages.
                     for ((index, category) in tabs.withIndex()) {
                         key(category) {
-                            IconButton(onClick = {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.offset {
+                                val position = pager.currentPage + pager.currentPageOffsetFraction
+                                val start = (position - (slots - 1) / 2f).coerceIn(0f, maxStart)
+                                IntOffset(((index - start) * slotWidth.toPx()).roundToInt(), 0)
+                            }.width(slotWidth).height(48.dp).clip(CircleShape).combinedClickable(
+                                role = Role.Button,
+                                onLongClickLabel = "Go to home feed",
+                                onLongClick = {
+                                    if (!reordering) scope.launch {
+                                        val homeIndex = currentTabs.indexOf(ProfileTab.POSTS)
+                                        if (homeIndex >= 0) pager.scrollToPage(homeIndex)
+                                        home.toolbar = true
+                                    }
+                                },
+                                onClick = {
                                 if (!reordering) scope.launch {
                                     if (index == pager.settledPage && !pager.isScrollInProgress) {
                                         val list = home.feedPage(category).list
@@ -127,11 +143,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                         home.toolbar = true
                                     } else pager.animateScrollToPage(index)
                                 }
-                            }, modifier = Modifier.offset {
-                                val position = pager.currentPage + pager.currentPageOffsetFraction
-                                val start = (position - (slots - 1) / 2f).coerceIn(0f, maxStart)
-                                IntOffset(((index - start) * slotWidth.toPx()).roundToInt(), 0)
-                            }.width(slotWidth).height(48.dp).semantics {
+                            }).semantics {
                                 contentDescription = "${category.label} feed"
                                 selected = index == pager.currentPage
                             }) {

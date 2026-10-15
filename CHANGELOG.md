@@ -7,6 +7,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [0.64.2] - 2026-10-15
 
 ### Changed
+- Long-press any icon in the bottom feed switcher to jump directly back to the home Posts feed.
 - Limit the long-press zap picker to three columns and three rows, with up to seven amounts sorted from smallest to largest and the custom-amount and comment buttons together in the final two cells.
 
 ## [0.64.1] - 2026-10-15
