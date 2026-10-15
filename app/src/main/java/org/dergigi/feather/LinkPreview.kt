@@ -260,7 +260,7 @@ private fun OpenGraphCard(link: PreviewLink) {
                 visible = bounds.bottom > 0 && bounds.top < view.height
             }) {
             Column(Modifier.padding(12.dp)) {
-                AudioPlayerContent(FountainLinks.canonical(link.url) ?: link.url,
+                AudioPlayerContent("podcast:${episode.audio}",
                     AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
                     compact = true, author = episode.site ?: link.host, smallArtwork = true)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
