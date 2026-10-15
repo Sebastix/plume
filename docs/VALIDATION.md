@@ -1207,3 +1207,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Moved artwork beside playback controls, measuring the controls first and giving the artwork the same height in one layout pass. Moved show name beside the duration and external navigation into the title row; removed the separate footer. Voice-note layout and shared playback behavior remain intact.
 - Source review only. No build, tests or emulator runs; awaiting a release request and device validation.
+
+## 2026-10-15 — 0.64.1 release
+
+- Version 0.64.1 (120), source `2d9936d7cc26fc64f78914341bc688790ca9af58`. Compact podcast artwork now matches the player height; the show name shares the duration row and external navigation sits at the top right.
+- Retraced the reported `visitAncestors called on an unattached node` crash to Material 3 child semantics. Added a narrow build-time attachment guard; inspected the actual transformed dependency bytecode to confirm the early return precedes ancestor traversal. Attached controls retain their original semantics. See COMPOSE_WORKAROUND.md.
+- Signed release build passed, including standard lint/R8. No tests or emulator runs. Crash behavior and layout remain for device confirmation.
+- APK SHA-256 `4e9101312a9794b2c7cd315a5af4f198749031f28ebdd801605c0fbffc8ef0e9`; 15,674,877 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
+- Signed Zapstore release `f19cf4b576886fab4953eb27b939476849a17c9a81a75d654016fbdb4bf7a3fa` and asset `b7e99e989e78a72ef3241a4781c5ece78e73a4c8ad08e7b11703b4942944fdbd` retrieved with signature verification. Hash, versionCode, size and certificate match; CDN HTTP 200 with matching size. No website deployment.
