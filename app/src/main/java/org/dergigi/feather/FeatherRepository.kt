@@ -87,6 +87,11 @@ class FeatherRepository(context: Context) {
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
     private val snapshotMutex = Mutex()
+    private val threadMutex = Mutex()
+    private val recentThreads = RecentThreads(context, scope)
+    private val threadChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    private val threadGeneration = java.util.concurrent.atomic.AtomicLong()
+    private var threadRestoreJob: Job? = null
     private val reactionMutex = Mutex()
     private val repostStore = RepostStore(context)
     private val reactionStore = ReactionStore(context)
@@ -109,6 +114,7 @@ class FeatherRepository(context: Context) {
         check(prefs.edit().putBoolean("show-sensitive", show).commit()) { "Could not save content setting" }
         _state.update { it.copy(showSensitive = show) }
         feedDiscoveryAt = 0L
+        threadChanges.tryEmit(Unit)
         changed.tryEmit(Unit)
     }
     suspend fun proofOfWork(enabled: Boolean) = withContext(Dispatchers.IO) {
@@ -186,6 +192,7 @@ class FeatherRepository(context: Context) {
         val bounded = ids.distinct().take(32)
         if (bounded == visibleIds) return
         visibleIds = bounded
+        if (viewedThread != null) threadChanges.tryEmit(Unit)
         changed.tryEmit(Unit)
     }
     fun openReference(reference: NostrContent.Reference?) { openedReference = reference }
@@ -235,10 +242,11 @@ class FeatherRepository(context: Context) {
             }
         })
         scope.launch {
-            try { trimCache(); snapshot(); ready.complete(Unit) }
+            try { recentThreads.load(); trimCache(); ready.complete(Unit); snapshot() }
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
-        scope.launch { changed.sample(250).collect { snapshot() } }
+        scope.launch { ready.await(); changed.sample(250).collect { snapshot() } }
+        scope.launch { ready.await(); threadChanges.sample(150).collect { refreshConversation() } }
         scope.launch {
             ready.await()
             for (ignored in eventLookupChanges) {
@@ -254,6 +262,7 @@ class FeatherRepository(context: Context) {
     fun foreground() {
         active = true
         foregroundActive.value = true
+        threadChanges.tryEmit(Unit)
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
         discoveryJob?.cancel()
         discoveryJob = scope.launch {
@@ -282,6 +291,7 @@ class FeatherRepository(context: Context) {
             _state.update { it.copy(loading = true, error = null) }
             scope.launch {
                 ready.await()
+                threadChanges.tryEmit(Unit)
                 if (active) {
                     client.unsubscribe("thread")
                     client.unsubscribe("thread-deletions")
@@ -519,6 +529,7 @@ class FeatherRepository(context: Context) {
             s.notes.asSequence(), s.profileEvents.asSequence(), s.hashtagNotes.asSequence(),
             s.notifications.asSequence(), s.feedPreviews.values.asSequence().flatten(),
             olderEvents.asSequence(), listOfNotNull(galleryNote).asSequence(),
+            recentThreads.events(wanted).asSequence(),
         ).flatten().filter { it.id in wantedIds }.associateBy { it.id }
         val missing = wanted.filterNot(memory::containsKey)
         val disk = if (missing.isEmpty()) emptyList() else db.query<Event>(Filter(ids = missing, limit = missing.size))
@@ -646,6 +657,8 @@ class FeatherRepository(context: Context) {
                         return false
                     }
                 }
+                // Protect an older reply as soon as it arrives, before any cache pruning.
+                retainThreadEvent(event)
                 if (outcome == IEventStore.InsertOutcome.Accepted && ++inserts % 200 == 0) trimCacheLocked()
             }
             completeEventLookup(event)
@@ -664,6 +677,7 @@ class FeatherRepository(context: Context) {
             if (original != null) accept(original)
         }
         changed.tryEmit(Unit)
+        if (viewedThread != null && event.kind in (readableKinds + 5)) threadChanges.tryEmit(Unit)
         return true
     }
     private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
@@ -677,15 +691,83 @@ class FeatherRepository(context: Context) {
     }
     private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
 
+    private data class ThreadRequest(val id: String, val generation: Long, val account: String?, val sensitive: Boolean, val muted: Set<String>,
+        val ancestors: Int, val expanded: Set<String>, val requestedParent: NostrContent.Reference?,
+        val reference: NostrContent.Reference?, val parents: List<String>)
+
+    @Synchronized
+    private fun threadRequest(): ThreadRequest? = viewedThread?.let {
+        ThreadRequest(it, threadGeneration.get(), state.value.publicKey, state.value.showSensitive, state.value.mutedAuthors,
+            threadAncestorLimit, threadExpanded, threadRequestedParent, openedReference?.takeIf { ref -> ref.id == it }, threadParents)
+    }
+
+    /** A dedicated cache-only path. Feed, profile and engagement work never gates this display. */
+    private suspend fun refreshConversation() {
+        try { updateConversation() }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            // Keep the existing view and the update collector alive after a transient cache error.
+            android.util.Log.w("FeatherRepository", "Could not restore the cached conversation", e)
+        }
+    }
+
+    private suspend fun updateConversation() = threadMutex.withLock {
+        val request = threadRequest() ?: return@withLock
+        val muteList = request.account?.let { author -> mutex.withLock {
+            db.query<Event>(Filter(kinds = listOf(10000), authors = listOf(author), limit = 1)).firstOrNull()
+                ?: db.query<Event>(Filter(kinds = listOf(30000), authors = listOf(author), tags = mapOf("d" to listOf("mute")), limit = 1)).firstOrNull()
+        } }
+        val muted = request.muted + mutedPublicKeys(muteList) + muteList?.takeIf { it.content.isNotBlank() }?.let { muteCache.read(it, exact = false) }.orEmpty()
+        val (notes, view, deletions) = loadConversation(request, muted)
+        currentCoroutineContext().ensureActive()
+        synchronized(this) {
+            if (threadRequest() != request) return@withLock
+            recentThreads.remember(request.id, notes, deletions)
+            threadContext = view
+            if (request.requestedParent != null && view?.rows.orEmpty().none {
+                    it.gap == ThreadGap.MISSING && it.reference?.id == request.requestedParent.id
+                }) threadRequestedParent = null
+            val replyRows = view?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { it.event }
+            threadParents = (threadExpanded.toList().takeLast(4) + replyRows.filter { it.id in visibleIds }.map { it.id } +
+                replyRows.take(6).map { it.id }).distinct().take(11)
+            _state.update { it.copy(threadNotes = notes, conversation = view,
+                loading = if (view != null) false else it.loading,
+                deletedNotes = (it.deletedNotes + view?.deleted.orEmpty()).toList().takeLast(512).toSet()) }
+            if (view != null) threadProgress.expect(request.id,
+                (threadRequestedParent ?: view.rows.firstOrNull { it.ancestor && it.gap == ThreadGap.MISSING }?.reference)
+                    ?.takeIf { it.kind == null || it.kind in readableKinds })
+        }
+        changed.tryEmit(Unit) // Author pictures and engagement can fill in independently.
+        if (active && viewedThread == request.id) { subscribeThread(request.id); subscribeReadingData() }
+    }
+
+    /** Retain only events connected to the opened thread, never the concurrent general feed. */
+    private fun retainThreadEvent(event: Event) {
+        val id = viewedThread ?: return
+        val current = state.value.threadNotes.takeIf { state.value.threadId == id }.orEmpty()
+        val known = (recentThreads.ids(id) + current.flatMap { listOfNotNull(it.id, ThreadRelations.address(it)) } + id).toSet()
+        val missing = threadContext?.takeIf { it.target == id }?.missing.orEmpty().map { it.id }
+        if (event.kind == 5) {
+            if (event.tags.any { it.firstOrNull() in listOf("e", "a") && it.getOrNull(1) in known })
+                recentThreads.remember(id, emptyList(), listOf(event))
+        } else if (event.kind in readableKinds && (event.id in known || event.id in missing || event.matchesThread(id) ||
+                ThreadRelations.parent(event)?.id in known || ThreadRelations.root(event)?.id in known)) {
+            recentThreads.remember(id, listOf(event))
+        }
+    }
+
     /** Resolve ancestry locally first, then project a bounded graph around the selected event. */
-    private suspend fun loadConversation(id: String, mutedAuthors: Set<String>, ancestorLimit: Int,
-        requestedParent: NostrContent.Reference?): Pair<List<Event>, Conversation?> {
-        val addressFilter = openedReference?.takeIf { it.id == id }?.addressFilter()
+    private suspend fun loadConversation(request: ThreadRequest, mutedAuthors: Set<String>): Triple<List<Event>, Conversation?, List<Event>> {
+        val id = request.id
+        val ancestorLimit = request.ancestors
+        val requestedParent = request.requestedParent
+        val addressFilter = request.reference?.addressFilter()
+        val remembered = mutex.withLock { cachedEventsLocked(recentThreads.ids(id)).values.toList() }
         val focus = mutex.withLock {
             if (addressFilter != null) db.query<Event>(addressFilter).firstOrNull()
             else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
-        } ?: state.value.threadNotes.find { it.matchesThread(id) } ?: return emptyList<Event>() to null
-        val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
+        } ?: (state.value.threadNotes + remembered).find { it.matchesThread(id) } ?: return Triple(emptyList(), null, emptyList())
+        val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = request.sensitive, deletedNotes = state.value.deletedNotes)
         val ancestors = linkedMapOf(focus.id to focus)
         var cursor = focus
         for (depth in 0..ancestorLimit) {
@@ -697,9 +779,9 @@ class FeatherRepository(context: Context) {
             if (filter.hides(parent)) { ancestors[parent.id] = parent; break }
             ancestors[parent.id] = parent; cursor = parent
         }
-        val cached = mutex.withLock { db.query<Event>(ThreadRelations.discovery(focus, id, threadParents)) }
+        val cached = mutex.withLock { db.query<Event>(ThreadRelations.discovery(focus, id, request.parents)) }
         val retained = state.value.threadNotes.takeIf { state.value.threadId == id }.orEmpty()
-        val pool = (ancestors.values + retained.filter { it.id in visibleIds } + cached + retained).distinctBy { it.id }.take(320).associateByTo(linkedMapOf()) { it.id }
+        val pool = (ancestors.values + retained.filter { it.id in visibleIds } + remembered + cached + retained).distinctBy { it.id }.take(320).associateByTo(linkedMapOf()) { it.id }
         val missingParents = (listOfNotNull(requestedParent) + threadContext?.takeIf { it.target == id }?.missing.orEmpty() + pool.values.mapNotNull(ThreadRelations::parent))
             .filter { it.id !in pool && it.author !in mutedAuthors && (it.kind == null || it.kind in readableKinds) }.distinctBy { it.id }.take(32)
         val resolvedParents = mutex.withLock {
@@ -722,8 +804,10 @@ class FeatherRepository(context: Context) {
         }
         val addresses = pool.values.mapNotNull(ThreadRelations::address).distinct()
         val deletions = mutex.withLock {
-            db.query<Event>(listOf(Filter(kinds = listOf(5), tags = mapOf("e" to pool.keys.toList()), limit = 256)) +
-                if (addresses.isEmpty()) emptyList() else listOf(Filter(kinds = listOf(5), tags = mapOf("a" to addresses), limit = 256)))
+            (cachedEventsLocked(recentThreads.deletionIds(id)).values +
+                db.query<Event>(listOf(Filter(kinds = listOf(5), tags = mapOf("e" to pool.keys.toList()), limit = 256)) +
+                    if (addresses.isEmpty()) emptyList() else listOf(Filter(kinds = listOf(5), tags = mapOf("a" to addresses), limit = 256))))
+                .filter { it.kind == 5 }.distinctBy { it.id }
         }
         val deletedIds = mutableSetOf<Pair<String, String>>()
         val deletedAddresses = mutableMapOf<Pair<String, String>, Long>()
@@ -742,12 +826,12 @@ class FeatherRepository(context: Context) {
                 deletedAddresses[event.pubKey to address]?.let { event.createdAt <= it }
             } == true
         }.map { it.id }.toSet()
-        var view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, threadExpanded, ancestorLimit)
+        var view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, request.expanded, ancestorLimit)
         // A tapped branch gap gets a slot in the existing eight-parent lookup budget.
         if (requestedParent != null && view.rows.any { it.gap == ThreadGap.MISSING && it.reference?.id == requestedParent.id }) {
             view = view.copy(missing = (listOf(requestedParent) + view.missing).distinctBy { it.id }.take(8))
         }
-        return pool.values.toList() to view
+        return Triple(pool.values.toList(), view, deletions)
     }
 
     private suspend fun snapshotContents() {
@@ -791,7 +875,9 @@ class FeatherRepository(context: Context) {
         }).sortedWith(compareBy<ProfileTab> { it.orderPriority }
             .thenByDescending { previews[it].orEmpty().size }.thenBy { it.ordinal })
         val feedPreviews = previews.mapValues { it.value.take(40) }
-        val (threadNotes, conversation) = thread?.let { loadConversation(it, mutedAuthors, ancestorLimit, requestedParent) } ?: (emptyList<Event>() to null)
+        val threadState = state.value.takeIf { it.threadId == thread }
+        val threadNotes = threadState?.threadNotes.orEmpty()
+        val conversation = threadState?.conversation
         val profile = viewedProfile
         val tab = profileTab
         val profileCeiling = profileUntil
@@ -939,32 +1025,35 @@ class FeatherRepository(context: Context) {
         embeddedIds = quoteIds + addressRefs.map { it.id }
         profileAuthors = authors
         if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || ancestorLimit != threadAncestorLimit || requestedParent != threadRequestedParent || feed != selectedFeed || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
-        threadContext = conversation
-        if (requestedParent != null && conversation?.rows.orEmpty().none {
-                it.gap == ThreadGap.MISSING && it.reference?.id == requestedParent.id
-            }) threadRequestedParent = null
-        if (thread != null && conversation != null) threadProgress.expect(thread,
-            (threadRequestedParent ?: conversation.rows.firstOrNull { it.ancestor && it.gap == ThreadGap.MISSING }?.reference)
-                ?.takeIf { it.kind == null || it.kind in readableKinds })
-        val replyRows = conversation?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { it.event }
-        threadParents = (threadExpanded.toList().takeLast(4) + replyRows.filter { it.id in visibleIds }.map { it.id } + replyRows.take(6).map { it.id }).distinct().take(11)
         emojiPackRequests = packs
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
         val routesChanged = lists != relayLists
         relayLists = lists
         val previous = _state.value.following
+        val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, threadNotes = if (viewedThread == thread && it.threadId == thread) threadNotes else it.threadNotes, conversation = if (viewedThread == thread && it.threadId == thread) conversation else it.conversation, deletedNotes = (it.deletedNotes + conversation?.deleted.orEmpty()).toList().takeLast(512).toSet(), hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
     }
 
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
+        val protected = recentThreads.protectedIds()
         for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
-            val rows = db.query<Event>(Filter(kinds = listOf(kind), limit = max + 1))
-            if (rows.size > max) db.delete(Filter(kinds = listOf(kind), until = rows[max].createdAt))
+            var unprotected = 0
+            val evict = mutableListOf<String>()
+            // Raw rows avoid decoding every event's tags/content merely to evict it.
+            // Quartz only adds its newest-first ordering when a limit is supplied.
+            db.rawQuery(listOf(Filter(kinds = listOf(kind), limit = Int.MAX_VALUE))) { row ->
+                if (row.id !in protected && ++unprotected > max) evict += row.id
+            }
+            evict.chunked(128).forEach { ids ->
+                db.delete(Filter(ids = ids))
+                ids.forEach { verified.remove(it) }
+            }
         }
         db.deleteExpiredEvents()
     }
@@ -1299,7 +1388,7 @@ class FeatherRepository(context: Context) {
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
         _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
-        ready.await(); snapshot(); if (active) subscribeFeed()
+        ready.await(); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
@@ -1307,7 +1396,7 @@ class FeatherRepository(context: Context) {
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
         _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
-        snapshot(); if (active) subscribeFeed()
+        threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     fun feedTab(tab: ProfileTab) {
         if (selectedFeed == tab) return
@@ -1366,9 +1455,12 @@ class FeatherRepository(context: Context) {
             }
         }, listener)
     }
+    @Synchronized
     fun viewThread(id: String?, clicked: Event? = null, retained: List<Event> = emptyList(), expanded: List<String> = emptyList(),
         ancestorLimit: Int = INITIAL_THREAD_ANCESTORS) {
         if (viewedThread == id) return
+        val generation = threadGeneration.incrementAndGet()
+        threadRestoreJob?.cancel()
         threadParentJob?.cancel()
         val cached = state.value
         val root = clicked?.takeIf { it.matchesThread(id) && it.kind in readableKinds }
@@ -1388,6 +1480,13 @@ class FeatherRepository(context: Context) {
             loading = id != null && root == null) }
         threadProgress.begin(id)
         changed.tryEmit(Unit)
+        if (id != null) threadRestoreJob = scope.launch {
+            ready.await()
+            if (viewedThread != id || threadGeneration.get() != generation) return@launch
+            recentThreads.touch(id)
+            recentThreads.remember(id, state.value.threadNotes)
+            refreshConversation()
+        }
         scope.launch {
             if (viewedThread == null) { client.unsubscribe("thread"); client.unsubscribe("thread-deletions") }
             if (active) subscribeFeed()
@@ -1396,6 +1495,7 @@ class FeatherRepository(context: Context) {
     fun expandThread(parent: String) {
         if (viewedThread == null || parent !in state.value.threadNotes.map { it.id }) return
         threadExpanded = (threadExpanded + parent).toList().takeLast(64).toSet()
+        threadChanges.tryEmit(Unit)
         changed.tryEmit(Unit)
     }
 
@@ -1416,7 +1516,7 @@ class FeatherRepository(context: Context) {
             try {
                 ready.await()
                 if (viewedThread != id || threadRequestedParent != ref) return@launch
-                snapshot()
+                refreshConversation()
                 if (active && viewedThread == id && threadRequestedParent == ref) {
                     // A cache miss may already have reached EOSE. Retry it only on this tap.
                     if (ref.addressFilter() != null) {
