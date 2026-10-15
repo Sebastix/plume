@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-10-16
+
 ### Added
 - Pocket Casts-inspired system audio controls: explicit 10-second rewind and 30-second forward, numeric playback-speed controls through 3×, and a heart action routed through the existing signed orange-heart reaction flow.
 - Open the playing voice note or podcast-share note by tapping the lockscreen/notification player. Heart actions are bound to that source note and account; Android may require unlocking for the signer flow.
