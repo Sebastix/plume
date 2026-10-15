@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.62.2] - 2026-10-15
+
+### Changed
+- Replace the logout-like login arrow with a person-and-key sign-in icon in the home account button, account sheet and issue reporter.
+
 ## [0.62.1] - 2026-10-15
 
 ### Fixed

@@ -182,7 +182,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
                     Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 40, account?.picture)
                 }
-            } else Icon(Icons.Default.Person, "Log in", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+            } else Icon(painterResource(R.drawable.login), "Log in", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }
     }
