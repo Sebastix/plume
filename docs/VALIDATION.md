@@ -1153,3 +1153,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Visually inspected a rendering of the exact vector path on the tonal button surface. Signed release build including lint/R8 passed; packaged version, embedded source and existing signing certificate verified. No automated tests or device interaction checks were run.
 - APK SHA-256 `577786a43771b8052f6fd8804579ac5921f16691bb7c080396e3049505e004e6`; 15,657,837 bytes. Mapping archived locally. GitHub asset digest and both GRASP source/tag refs verified.
 - Signed Zapstore release `423101acfa0a42a44c85530d7e4c7d9b1bb792c841938fb45a005cbf7f075471` and asset `cb4f628e539ad0456a78be6183597fb293039f61aef083f1e2115f031c85c03b` verified with matching hash, versionCode and certificate; CDN HTTP 200 and matching size. Website unchanged.
+
+
+## 2026-10-15 — Unreleased deleted-note reveal
+
+- Debug build passed. Reviewed deleted roots, ancestor gaps and direct/nested reply placeholders; stable row keys; branch expansion through deleted replies; current mute/sensitive/expiry checks; and exclusion of known-deleted IDs from shared relay lookups.
+- Cached text reveals inline behind an eye toggle, with a deleted label and selectable plain text. It has no note actions, link navigation or media loading. The feature does not add content persistence or change retention. No automated tests or device interaction checks were run; no release was requested for this change.

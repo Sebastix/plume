@@ -553,7 +553,7 @@ class FeatherRepository(context: Context) {
         embeddedIds.asSequence().filter(eventIdPattern::matches).take(24).forEach { id ->
             result[id] = result[id].orEmpty() + embeddedRelays
         }
-        return result
+        return result.filterKeys { it !in state.value.deletedNotes }
     }
 
     private suspend fun reconcileEventLookups(retryId: String? = null) = mutex.withLock {

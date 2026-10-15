@@ -102,6 +102,8 @@ data class ConversationRow(
     val more: Boolean = false,
     // A real root has no reply parent; an unresolved or hidden parent is still a reply.
     val root: Boolean = false,
+    // Only an already-cached copy; never a source of relay lookups or engagement actions.
+    val deletedCopy: Event? = null,
 )
 
 data class Conversation(
@@ -121,6 +123,10 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     val parents = events.associate { it.id to ThreadRelations.parent(it) }
     fun resolve(ref: NostrContent.Reference) = byId[ref.id] ?: byAddress[ref.id]
     fun blocked(e: Event) = filter.hides(e) || e.id in deleted
+    val revealFilter = filter.copy(deletedNotes = emptySet())
+    fun cachedCopy(e: Event?) = e?.takeUnless(revealFilter::hides)?.takeUnless {
+        it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
+    }
     val rows = mutableListOf<ConversationRow>()
     val missing = linkedMapOf<String, NostrContent.Reference>()
     val used = mutableSetOf(focus.id)
@@ -140,7 +146,8 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             else -> null
         }
         if (reason != null) {
-            gap = ConversationRow("parent-gap:${cursor.id}", reference = ref, gap = reason, ancestor = true)
+            gap = ConversationRow("parent-gap:${cursor.id}", reference = ref, gap = reason, ancestor = true,
+                deletedCopy = if (reason == ThreadGap.DELETED) cachedCopy(parent) else null)
             if (reason == ThreadGap.MISSING && (ref.kind == null || ref.kind in readableKinds)) missing[ref.id] = ref
             break
         }
@@ -150,13 +157,15 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     val chain = ancestors.reversed() + focus
     chain.forEachIndexed { index, event ->
         if (blocked(event)) {
-            rows += ConversationRow("hidden:${event.id}", gap = if (event.id in deleted) ThreadGap.DELETED else ThreadGap.HIDDEN,
-                focused = event.id == focus.id, ancestor = event.id != focus.id)
+            rows += ConversationRow(event.id, gap = if (event.id in deleted) ThreadGap.DELETED else ThreadGap.HIDDEN,
+                focused = event.id == focus.id, ancestor = event.id != focus.id,
+                root = parents[event.id] == null,
+                deletedCopy = if (event.id in deleted) cachedCopy(event) else null)
         } else rows += ConversationRow(event.id, event, above = if (index > 0) !blocked(chain[index - 1]) else gap?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT),
             below = index < chain.lastIndex && !blocked(chain[index + 1]), focused = event.id == focus.id,
             ancestor = event.id != focus.id, root = parents[event.id] == null)
     }
-    val children = events.filter { it.id !in used && !blocked(it) && it.kind in listOf(1, 1111, 1244) }
+    val children = events.filter { it.id !in used && !revealFilter.hides(it) && it.kind in listOf(1, 1111, 1244) }
         .groupBy { parents[it.id]?.id }
     fun replies(parent: Event): List<Event> = (children[parent.id].orEmpty() + ThreadRelations.address(parent)?.let { children[it] }.orEmpty())
         .distinctBy { it.id }.filter { it.id !in used }
@@ -172,7 +181,8 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             if (next.id in expanded) expandedLimit = branch.size + 3
             next = replies(next).firstOrNull()
         }
-        branch.forEachIndexed { index, event -> rows += ConversationRow(event.id, event,
+        branch.forEachIndexed { index, event -> rows += ConversationRow(event.id, event.takeUnless { it.id in deleted },
+            gap = ThreadGap.DELETED.takeIf { event.id in deleted }, deletedCopy = cachedCopy(event).takeIf { event.id in deleted },
             above = index > 0 || gapRow?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT), below = index < branch.lastIndex,
             more = index == branch.lastIndex && (next != null || replies(event).isNotEmpty())) }
         // Side branches remain discoverable from the parent's note, never silently joined.
@@ -180,10 +190,10 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             if (replies(parent).isNotEmpty()) {
                 if (parent.id in expanded && depth < 31 && rows.size < 320) {
                     replies(parent).forEach { if (it.id !in used) branch(it, depth = depth + 1) }
-                    val index = rows.indexOfFirst { it.event?.id == parent.id }
+                    val index = rows.indexOfFirst { it.key == parent.id }
                     rows[index] = rows[index].copy(more = replies(parent).isNotEmpty())
                 } else {
-                    val index = rows.indexOfFirst { it.event?.id == parent.id }
+                    val index = rows.indexOfFirst { it.key == parent.id }
                     rows[index] = rows[index].copy(more = true)
                 }
             }
@@ -192,8 +202,8 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     replies(focus).forEach { if (it.id !in used) branch(it) }
     // When opening the root itself, connect its reply action to the first direct reply.
     // Other branches remain separate, and orphaned root-scoped replies never imply an edge.
-    val rootIndex = rows.indexOfFirst { it.focused && it.root && it.event?.kind in listOf(1, 1222) }
-    if (rootIndex >= 0 && rows.getOrNull(rootIndex + 1)?.event?.let { ThreadRelations.repliesTo(it, focus) } == true) {
+    val rootIndex = rows.indexOfFirst { it.focused && it.root && (it.event ?: it.deletedCopy)?.kind in listOf(1, 1222) }
+    if (rootIndex >= 0 && rows.getOrNull(rootIndex + 1)?.let { it.event ?: it.deletedCopy }?.let { ThreadRelations.repliesTo(it, focus) } == true) {
         rows[rootIndex] = rows[rootIndex].copy(below = true)
         rows[rootIndex + 1] = rows[rootIndex + 1].copy(above = true)
     }
@@ -217,7 +227,8 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
                 }
                 if (reason != null) {
                     if (reason == ThreadGap.MISSING && missing.size < 8 && (ref.kind == null || ref.kind in readableKinds)) missing[ref.id] = ref
-                    branch(first, ConversationRow("branch-gap:${first.id}", reference = ref, gap = reason))
+                    branch(first, ConversationRow("branch-gap:${first.id}", reference = ref, gap = reason,
+                        deletedCopy = if (reason == ThreadGap.DELETED) cachedCopy(parent) else null))
                     break
                 }
                 first = parent!!; seen += parent.id
