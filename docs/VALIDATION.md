@@ -1171,3 +1171,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Source review covered signature and author matching, address timestamp cutoffs, startup restoration, retained timeline/pagination copies, embedded originals, muted/deleted thread reveal, and bounded visible-note deletion discovery. Deletion requests are separate new events; original event IDs are not re-fetched.
 - No build, tests or emulator runs, per the requested device-validation workflow. Release remains pending an explicit request.
+
+## 2026-10-15 — 0.63.1 release
+
+- Version 0.63.1 (117), source `b193b4083a3b66bbabf845096c97844206a37b09`. Shared verified deletion handling now applies to feed snapshots, pagination anchors, embedded content and stale relay arrivals, with bounded persistent NIP-09 history and visible-note deletion discovery.
+- Signed release build passed, including the standard lint/R8 pipeline. No tests or emulator runs; device validation remains with the user.
+- APK SHA-256 `e0b43bd2b8f984f364500be232dfa5608ad109a575492ecc7db3286795acd2cb`; 15,674,877 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
+- Signed Zapstore release `aebf4ea2406608fcb587360a6a91ce4a4848ec3de5466e24c5a0324824545c6b` and asset `f1c7785792a090d5a6be889cb5946c22d8c4587f086aec5f71a146b238c0185c` retrieved and verified after retrying empty asset lookups. Hash, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
