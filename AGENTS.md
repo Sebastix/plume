@@ -16,7 +16,7 @@
 - Never commit credentials, local.properties, .env, or signing keys.
 - Use the sole tagline “Nostr with nothing in the way.” The approved promotional line is “Swipe, tap, done.” No other generic supporting slogans; public copy should describe concrete features.
 - Website is static HTML/CSS on Vercel at feather.dergigi.com. Keep evergreen links to the latest GitHub release and Zapstore, with no app version label. App releases must not update or deploy the website; defer further website work until explicitly requested.
-- Prefer fast iteration. Build before publishing. The user tests live on their device through Zapstore; do not run automated tests unless explicitly requested.
+- Prefer fast iteration. Build before publishing. The user tests live on their device through Zapstore; do not run tests or emulators unless explicitly requested. Build only when a release is requested.
 - Load media automatically, cache aggressively within the chosen storage budget, and autoplay only one visible video, muted.
 
 - Public screenshots (website, Zapstore, release assets) must have Android status bars cropped out before upload. Publish only cropped derivatives; never commit or publish the original status-bar captures.

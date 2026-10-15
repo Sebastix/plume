@@ -775,7 +775,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     if (note == null) {
                                         ConversationGap(row, onOpen = { reference -> openReference(reference) },
                                             onInfo = { title, detail -> statusTitle = title; statusReport = detail },
-                                            onMore = row.deletedCopy?.takeIf { screen == "thread" && row.more }?.let { cached -> ({
+                                            onMore = (row.deletedCopy ?: row.mutedCopy)?.takeIf { screen == "thread" && row.more }?.let { cached -> ({
                                                 entry.expandedThreadParents = (entry.expandedThreadParents + cached.id).distinct().takeLast(64)
                                                 vm.repo.expandThread(cached.id)
                                             }) },
@@ -1084,8 +1084,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
 @Composable
 private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit,
     loading: Boolean = false, onLoadParent: (() -> Unit)? = null, onMore: (() -> Unit)? = null) {
-    if (row.gap == ThreadGap.DELETED) {
-        DeletedConversationNote(row, onInfo, onMore)
+    if (row.gap in listOf(ThreadGap.DELETED, ThreadGap.MUTED)) {
+        ConcealedConversationNote(row, onInfo, onMore)
         return
     }
     val rail = MaterialTheme.colorScheme.outlineVariant
@@ -1126,24 +1126,34 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
 }
 
 @Composable
-private fun DeletedConversationNote(row: ConversationRow, onInfo: (String, String) -> Unit, onMore: (() -> Unit)?) {
-    val filter = LocalContentFilter.current.copy(deletedNotes = emptySet())
-    val copy = row.deletedCopy?.takeUnless(filter::hides)?.takeUnless {
+private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, String) -> Unit, onMore: (() -> Unit)?) {
+    val muted = row.gap == ThreadGap.MUTED
+    val source = if (muted) row.mutedCopy else row.deletedCopy
+    val currentFilter = LocalContentFilter.current
+    val filter = if (muted) currentFilter.copy(authors = source?.pubKey?.let { currentFilter.authors - it } ?: currentFilter.authors)
+        else currentFilter.copy(deletedNotes = emptySet())
+    val copy = source?.takeUnless(filter::hides)?.takeUnless {
         it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
     }
-    var revealed by rememberSaveable(row.key, copy?.id) { mutableStateOf(false) }
+    var revealed by rememberSaveable(row.key, row.gap, copy?.id) { mutableStateOf(false) }
     val rail = MaterialTheme.colorScheme.outlineVariant
+    val label = if (muted) "Reply from a muted account" else "Note deleted by its author"
+    Column {
+        if (row.mutedTailStart) Text("Muted replies", Modifier.padding(start = 24.dp, top = 20.dp, bottom = 4.dp),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Column(Modifier.fillMaxWidth().drawBehind {
         val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 42.dp.toPx() else 42.dp.toPx()
         if (row.above) drawLine(rail, Offset(x, 0f), Offset(x, 4.dp.toPx()), strokeWidth = 2.dp.toPx())
         if (row.below) drawLine(rail, Offset(x, 52.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
     }) {
         Row(Modifier.padding(start = 18.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onInfo("Note deleted by its author", "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
-                Icon(Icons.Default.Delete, "Note deleted by its author", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = { onInfo(label, if (muted) "Reveal only this reply. The account stays muted everywhere else."
+                else "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
+                if (muted) Icon(painterResource(R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+                else Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (copy != null) IconToggleButton(checked = revealed, onCheckedChange = { revealed = it }) {
-                Icon(painterResource(R.drawable.reveal), if (revealed) "Hide cached version" else "Show cached version",
+                Icon(painterResource(R.drawable.reveal), if (muted) { if (revealed) "Hide this reply" else "Show this reply" } else { if (revealed) "Hide cached version" else "Show cached version" },
                     tint = if (revealed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (row.more && onMore != null) IconButton(onClick = onMore) {
@@ -1153,13 +1163,14 @@ private fun DeletedConversationNote(row: ConversationRow, onInfo: (String, Strin
         AnimatedVisibility(revealed && copy != null, enter = fadeIn(tween(140)) + expandVertically(tween(180)),
             exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
             Column(Modifier.padding(start = 72.dp, end = 24.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Cached version · deleted by author", style = MaterialTheme.typography.labelSmall,
+                Text(if (muted) "Muted account · shown only here" else "Cached version · deleted by author", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Plain selectable text deliberately has no media loads, links or note actions.
                 SelectionContainer { Text(copy?.content.orEmpty(), style = MaterialTheme.typography.bodyLarge) }
             }
         }
     }
+}
 }
 
 /** Parent navigation is separate from the author's profile and never blocks the reply body. */

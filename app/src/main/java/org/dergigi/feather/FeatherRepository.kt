@@ -544,7 +544,7 @@ class FeatherRepository(context: Context) {
         viewedThread?.takeIf(eventIdPattern::matches)?.let { id -> result[id] = threadRelays(id).toSet() }
         val thread = viewedThread
         threadContext?.takeIf { it.target == thread }?.missing.orEmpty().take(8).forEach { ref ->
-            if (eventIdPattern.matches(ref.id) && (ref.kind == null || ref.kind in readableKinds) && ref.author !in state.value.mutedAuthors) {
+            if (eventIdPattern.matches(ref.id) && (ref.kind == null || ref.kind in readableKinds)) {
                 result[ref.id] = (thread?.let(::threadRelays).orEmpty() + ref.relays + relayLists[ref.author]?.write.orEmpty())
                     .filter { it in routingPool }.toSet()
             }
@@ -727,7 +727,12 @@ class FeatherRepository(context: Context) {
             if (request.requestedParent != null && view?.rows.orEmpty().none {
                     it.gap == ThreadGap.MISSING && it.reference?.id == request.requestedParent.id
                 }) threadRequestedParent = null
-            val replyRows = view?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { it.event }
+            val focus = notes.firstOrNull { it.id == request.id || ThreadRelations.address(it) == request.id }
+            val replyRows = view?.rows.orEmpty().filter { !it.ancestor }.mapNotNull { row ->
+                row.event ?: row.mutedCopy?.takeUnless { copy ->
+                    copy.id !in threadExpanded && focus?.let { ThreadRelations.repliesTo(copy, it) } == true
+                }
+            }
             threadParents = (threadExpanded.toList().takeLast(4) + replyRows.filter { it.id in visibleIds }.map { it.id } +
                 replyRows.take(6).map { it.id }).distinct().take(11)
             _state.update { it.copy(threadNotes = notes, conversation = view,
@@ -768,22 +773,23 @@ class FeatherRepository(context: Context) {
             else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
         } ?: (state.value.threadNotes + remembered).find { it.matchesThread(id) } ?: return Triple(emptyList(), null, emptyList())
         val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = request.sensitive, deletedNotes = state.value.deletedNotes)
+        val chainFilter = filter.copy(authors = emptySet())
         val ancestors = linkedMapOf(focus.id to focus)
         var cursor = focus
         for (depth in 0..ancestorLimit) {
             val ref = ThreadRelations.parent(cursor) ?: break
-            if (ref.id in ancestors || ref.author in mutedAuthors || filter.hides(cursor) || (ref.kind != null && ref.kind !in readableKinds)) break
+            if (ref.id in ancestors || chainFilter.hides(cursor) || (ref.kind != null && ref.kind !in readableKinds)) break
             val parent = mutex.withLock {
                 ref.addressFilter()?.let { db.query<Event>(it).firstOrNull() } ?: cachedEventsLocked(listOf(ref.id))[ref.id]
             } ?: break
-            if (filter.hides(parent)) { ancestors[parent.id] = parent; break }
+            if (chainFilter.hides(parent)) { ancestors[parent.id] = parent; break }
             ancestors[parent.id] = parent; cursor = parent
         }
         val cached = mutex.withLock { db.query<Event>(ThreadRelations.discovery(focus, id, request.parents)) }
         val retained = state.value.threadNotes.takeIf { state.value.threadId == id }.orEmpty()
         val pool = (ancestors.values + retained.filter { it.id in visibleIds } + remembered + cached + retained).distinctBy { it.id }.take(320).associateByTo(linkedMapOf()) { it.id }
         val missingParents = (listOfNotNull(requestedParent) + threadContext?.takeIf { it.target == id }?.missing.orEmpty() + pool.values.mapNotNull(ThreadRelations::parent))
-            .filter { it.id !in pool && it.author !in mutedAuthors && (it.kind == null || it.kind in readableKinds) }.distinctBy { it.id }.take(32)
+            .filter { it.id !in pool && (it.kind == null || it.kind in readableKinds) }.distinctBy { it.id }.take(32)
         val resolvedParents = mutex.withLock {
             cachedEventsLocked(missingParents.map { it.id }).values.toList() + missingParents.mapNotNull { ref ->
                 ref.addressFilter()?.let { db.query<Event>(it).firstOrNull() }
@@ -794,7 +800,7 @@ class FeatherRepository(context: Context) {
         // Root-tagged replies arrive together. Parent-only legacy threads need a few local joins.
         var parents = listOf(focus)
         repeat(3) {
-            val ids = parents.filterNot(filter::hides).map { it.id }.distinct().take(32)
+            val ids = parents.filterNot(chainFilter::hides).map { it.id }.distinct().take(32)
             if (ids.isNotEmpty()) {
                 val children = mutex.withLock { db.query<Event>(Filter(kinds = listOf(1, 1111, 1244), tags = mapOf("e" to ids), limit = 200)) }
                 children.forEach { if (pool.size < 320) pool.putIfAbsent(it.id, it) }

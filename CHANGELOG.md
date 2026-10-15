@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-10-15
+
 ### Added
+- Collapsed muted/blocked-author placeholders preserve thread chains, with per-note cached-text reveal. Move direct muted replies to a subdued section at the bottom while keeping other views filtered.
 - Collapsed deleted-note placeholders in threads with an eye toggle to reveal an available cached text copy inline. Keep muted/sensitive content hidden, omit note actions and media loading, and never request known-deleted event IDs to recover their content.
 
 ## [0.62.2] - 2026-10-15
