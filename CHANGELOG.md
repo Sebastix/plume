@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.64.3] - 2026-10-16
+
 ### Changed
 - Show discovered repost counts beside the repost icon, with immediate updates when reposting or undoing, unique-author counting, and muted/deleted repost filtering.
 - Show a subtle image placeholder in the cover area while episode artwork loads, retaining it if the image cannot load.
