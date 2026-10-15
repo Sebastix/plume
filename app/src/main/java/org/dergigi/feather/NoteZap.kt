@@ -37,7 +37,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 
 /** Shared one-tap zap and amount picker for notes and their gallery images. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, iconOnly: Boolean = false, enabled: Boolean = true, onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
@@ -70,21 +69,37 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
             if (!iconOnly && counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = tint)
         }
         DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
-            FlowRow(Modifier.widthIn(max = 320.dp).padding(horizontal = 8.dp), maxItemsInEachRow = 3) {
-                choices.forEach { amount ->
-                    TextButton(onClick = {
-                        picker = false
-                        zapActions.zap(note, amount, "")
-                    }, modifier = Modifier.semantics { contentDescription = "Zap $amount sats" }) {
-                        Text(format.format(amount))
+            val amounts = choices.distinct().take(7).sorted()
+            // Reserve the final two cells together, even with a short history.
+            val rows = (amounts.size + 4) / 3
+            val actionStart = rows * 3 - 2
+            Column(Modifier.width(288.dp).padding(horizontal = 8.dp)) {
+                repeat(rows) { row ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        repeat(3) { column ->
+                            val slot = row * 3 + column
+                            Box(Modifier.weight(1f).height(48.dp), contentAlignment = Alignment.Center) {
+                                when {
+                                    slot < amounts.size -> {
+                                        val amount = amounts[slot]
+                                        TextButton(onClick = {
+                                            picker = false
+                                            zapActions.zap(note, amount, "")
+                                        }, modifier = Modifier.semantics { contentDescription = "Zap $amount sats" }) {
+                                            Text(format.format(amount), maxLines = 1)
+                                        }
+                                    }
+                                    slot == actionStart -> IconButton(onClick = {
+                                        picker = false; input = ""; message = ""; custom = true
+                                    }) { Icon(Icons.Default.Add, "Custom zap amount") }
+                                    slot == actionStart + 1 -> IconButton(onClick = {
+                                        picker = false; input = DEFAULT_ZAP_SATS.toString(); message = ""; custom = true
+                                    }) { Icon(painterResource(R.drawable.conversation), "Add zap message") }
+                                }
+                            }
+                        }
                     }
                 }
-                IconButton(onClick = {
-                    picker = false; input = ""; message = ""; custom = true
-                }) { Icon(Icons.Default.Add, "Custom zap amount") }
-                IconButton(onClick = {
-                    picker = false; input = DEFAULT_ZAP_SATS.toString(); message = ""; custom = true
-                }) { Icon(painterResource(R.drawable.conversation), "Add zap message") }
             }
         }
     }
