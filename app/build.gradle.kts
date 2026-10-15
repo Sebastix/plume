@@ -1,7 +1,7 @@
 import java.util.Properties
 import com.android.build.api.instrumentation.InstrumentationScope
 import com.android.build.api.instrumentation.FramesComputationMode
-import org.dergigi.feather.build.DetachedSemanticsGuard
+import org.dergigi.feather.buildlogic.DetachedSemanticsGuard
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
