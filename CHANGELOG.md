@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.64.1] - 2026-10-15
+
+### Fixed
+- Prevent Material 3 accessibility metadata from traversing detached controls after a queued UI update (`visitAncestors called on an unattached node`).
+
 ### Changed
 - Compact podcast widgets with cover artwork beside and matching the player height, podcast name beside the duration, and the external-link action in the top-right corner.
 
