@@ -246,7 +246,12 @@ class FeatherRepository(context: Context) {
         scope.launch {
             try {
                 noteDeletions.load(mutex.withLock { db.query<Event>(Filter(kinds = listOf(5), limit = 512)) })
-                recentThreads.load(); trimCache(); ready.complete(Unit); snapshot()
+                // Display the cached home feed before category discovery, engagement or pruning.
+                snapshot(initialFeedOnly = true)
+                recentThreads.load()
+                ready.complete(Unit)
+                snapshot()
+                trimCache()
             }
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
@@ -723,15 +728,18 @@ class FeatherRepository(context: Context) {
 
     private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
         val filters = filter.activityFilters()
+        val now = System.currentTimeMillis() / 1000
         val matching = (db.query<Event>(filters) + previous + olderEvents).filter { event -> !noteDeletions.hides(event) && filters.any { it.match(event) } &&
             (filter.kinds != podcastKinds || isPodcastActivity(event)) }
         // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
         // Keep these anchors when advancing the bounded window.
         val pinned = if (filter.until != null) previous.filter { it.id in visibleIds } else emptyList()
-        (matching + pinned).asSequence().filterNot(noteDeletions::hides).filterNot(::engagementDeleted).distinctBy { it.id }
+        (matching + pinned).asSequence()
+            .filterNot { it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= now } == true }
+            .filterNot(noteDeletions::hides).filterNot(::engagementDeleted).distinctBy { it.id }
             .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit).toList()
     }
-    private suspend fun snapshot() = snapshotMutex.withLock { snapshotContents() }
+    private suspend fun snapshot(initialFeedOnly: Boolean = false) = snapshotMutex.withLock { snapshotContents(initialFeedOnly) }
 
     private data class ThreadRequest(val id: String, val generation: Long, val account: String?, val sensitive: Boolean, val muted: Set<String>,
         val ancestors: Int, val expanded: Set<String>, val requestedParent: NostrContent.Reference?,
@@ -883,7 +891,7 @@ class FeatherRepository(context: Context) {
         return Triple(pool.values.toList(), view, deletions)
     }
 
-    private suspend fun snapshotContents() {
+    private suspend fun snapshotContents(initialFeedOnly: Boolean = false) {
         deletedReactions = reactionDeletions.deleted()
         rememberDeleted(cachedViewEvents())
         val key = _state.value.publicKey
@@ -906,7 +914,21 @@ class FeatherRepository(context: Context) {
         val feed = selectedFeed
         val feedAuthors = key?.let { (listOf(it) + following).take(1000) }
         val previousFeed = state.value.notes.takeIf { state.value.feedTab == feed }.orEmpty()
-        val all = latestProfileEvents(timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = 600, until = feedCeiling), previousFeed, 600))
+        val feedLimit = if (initialFeedOnly) 120 else 600
+        val all = latestProfileEvents(timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = feedLimit, until = feedCeiling), previousFeed, feedLimit))
+        if (initialFeedOnly) {
+            // Same account/filter rules as the complete snapshot, with no relay work.
+            // Metadata is bounded to the initial viewport; the rest fills in independently.
+            val authors = (listOfNotNull(key) + all.take(24).map { it.pubKey }).distinct()
+            val profiles = cachedProfiles(authors)
+            if (key == state.value.publicKey && feed == selectedFeed && feedCeiling == feedUntil) {
+                _state.update { it.copy(notes = all, feedTab = feed, following = following,
+                    mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList,
+                    deletedReactions = deletedReactions, profiles = it.profiles + profiles,
+                    loading = all.isEmpty()) }
+            }
+            return
+        }
         val discoveryKey = feedAuthors to mutedAuthors
         val discoveryNow = android.os.SystemClock.elapsedRealtime()
         if (feedDiscoveryKey != discoveryKey || discoveryNow - feedDiscoveryAt >= 5_000) {
@@ -1008,23 +1030,7 @@ class FeatherRepository(context: Context) {
         val authors = (activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
-        val profiles = if (authors.isEmpty()) emptyMap() else mutex.withLock {
-            db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
-        }.associate { event ->
-            val data = runCatching { JSONObject(event.content) }.getOrNull()
-            val about = data?.optString("about").orEmpty().take(2000).withoutObjectMarkers()
-            event.pubKey to Profile(
-                data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
-                about,
-                MediaContent.secureUrl(data?.optString("picture")?.trim()),
-                data?.optString("name")?.trim()?.takeIf { it.isNotBlank() },
-                listOf("banner", "cover", "header").firstNotNullOfOrNull { field -> MediaContent.secureUrl(data?.optString(field)?.trim()) },
-                data?.optString("lud16")?.takeIf { it.isNotBlank() } ?: data?.optString("lud06")?.takeIf { it.isNotBlank() },
-                NostrContent.tokens(about, event),
-                (data?.opt("nip05") as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(512),
-                profileWebsite(data?.opt("website") as? String),
-            )
-        }
+        val profiles = cachedProfiles(authors)
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
             val replies = activity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
@@ -1095,9 +1101,41 @@ class FeatherRepository(context: Context) {
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
     }
 
+    private suspend fun cachedProfiles(authors: List<String>): Map<String, Profile> = if (authors.isEmpty()) emptyMap() else mutex.withLock {
+            db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
+        }.associate { event ->
+            val data = runCatching { JSONObject(event.content) }.getOrNull()
+            val about = data?.optString("about").orEmpty().take(2000).withoutObjectMarkers()
+            event.pubKey to Profile(
+                data?.optString("display_name")?.takeIf { it.isNotBlank() } ?: data?.optString("name")?.takeIf { it.isNotBlank() } ?: shortKey(event.pubKey),
+                about,
+                MediaContent.secureUrl(data?.optString("picture")?.trim()),
+                data?.optString("name")?.trim()?.takeIf { it.isNotBlank() },
+                listOf("banner", "cover", "header").firstNotNullOfOrNull { field -> MediaContent.secureUrl(data?.optString(field)?.trim()) },
+                data?.optString("lud16")?.takeIf { it.isNotBlank() } ?: data?.optString("lud06")?.takeIf { it.isNotBlank() },
+                NostrContent.tokens(about, event),
+                (data?.opt("nip05") as? String)?.trim()?.takeIf { it.isNotEmpty() }?.take(512),
+                profileWebsite(data?.opt("website") as? String),
+            )
+        }
+
     private suspend fun trimCache() = mutex.withLock { trimCacheLocked() }
     private suspend fun trimCacheLocked() {
-        val protected = recentThreads.protectedIds()
+        // Preserve the records needed to reconstruct the signed-in feed offline.
+        val accountRecords = state.value.publicKey?.let { author ->
+            db.query<Event>(listOf(0, 3, 10000, 10002, 10030, 10063).map { kind ->
+                Filter(kinds = listOf(kind), authors = listOf(author), limit = 1)
+            } + Filter(kinds = listOf(30000), authors = listOf(author), tags = mapOf("d" to listOf("mute")), limit = 1))
+        }.orEmpty().map { it.id }
+        val cachedState = state.value
+        val homeNotes = (if (cachedState.feedTab == ProfileTab.POSTS) cachedState.notes
+            else cachedState.feedPreviews[ProfileTab.POSTS].orEmpty())
+            .filter(ProfileTab.POSTS::matchesFeed).take(120)
+        val homeAuthors = homeNotes.map { it.pubKey }.distinct()
+        val homeProfiles = if (homeAuthors.isEmpty()) emptyList() else
+            db.query<Event>(Filter(kinds = listOf(0), authors = homeAuthors, limit = homeAuthors.size)).map { it.id }
+        val protected = recentThreads.protectedIds() + accountRecords + homeNotes.map { it.id } +
+            homeNotes.mapNotNull(::repostTarget).map { it.id } + homeProfiles
         for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
             var unprotected = 0
             val evict = mutableListOf<String>()

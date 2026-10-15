@@ -1235,3 +1235,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including lint/R8. No tests or emulators run; device validation remains with the user. Removed old local APK copies only after matching their hashes to published GitHub assets; retained recent APKs and compressed crash mappings.
 - APK SHA-256 `bc94d33be53e891c8b778fd65c0305d95aee34e72db45e998c1fa87f5f3cb10d`; 15,674,877 bytes. Packaged version, embedded source and signing certificate verified. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `0bea43c7f00e7420da73d9e3343c94a92f4651b01a2b1637ebd2c4fcd0fe2611` and asset `e1956beb854ed611017d4b0c731b1a2118a1589dc6dc7338acb9742ec711f8eb` retrieved with signature verification. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+
+## Unreleased — cached startup feed
+
+- Split a bounded cache-only home snapshot from full discovery/enrichment and moved pruning after initial content. Restore follows, mutes and initial author metadata with the same feed filtering; retain cached notes during relay refresh without a top spinner. Explicitly exclude expired timeline events before deferred pruning.
+- Preserve up to 120 home posts, cached repost targets, author metadata and current account lists during normal cache pruning. No new event-ID network path or unbounded cache was added.
+- Source review only, including account changes and offline initialization. No build, tests or emulator runs; awaiting a release request and device validation. Content never previously cached, or already evicted by older versions, still needs an initial online fetch.

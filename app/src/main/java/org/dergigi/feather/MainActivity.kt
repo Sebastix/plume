@@ -701,7 +701,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
+                        if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (visibleNotes.isEmpty() && activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             }

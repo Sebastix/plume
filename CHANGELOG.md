@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Restore cached home-feed notes and initial author metadata before tab discovery, engagement loading and cache pruning. Keep cached content visible without a feed spinner while relays refresh.
+- Protect a bounded home-feed window and the signed-in account’s cached profile, follows, mute and discovery lists from routine pruning so they remain available offline.
+
 ## [0.64.3] - 2026-10-16
 
 ### Changed
