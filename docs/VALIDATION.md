@@ -1228,3 +1228,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Added a rounded surface with a small, muted image glyph behind podcast artwork, removed when the shared image loader reports success. The placeholder retains the existing cover dimensions and remains on load failure. No extra requests or animation.
 - Source review only; no build, tests or emulator runs. Added after the 0.64.2 APK was published.
+
+## 2026-10-16 — 0.64.3 release
+
+- Version 0.64.3 (122), source `23e5027def1db8e284fd41f3d08d7828986f8bda`. Added distinct-author repost counts through bounded existing engagement discovery/cache queries, with muted/deleted filtering and optimistic own-account adjustment. Added a quiet artwork placeholder for podcast covers.
+- Signed release build passed, including lint/R8. No tests or emulators run; device validation remains with the user. Removed old local APK copies only after matching their hashes to published GitHub assets; retained recent APKs and compressed crash mappings.
+- APK SHA-256 `bc94d33be53e891c8b778fd65c0305d95aee34e72db45e998c1fa87f5f3cb10d`; 15,674,877 bytes. Packaged version, embedded source and signing certificate verified. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `0bea43c7f00e7420da73d9e3343c94a92f4651b01a2b1637ebd2c4fcd0fe2611` and asset `e1956beb854ed611017d4b0c731b1a2118a1589dc6dc7338acb9742ec711f8eb` retrieved with signature verification. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
