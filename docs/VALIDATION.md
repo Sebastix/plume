@@ -1215,3 +1215,16 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including standard lint/R8. No tests or emulator runs. Crash behavior and layout remain for device confirmation.
 - APK SHA-256 `4e9101312a9794b2c7cd315a5af4f198749031f28ebdd801605c0fbffc8ef0e9`; 15,674,877 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
 - Signed Zapstore release `f19cf4b576886fab4953eb27b939476849a17c9a81a75d654016fbdb4bf7a3fa` and asset `b7e99e989e78a72ef3241a4781c5ece78e73a4c8ad08e7b11703b4942944fdbd` retrieved with signature verification. Hash, versionCode, size and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-15 — 0.64.2 release
+
+- Version 0.64.2 (121), source `7b4208e3e9bd8a24264c5aeddbef466f02305188`. Sorted zap amounts occupy at most seven cells in a 3×3 menu, with custom amount and message in the final two cells. Long-pressing the bottom feed selector returns directly to Posts and retains its reading position.
+- Initial optimization failed because the development disk was full. Losslessly compressed and verified archived release mappings to recover approximately 6 GB. The subsequent signed release build passed, including lint/R8. No tests or emulators run.
+- APK SHA-256 `8cd57a6fad107e07f491b0dc58ef1bfe17e11b00f07b35e10cca27f4c5af75fe`; 15,674,873 bytes. Version, embedded source and signing certificate verified. GitHub asset digest and GitHub/both GRASP release refs match.
+- Signed Zapstore release `84a89b519b274231500d079d61e6df6567936b5ae3046d8a1828aa254c304f74` and asset `67503d2dd1062df6b7f01821ba7beaceb9c2ad5464b60b079e25a79efd4a2433` retrieved and signature-verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+- At the user's request, marked crash issue `80634714` resolved, noting the detached-control fix shipped in 0.64.1; ngit confirmed the resolved (`applied`) status.
+
+## Unreleased — podcast artwork placeholder
+
+- Added a rounded surface with a small, muted image glyph behind podcast artwork, removed when the shared image loader reports success. The placeholder retains the existing cover dimensions and remains on load failure. No extra requests or animation.
+- Source review only; no build, tests or emulator runs. Added after the 0.64.2 APK was published.
