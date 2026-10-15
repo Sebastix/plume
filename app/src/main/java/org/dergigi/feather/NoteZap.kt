@@ -58,9 +58,9 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
         (publicKey != null && counts.zappedByAccount == publicKey)
     Box {
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
-            .combinedClickable(enabled = enabled && !pending,
+            .combinedClickable(enabled = enabled,
                 onClickLabel = "Zap 21 sats", onLongClickLabel = "Choose zap amount",
-                onClick = { zapActions.zap(note, DEFAULT_ZAP_SATS) },
+                onClick = { if (!pending) zapActions.zap(note, DEFAULT_ZAP_SATS) },
                 onLongClick = { choices = zapActions.amounts; picker = true }).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             ZapBolt(note.id, publicKey, pending, zapped, celebration, tint,
@@ -71,14 +71,14 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
         DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
             FlowRow(Modifier.widthIn(max = 320.dp).padding(horizontal = 8.dp), maxItemsInEachRow = 3) {
                 choices.forEach { amount ->
-                    TextButton(enabled = !pending, onClick = {
+                    TextButton(onClick = {
                         picker = false
                         zapActions.zap(note, amount)
                     }, modifier = Modifier.semantics { contentDescription = "Zap $amount sats" }) {
                         Text(format.format(amount))
                     }
                 }
-                IconButton(enabled = !pending, onClick = {
+                IconButton(onClick = {
                     picker = false; input = ""; custom = true
                 }) { Icon(Icons.Default.Add, "Custom zap amount") }
             }
@@ -95,7 +95,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                     modifier = Modifier.semantics { contentDescription = "Zap amount in sats" })
             },
             confirmButton = {
-                IconButton(enabled = amount != null && !pending, onClick = {
+                IconButton(enabled = amount != null, onClick = {
                     amount?.let { custom = false; zapActions.zap(note, it) }
                 }) { Icon(painterResource(R.drawable.zap), amount?.let { "Zap $it sats" } ?: "Enter zap amount") }
             })

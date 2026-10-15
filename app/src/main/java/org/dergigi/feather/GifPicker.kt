@@ -5,10 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -21,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
@@ -48,12 +45,8 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
     val grid = rememberLazyStaggeredGridState()
     var input by remember { mutableStateOf("") }
-    var selectedQuery by remember { mutableStateOf("gm") }
-    var focused by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var results by remember { mutableStateOf<List<GifItem>>(emptyList()) }
-    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
-    var suggestionIndex by remember { mutableIntStateOf(-1) }
     var error by remember { mutableStateOf<GifSearchFailure?>(null) }
     var retryQuery by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
@@ -62,14 +55,9 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val foreground = lifecycle.isAtLeast(Lifecycle.State.RESUMED)
     val resources by (context.applicationContext as FeatherApplication).media.resources.collectAsStateWithLifecycle()
-    val starters = remember { listOf("gm", "lol", "yes", "wow", "applause", "facepalm", "love", "fire") }
     val normalized = remember(input) { GifSearch.normalize(input) }
-    val query = normalized.takeIf(GifSearch::searchable) ?: selectedQuery
-    fun chooseQuery(value: String) {
-        input = value; selectedQuery = value; loading = true; error = null
-        suggestions = emptyList(); focused = false; keyboard?.hide()
-    }
-    LaunchedEffect(input, selectedQuery, retry) {
+    val query = normalized.takeIf(GifSearch::searchable) ?: "gm"
+    LaunchedEffect(input, retry) {
         loading = true; error = null
         delay(250)
         try {
@@ -79,14 +67,6 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
         } catch (e: CancellationException) { throw e }
         catch (e: GifSearchFailure) { error = e }
         finally { loading = false }
-    }
-    LaunchedEffect(input, focused) {
-        suggestions = emptyList(); suggestionIndex = -1
-        if (!focused || !GifSearch.searchable(normalized)) return@LaunchedEffect
-        delay(300)
-        try { suggestions = GifSearch.suggest(normalized) }
-        catch (e: CancellationException) { throw e }
-        catch (_: Exception) { /* Optional suggestions must not hide search results. */ }
     }
     LaunchedEffect(error) {
         retryReady = false
@@ -104,29 +84,19 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
             .imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(500); loading = true; error = null },
-                    modifier = Modifier.weight(1f).focusRequester(focus).onFocusChanged { focused = it.isFocused }
+                    modifier = Modifier.weight(1f).focusRequester(focus)
                         .onPreviewKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) false else when (event.key) {
-                                Key.DirectionDown -> { suggestionIndex = (suggestionIndex + 1).coerceAtMost(suggestions.lastIndex); suggestions.isNotEmpty() }
-                                Key.DirectionUp -> { suggestionIndex = (suggestionIndex - 1).coerceAtLeast(-1); suggestions.isNotEmpty() }
-                                Key.Enter -> { suggestions.getOrNull(suggestionIndex)?.let(::chooseQuery) ?: keyboard?.hide(); true }
+                                Key.Enter -> { keyboard?.hide(); true }
                                 Key.Escape -> { onDismiss(); true }
                                 else -> false
                             }
                         }, singleLine = true, shape = RoundedCornerShape(28.dp),
                     placeholder = { Text("Search GIFs") }, leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = { if (input.isNotEmpty()) IconButton(onClick = {
-                        input = ""; selectedQuery = "gm"; focus.requestFocus()
+                        input = ""; focus.requestFocus()
                     }) { Icon(Icons.Default.Close, "Clear GIF search") } })
                 IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close GIF picker") }
-            }
-            if (focused) suggestions.forEachIndexed { index, term ->
-                Text(term, Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(if (index == suggestionIndex) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                    .clickable { chooseQuery(term) }.padding(horizontal = 12.dp, vertical = 8.dp), maxLines = 1)
-            }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                starters.forEach { term -> FilterChip(selected = query == term, onClick = { chooseQuery(term) }, label = { Text(term) }) }
             }
             Box(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 180.dp)) {
                 if (error != null) {

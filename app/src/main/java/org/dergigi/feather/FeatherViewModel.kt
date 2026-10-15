@@ -68,7 +68,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val signerRequests = SignerRequests()
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
-    private val zapJobs = mutableMapOf<String, Job>()
+    private val zapJobs = mutableMapOf<Pair<String, Long>, Job>()
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
@@ -111,7 +111,8 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     fun zap(note: Event, amountSats: Long = DEFAULT_ZAP_SATS) {
         if (amountSats !in 1..MAX_ZAP_SATS) return
-        if (note.id in zapping.value || !queueHasRoom()) return
+        val request = note.id to amountSats
+        if (request in zapJobs || !queueHasRoom()) return
         if (walletBusy.value) { message.value = "Wallet connection is being updated. Try again shortly."; return }
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         zapping.update { it + note.id }
@@ -132,12 +133,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (failure: WalletFailure) { AppMessages.show(failure.message ?: "Zap failed", failure.report ?: failure.message ?: "Zap failed") }
             catch (failure: Exception) { message.value = "Zap: ${walletErrorReason(failure)}" }
             finally {
-                if (zapJobs[note.id] === currentCoroutineContext().job) {
-                    zapJobs.remove(note.id); zapping.update { it - note.id }
+                if (zapJobs[request] === currentCoroutineContext().job) {
+                    zapJobs.remove(request)
+                    if (zapJobs.keys.none { it.first == note.id }) zapping.update { it - note.id }
                 }
             }
         }
-        zapJobs[note.id] = job
+        // Different explicit amounts queue behind the active payment. The wallet journal
+        // still checks an uncertain previous payment instead of sending another invoice.
+        zapJobs[request] = job
         job.start()
     }
     val reacting = MutableStateFlow<Set<String>>(emptySet())

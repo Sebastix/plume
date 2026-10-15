@@ -1178,3 +1178,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including the standard lint/R8 pipeline. No tests or emulator runs; device validation remains with the user.
 - APK SHA-256 `e0b43bd2b8f984f364500be232dfa5608ad109a575492ecc7db3286795acd2cb`; 15,674,877 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
 - Signed Zapstore release `aebf4ea2406608fcb587360a6a91ce4a4848ec3de5466e24c5a0324824545c6b` and asset `f1c7785792a090d5a6be889cb5946c22d8c4587f086aec5f71a146b238c0185c` retrieved and verified after retrying empty asset lookups. Hash, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## Unreleased — zap picker availability and simpler GIF search
+
+- Source review covered shared note/gallery zap controls, bounded per-note/amount queue deduplication, pending-state cleanup, account-change cancellation and unchanged serialized wallet journal handling. Removed GIF suggestion UI, autocomplete effects and keyboard suggestion navigation.
+- No build, tests or emulator runs. Awaiting a release request for the signed build; device validation remains with the user.

@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Keep the zap amount picker usable during an in-flight payment in notes and the gallery. Queue explicitly selected different amounts, deduplicate pending note/amount pairs, and keep uncertain-payment recovery intact.
+- Remove suggested search terms, pills and autocomplete from the GIF picker; keep direct text search and the results grid.
+
 ## [0.63.1] - 2026-10-15
 
 ### Fixed
