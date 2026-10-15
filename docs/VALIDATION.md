@@ -1145,3 +1145,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Manual emulator check opened a public thread, observed its replies and persistent membership, disabled Wi-Fi and mobile data, force-stopped Feather, and reopened the same root. The root and replies rendered from SQLite with no active network; the membership index survived startup pruning. No repository/cache exception or runtime crash was logged. Debug cold startup was slow on the emulator; this is an offline-correctness check, not a measured performance claim. No automated tests or public event publication were performed.
 - Version 0.62.1 (114), source `40ca01b`. Signed release build including lint/R8 passed. APK SHA-256 `6fb612b1a186dbb2a4c348aaa6b913353a6694b11e2abf9b8cc8fd1db799807b`; 15,657,765 bytes. Embedded commit/version and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs verified.
 - Signed Zapstore release `f8cf1fc230d53151c3fa8c99703b2d58fb9c51e31cf64d859a63b73458f9c302` and asset `dfe630ff97656175f4a0f87efd67a7de00f6297c49612a960ac09faf07b6a205` verified with matching hash, versionCode and certificate; CDN HTTP 200 and matching size. Website unchanged.
+
+
+## 2026-10-15 — 0.62.2 release
+
+- Version 0.62.2 (115), source `f856f07`. Replace the login door/arrow with a person-and-key vector in the home account control, account sheet and issue reporter. Keep right alignment, circular button sizes and signer launch behavior.
+- Visually inspected a rendering of the exact vector path on the tonal button surface. Signed release build including lint/R8 passed; packaged version, embedded source and existing signing certificate verified. No automated tests or device interaction checks were run.
+- APK SHA-256 `577786a43771b8052f6fd8804579ac5921f16691bb7c080396e3049505e004e6`; 15,657,837 bytes. Mapping archived locally. GitHub asset digest and both GRASP source/tag refs verified.
+- Signed Zapstore release `423101acfa0a42a44c85530d7e4c7d9b1bb792c841938fb45a005cbf7f075471` and asset `cb4f628e539ad0456a78be6183597fb293039f61aef083f1e2115f031c85c03b` verified with matching hash, versionCode and certificate; CDN HTTP 200 and matching size. Website unchanged.
