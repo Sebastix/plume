@@ -7,6 +7,21 @@ import android.net.Uri
 import android.os.Build
 import java.util.Locale
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
+import com.vitorpamplona.quartz.nip19Bech32.entities.NEvent
+
+/** Retain the actual destination even when a Nostr link is rendered as a short name. */
+internal fun NostrContent.Reference.copyableLink(original: String? = null): String {
+    if (hashtag != null) return original ?: "#$hashtag"
+    if (original != null && !original.startsWith("#[")) {
+        return if (original.startsWith("nostr:", true) || original.startsWith("http", true)) original else "nostr:$original"
+    }
+    external?.let { return if (it.startsWith("http", true)) it else "nostr:$it" }
+    if (profile) return "nostr:${Protocol.npub(id)}"
+    val address = id.split(':', limit = 3)
+    return if (address.size == 3 && kind != null) "nostr:${NAddress.create(kind, address[1], address[2], relay = null)}"
+    else "nostr:${NEvent.create(id, author, kind, relay = null)}"
+}
 
 /** Explicit app routing also works when Android has not verified NewPipe's web links. */
 internal fun Context.openWebLink(url: String) {

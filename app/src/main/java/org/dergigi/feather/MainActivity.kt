@@ -1005,7 +1005,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val richContent = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
         val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
-        if (content.isNotBlank()) NoteSelection(note) { Text(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        if (content.isNotBlank()) NoteSelection(note) { LinkText(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         quotes.forEachIndexed { index, reference ->
             if (content.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
@@ -1152,7 +1152,7 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
                 val ref = token.reference
                 if (ref != null) {
                     if (ref.id !in embeddedIds || ref.profile) {
-                        withLink(LinkAnnotation.Clickable(token.text, TextLinkStyles(style = SpanStyle(color = linkColor))) { open(ref) }) {
+                        withLink(LinkAnnotation.Clickable(ref.copyableLink(token.text), TextLinkStyles(style = SpanStyle(color = linkColor))) { open(ref) }) {
                             append(if (ref.hashtag != null) token.text else if (ref.profile) "@${profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}" else "↗ ${FeatherRepository.shortKey(ref.id)}")
                         }
                     }
@@ -1228,7 +1228,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
                 val text = richNoteText(body, note, profiles, onReference)
                 if (text.isNotBlank()) NoteSelection(note) {
-                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                    LinkText(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
                 }
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
@@ -1362,7 +1362,7 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (!expanded) {
             SelectionContainer {
-                Text(
+                LinkText(
                     richText(profile.about, profile.aboutTokens, state.profiles, onReference),
                     style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
                     maxLines = 3,
@@ -1374,14 +1374,14 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
             quotes.forEachIndexed { index, token ->
                 val (body, tokens) = textRange(if (index == 0) 0 else quotes[index - 1].end, token.start)
                 if (body.isNotBlank()) SelectionContainer {
-                    Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+                    LinkText(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
                 }
                 val reference = token.reference!!
                 EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "bio:${reference.id}", onReference)
             }
             val (body, tokens) = textRange(quotes.lastOrNull()?.end ?: 0, profile.about.length)
             if (body.isNotBlank()) SelectionContainer {
-                Text(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+                LinkText(richText(body, tokens, state.profiles, onReference), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
             }
         }
         // Event cards stay out of the compact preview, even when their link fits on one line.

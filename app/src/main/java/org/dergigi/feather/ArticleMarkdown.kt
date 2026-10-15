@@ -78,6 +78,7 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
         else CompositionLocalProvider(LocalUriHandler provides links) {
             NoteSelection(event) {
                 Markdown(markdownState = markdown, modifier = Modifier.fillMaxWidth().padding(horizontal = if (articleLayout) 24.dp else 0.dp),
+                    components = articleLinkComponents,
                     colors = markdownColor(text = colors.onSurface, codeBackground = colors.surfaceContainerHigh,
                         inlineCodeBackground = colors.surfaceContainerHigh, dividerColor = colors.outlineVariant,
                         tableBackground = colors.surfaceContainer),

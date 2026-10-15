@@ -1,6 +1,8 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -226,9 +228,12 @@ private fun OpenGraphCard(link: PreviewLink) {
     }
     // The small host-only card remains useful offline or when a server blocks preview requests.
     Spacer(Modifier.height(12.dp))
-    Surface(onClick = { context.openWebLink(link.url) },
+    Surface(
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().onGloballyPositioned {
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).combinedClickable(
+            onClickLabel = "Open link", onLongClickLabel = "Copy link",
+            onClick = { context.openWebLink(link.url) }, onLongClick = { context.copyLink(link.url) }
+        ).onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height
         }) {
