@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.64.2] - 2026-10-15
+
 ### Changed
 - Limit the long-press zap picker to three columns and three rows, with up to seven amounts sorted from smallest to largest and the custom-amount and comment buttons together in the final two cells.
 
