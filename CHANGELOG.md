@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-10-15
+
 ### Added
 - Reply from the Android text-selection menu in notes, embedded notes and article bodies. Prefill the reply with the selected passage as a blockquote, leave one empty line before the cursor, and preserve any saved reply text and attachments.
 
