@@ -160,7 +160,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                 }
             }
         }
-        if (!smallArtwork) data.image?.let { RemoteImage(it, Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)), data.title ?: "Podcast artwork") }
+        if (!smallArtwork) data.image?.let { PodcastArtwork(it, Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)), data.title ?: "Podcast artwork") }
         if (!smallArtwork) data.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = if (compact) 3 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis) }
         if (data.description.isNotBlank()) Text(data.description, style = MaterialTheme.typography.bodyLarge,
             maxLines = if (compact) 4 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
@@ -219,7 +219,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                 // Measure controls first: artwork matches their height without intrinsic
                 // measurements of the slider or a second-frame size/state update.
                 Layout(content = {
-                    Box { RemoteImage(data.image, Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), data.title ?: "Podcast artwork") }
+                    Box { PodcastArtwork(data.image, Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), data.title ?: "Podcast artwork") }
                     Box { controls() }
                 }, modifier = Modifier.fillMaxWidth()) { measurables, constraints ->
                     val coverWidth = minOf(72.dp.roundToPx(), constraints.maxWidth / 4)
@@ -235,6 +235,16 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                 }
             } else controls()
         }
+    }
+}
+
+@Composable
+private fun PodcastArtwork(url: String, modifier: Modifier, description: String) {
+    var loaded by remember(url) { mutableStateOf(false) }
+    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+        if (!loaded) Icon(painterResource(R.drawable.photos), null, Modifier.size(28.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+        RemoteImage(url, Modifier.fillMaxSize(), description, onImageSize = { _, _ -> loaded = true })
     }
 }
 

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Show a subtle image placeholder in the cover area while episode artwork loads, retaining it if the image cannot load.
+
 ## [0.64.2] - 2026-10-15
 
 ### Changed
