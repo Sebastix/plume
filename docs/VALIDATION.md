@@ -1202,3 +1202,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including standard lint/R8. No tests or emulator runs. Playback, provider metadata and real zap-message delivery remain for device validation.
 - APK SHA-256 `24a4f154cf570ee16b527585e28671adfc1216b4b61f71cb8384446cc7d88e74`; 15,674,873 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
 - Signed Zapstore release `816b824e875cafa5d1e4bd307e0058b324b6253ff89695a0a93537c5ec387c7a` and asset `bb3378d600c217853556a6de9a825162cad9a874e5a91fa5bbc516e521c7c43a` retrieved with signature verification. Hash, versionCode, size and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## Unreleased — compact podcast widget
+
+- Moved artwork beside playback controls, measuring the controls first and giving the artwork the same height in one layout pass. Moved show name beside the duration and external navigation into the title row; removed the separate footer. Voice-note layout and shared playback behavior remain intact.
+- Source review only. No build, tests or emulator runs; awaiting a release request and device validation.

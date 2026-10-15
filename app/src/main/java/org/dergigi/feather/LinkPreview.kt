@@ -262,15 +262,8 @@ private fun OpenGraphCard(link: PreviewLink) {
             Column(Modifier.padding(12.dp)) {
                 AudioPlayerContent("podcast:${episode.audio}",
                     AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
-                    compact = true, author = episode.site ?: link.host, smallArtwork = true)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(episode.site ?: link.host, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { context.openWebLink(link.url) }) {
-                        Icon(painterResource(R.drawable.open_external), "Open podcast source", Modifier.size(18.dp))
-                    }
-                }
+                    compact = true, author = episode.site ?: link.host, smallArtwork = true,
+                    onOpenSource = { context.openWebLink(link.url) })
             }
         }
         return
