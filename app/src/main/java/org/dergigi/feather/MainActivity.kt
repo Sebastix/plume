@@ -231,6 +231,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val profileKey = entry.target.takeIf { screen == "profile" }
     val hashtag = entry.target.takeIf { screen == "hashtag" }
     val threadId = entry.target.takeIf { screen == "thread" }
+    var openingInApp by remember(entry.key) { mutableStateOf(false) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showWallet by remember { mutableStateOf(false) }
@@ -370,9 +371,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         ?.takeUnless { contentFilter.hides(it) || it.id in s.conversation?.deleted.orEmpty() }
                 } else null
                 if (detailNote != null) IconButton(onClick = {
-                    val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
-                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
-                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(detailNote.id, detailNote.pubKey, detailNote.kind, relay = null)
+                    val pointer = detailNote.nostrPointer()
                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:$pointer"))
                 }, modifier = toolbarButtonSurface) { Icon(painterResource(R.drawable.copy), "Copy Nostr reference", Modifier.size(20.dp)) }
@@ -385,6 +384,15 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
                     }, "Share note"))
                 }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, "Share note") }
+                if (detailNote != null) IconButton(enabled = !openingInApp, onClick = {
+                    openingInApp = true
+                    scrollScope.launch {
+                        try { context.openInNostrApp(detailNote) }
+                        finally { openingInApp = false }
+                    }
+                }, modifier = toolbarButtonSurface) {
+                    Icon(painterResource(R.drawable.open_in_app), "Open note in another Nostr app")
+                }
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {

@@ -1,14 +1,17 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -24,10 +27,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 
 /** Shared one-tap zap and amount picker for notes and their gallery images. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -37,16 +44,6 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
     val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
     val zapActions = LocalZapActions.current
     val celebration = zapActions.celebrations[note.id] ?: 0L
-    var seenCelebration by remember(note.id, publicKey) { mutableLongStateOf(celebration) }
-    val flash = remember(note.id, publicKey) { Animatable(1f) }
-    LaunchedEffect(celebration) {
-        val fresh = celebration > seenCelebration
-        seenCelebration = celebration
-        if (fresh) {
-            flash.snapTo(0f)
-            flash.animateTo(1f, tween(200, easing = LinearEasing))
-        }
-    }
     var picker by remember(note.id) { mutableStateOf(false) }
     var custom by remember(note.id) { mutableStateOf(false) }
     var input by remember(note.id) { mutableStateOf("") }
@@ -66,25 +63,9 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                 onClick = { zapActions.zap(note, DEFAULT_ZAP_SATS) },
                 onLongClick = { choices = zapActions.amounts; picker = true }).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                if (note.id in zapActions.pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
-                else Icon(painterResource(R.drawable.zap),
-                    if (zapped) "You zapped this post; $zapAmount sats received" else "Zap 21 sats; $zapAmount sats received",
-                    Modifier.size(20.dp), tint = if (flash.value < 1f) lerp(Color(0xFFFFF4BF), Color(0xFFFFB300), flash.value)
-                    else if (zapped) Color(0xFFFFB300) else tint)
-                if (!pending && flash.value < 1f) Canvas(Modifier.size(24.dp)) {
-                    val progress = flash.value
-                    val radius = (9f + 5f * progress).dp.toPx()
-                    val length = (2f * (1f - progress)).dp.toPx()
-                    for (degrees in listOf(-65, 40, 170)) {
-                        val angle = Math.toRadians(degrees.toDouble())
-                        val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
-                        drawLine(Color(0xFFFFC247).copy(alpha = 1f - progress),
-                            center + direction * radius, center + direction * (radius + length),
-                            strokeWidth = 1.dp.toPx(), cap = StrokeCap.Round)
-                    }
-                }
-            }
+            ZapBolt(note.id, publicKey, pending, zapped, celebration, tint,
+                if (pending) "Zap in progress" else if (zapped) "You zapped this post; $zapAmount sats received"
+                else "Zap 21 sats; $zapAmount sats received")
             if (!iconOnly && counts.zapSats.signum() > 0) Text(zapAmount, style = MaterialTheme.typography.labelMedium, color = tint)
         }
         DropdownMenu(expanded = picker && enabled, onDismissRequest = { picker = false }) {
@@ -118,5 +99,55 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                     amount?.let { custom = false; zapActions.zap(note, it) }
                 }) { Icon(painterResource(R.drawable.zap), amount?.let { "Zap $it sats" } ?: "Enter zap amount") }
             })
+    }
+}
+
+/** Animate only the glyph; keep the button, count and neighboring actions stationary. */
+@Composable
+private fun ZapBolt(noteId: String, account: String?, pending: Boolean, zapped: Boolean, celebration: Long,
+    tint: Color, description: String) {
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val active = lifecycle.isAtLeast(Lifecycle.State.STARTED)
+    var seenCelebration by remember(noteId, account) { mutableLongStateOf(celebration) }
+    val pulse = remember(noteId, account) { Animatable(1f) }
+    val shimmer = remember(noteId, account) { Animatable(-1f) }
+    LaunchedEffect(noteId, account, celebration, active) {
+        val fresh = celebration > seenCelebration
+        seenCelebration = celebration
+        if (fresh && active) {
+            pulse.snapTo(0f)
+            pulse.animateTo(1f, tween(600, easing = LinearEasing))
+        } else pulse.snapTo(1f)
+    }
+    LaunchedEffect(noteId, account, pending, active) {
+        shimmer.snapTo(-1f)
+        if (pending && active) {
+            // Do not flash an animation for immediate validation failures.
+            delay(150)
+            shimmer.snapTo(0f)
+            shimmer.animateTo(1f, infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart))
+        }
+    }
+    val gold = Color(0xFFFFB300)
+    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+        Icon(painterResource(R.drawable.zap), description,
+            Modifier.size(20.dp).graphicsLayer {
+                // An isolated layer masks the sheen to the existing bolt silhouette.
+                compositingStrategy = if ((pending && active) || pulse.value < 1f) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+                val scale = if (!pending) 1f + .18f * sin(Math.PI * pulse.value).toFloat() else 1f
+                scaleX = scale; scaleY = scale
+            }.drawWithContent {
+                drawContent()
+                if (pending && active && shimmer.value >= 0f) {
+                    val x = size.width * (-1f + 3f * shimmer.value)
+                    drawRect(Brush.linearGradient(
+                        listOf(Color.Transparent, Color.White.copy(alpha = .9f), Color.Transparent),
+                        start = Offset(x, size.height), end = Offset(x + size.width * .65f, 0f)),
+                        blendMode = BlendMode.SrcAtop)
+                } else if (!pending && pulse.value < 1f) {
+                    drawRect(lerp(gold, Color(0xFFFFF4BF), sin(Math.PI * pulse.value).toFloat()),
+                        blendMode = BlendMode.SrcAtop)
+                }
+            }, tint = if (zapped) gold else tint)
     }
 }

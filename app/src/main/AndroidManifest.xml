@@ -8,7 +8,10 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="nostrsigner"/></intent></queries>
+    <queries>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="nostrsigner"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="nostr"/></intent>
+    </queries>
     <application android:name=".FeatherApplication" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:label="Feather" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/Theme.Feather" android:supportsRtl="true" android:usesCleartextTraffic="false">
         <service android:name=".AudioPlaybackService" android:foregroundServiceType="mediaPlayback" android:exported="true">
             <intent-filter><action android:name="androidx.media3.session.MediaSessionService" /></intent-filter>

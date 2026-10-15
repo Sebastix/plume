@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Open the current note in another Nostr app from a phone icon beside copy/share in the detail toolbar. Use Android's chooser, exclude Feather, and preserve article/app addresses when opening addressable events.
+
+### Changed
+- Keep the zap bolt visible with a gentle shimmer while payment is pending instead of a spinner. Replace the brief success flash with a clearer 600 ms gold pulse after confirmation, across notes and the gallery.
+
 ## [0.59.4] - 2026-10-14
 
 ### Changed
