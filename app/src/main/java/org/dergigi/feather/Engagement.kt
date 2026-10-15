@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 /** Counts and zap amounts from locally discovered, verified events, not an authoritative global total. */
 data class Engagement(val replies: Int = 0, val reactions: Int = 0, val zapSats: BigDecimal = BigDecimal.ZERO,
     // Store the identity, not a boolean: cached counts can outlive account switches.
-    val zappedByAccount: String? = null)
+    val zappedByAccount: String? = null, val reposts: Int = 0, val repostedByAccount: String? = null)
 
 internal fun replyTarget(event: Event): String? {
     if (event.kind in listOf(1111, 1244)) event.tagValue("e")?.let(Protocol::publicKey)?.takeUnless { it == event.id }?.let { return it }

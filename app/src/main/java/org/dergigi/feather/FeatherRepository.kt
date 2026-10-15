@@ -508,7 +508,7 @@ class FeatherRepository(context: Context) {
         if (engagementIds.isEmpty()) client.unsubscribe("engagement")
         else client.subscribe("engagement", (routingPool.filter { it != "wss://purplepag.es" } + if (engagementApps.isNotEmpty() || state.value.threadNotes.any { it.isAppDiscussion() }) listOf(ZAPSTORE_RELAY) else emptyList()).distinct().associate { url ->
             url.normalizeRelayUrl() to (engagementIds.chunked(6).flatMap { ids ->
-                listOf(1, 1111, 1244, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
+                listOf(1, 1111, 1244, 6, 16, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
             } + engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) })
         }, listener)
         val owner = state.value.publicKey
@@ -1002,7 +1002,7 @@ class FeatherRepository(context: Context) {
         engagementIds = countTargets.map { it.id }
         engagementApps = countTargets.mapNotNull { it.appAddress() }
         val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
-            db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
+            db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 6, 16, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
                 engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) }).distinctBy { it.id }
         }
         val authors = (activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
@@ -1029,6 +1029,9 @@ class FeatherRepository(context: Context) {
             var zappedByAccount: String? = null
             val replies = activity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
             val reactions = activity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
+            val repostAuthors = activity.asSequence().filter {
+                it.kind in listOf(6, 16) && !engagementDeleted(it) && it.pubKey !in mutedAuthors && repostTarget(it)?.id == target.id
+            }.map { it.pubKey }.toSet()
             val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
                 .mapNotNull { receipt ->
                     val amount = zapVerification.amountInSats(receipt, target, profiles[receipt.tagValue("p")] ?: state.value.profiles[receipt.tagValue("p")], active)
@@ -1037,7 +1040,7 @@ class FeatherRepository(context: Context) {
                     }
                     amount.takeIf { it.signum() > 0 }?.let { receipt.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) to it }
                 }.distinctBy { it.first }.fold(java.math.BigDecimal.ZERO) { total, (_, amount) -> total + amount }
-            target.id to Engagement(replies, reactions, zapSats, zappedByAccount)
+            target.id to Engagement(replies, reactions, zapSats, zappedByAccount, repostAuthors.size, key?.takeIf { it in repostAuthors })
         }
         val sentReposts = key?.let { author ->
             val known = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), limit = 256)) }

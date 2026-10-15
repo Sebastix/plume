@@ -24,13 +24,15 @@ internal data class RepostActions(val pending: Map<String, Boolean> = emptyMap()
 internal val LocalRepostActions = staticCompositionLocalOf { RepostActions() }
 
 @Composable
-internal fun RepostButton(note: Event, sent: Boolean) {
+internal fun RepostButton(note: Event, sent: Boolean, count: Int, ownCounted: Boolean) {
     val actions = LocalRepostActions.current
     val pending = note.id in actions.pending
-    val active = actions.pending[note.id] ?: sent
+    val active = actions.pending[note.id] ?: (sent || ownCounted)
+    val visibleCount = (count + (if (active) 1 else 0) - (if (ownCounted) 1 else 0)).coerceAtLeast(0)
+    val tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant
     val rotation = remember(note.id) { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    Box(Modifier.size(48.dp).clip(CircleShape).combinedClickable(enabled = !pending,
+    Row(Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp).clip(CircleShape).combinedClickable(enabled = !pending,
         onClickLabel = if (active) "Undo repost" else "Repost", onLongClickLabel = "Quote post",
         onClick = {
             actions.repost(note)
@@ -43,9 +45,12 @@ internal fun RepostButton(note: Event, sent: Boolean) {
                     360f at 380
                 })
             }
-        }, onLongClick = { actions.quote(note) }), contentAlignment = Alignment.Center) {
-        Icon(painterResource(R.drawable.repost), if (active) "Undo repost; hold to quote" else "Repost; hold to quote", Modifier.size(20.dp).graphicsLayer { rotationZ = rotation.value },
-            tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant)
+        }, onLongClick = { actions.quote(note) }).padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+        Icon(painterResource(R.drawable.repost), if (active) "Undo repost; $visibleCount reposts; hold to quote" else "Repost; $visibleCount reposts; hold to quote", Modifier.size(20.dp).graphicsLayer { rotationZ = rotation.value },
+            tint = tint)
+        if (visibleCount > 0) Text(visibleCount.toString(), maxLines = 1,
+            style = MaterialTheme.typography.labelMedium, color = tint)
     }
 }
 

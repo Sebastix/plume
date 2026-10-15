@@ -1048,7 +1048,8 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 if (counts.replies > 0) Text(counts.replies.toString(), maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            RepostButton(note, note.id in state.sentReposts)
+            RepostButton(note, note.id in state.sentReposts, counts.reposts,
+                ownCounted = state.publicKey != null && counts.repostedByAccount == state.publicKey)
             }
             val expandAction: @Composable () -> Unit = {
             if (compact && (expanded || truncated)) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {
