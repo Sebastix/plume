@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-10-15
+
 ### Added
 - Long-press links in notes, quoted notes, profile bios, highlights, articles and web previews to copy their full destination. Keep normal tap navigation and text selection outside links.
 
