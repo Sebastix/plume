@@ -1,5 +1,6 @@
 package org.dergigi.feather
 
+import com.vitorpamplona.quartz.nip01Core.core.Event
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.draw.clip
@@ -32,21 +33,42 @@ import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resumeWithException
 
-private data class PreviewLink(val url: String, val host: String, val youtube: YouTubeLink?)
+private data class PreviewLink(val url: String, val host: String, val youtube: YouTubeLink?, val podcast: PodcastReference? = null)
 private val webLinks = Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE)
 private val nonPages = setOf("jpg", "jpeg", "png", "gif", "webp", "avif", "svg", "mp4", "m4v", "mov", "webm", "mp3", "wav", "ogg", "pdf", "zip", "apk")
 
 /** Parse once off-main; share the same card limit with the existing YouTube previews. */
 @Composable
-internal fun LinkPreviews(content: String, limit: Int = 2) {
-    val links by produceState(emptyList<PreviewLink>(), content, limit) {
+internal fun LinkPreviews(content: String, limit: Int = 2, event: Event? = null) {
+    val podcasts by produceState(emptyList<PodcastReference>(), event?.id) {
+        value = withContext(Dispatchers.Default) { event?.let(::podcastReferences).orEmpty() }
+    }
+    val links by produceState(emptyList<PreviewLink>(), content, limit, podcasts) {
         value = withContext(Dispatchers.Default) {
-            webLinks.findAll(content).mapNotNull { match ->
-                val url = match.value.trimEnd('.', ',', ')', ']', '!', '?').toHttpUrlOrNull() ?: return@mapNotNull null
+            (podcasts.mapNotNull { it.url }.asSequence() + webLinks.findAll(content).map { it.value }).mapNotNull { raw ->
+                val url = (FountainLinks.canonical(raw) ?: raw).trimEnd('.', ',', ')', ']', '!', '?').toHttpUrlOrNull() ?: return@mapNotNull null
                 if (url.username.isNotEmpty() || url.password.isNotEmpty() || url.port !in setOf(80, 443)) return@mapNotNull null
-                if (url.pathSegments.lastOrNull()?.substringAfterLast('.')?.lowercase() in nonPages) return@mapNotNull null
-                PreviewLink(url.toString(), url.host, YouTubeLinks.parse(url.toString(), 1).firstOrNull())
-            }.distinctBy { it.url.substringBefore('#') }.take(limit.coerceIn(1, 2)).toList()
+                if (podcasts.none { it.url == url.toString() } && url.pathSegments.lastOrNull()?.substringAfterLast('.')?.lowercase() in nonPages) return@mapNotNull null
+                PreviewLink(url.toString(), url.host, YouTubeLinks.parse(url.toString(), 1).firstOrNull(),
+                    podcasts.firstOrNull { it.url == url.toString() })
+            }.distinctBy { it.url.substringBefore('#') }.take((limit.coerceIn(1, 2) - podcasts.count { it.url == null }).coerceAtLeast(0)).toList()
+        }
+    }
+    podcasts.filter { it.url == null }.take(limit).forEach { reference ->
+        val context = LocalContext.current
+        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.podcast), null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(if (reference.episode) "Podcast episode" else "Podcast", style = MaterialTheme.typography.titleSmall)
+                    Text(reference.id.substringAfter("guid:"), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = { context.copyLink(reference.id) }) {
+                    Icon(painterResource(R.drawable.copy), "Copy podcast identifier")
+                }
+            }
         }
     }
     links.forEach { link -> key(link.url) {
@@ -84,9 +106,9 @@ private object OpenGraph {
     private val http = OkHttpClient.Builder().dns(publicDns).followRedirects(false)
         .callTimeout(8, TimeUnit.SECONDS).connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).build()
 
-    suspend fun get(raw: String, disk: DiskCache): LinkMetadata? = withContext(Dispatchers.IO) {
+    suspend fun get(raw: String, disk: DiskCache, podcast: PodcastReference? = null): LinkMetadata? = withContext(Dispatchers.IO) {
         val url = (FountainLinks.canonical(raw) ?: raw).toHttpUrlOrNull()?.newBuilder()?.scheme("https")?.fragment(null)?.build() ?: return@withContext null
-        val key = "opengraph-v2:$url"
+        val key = "opengraph-v3:$url:${podcast?.id.orEmpty()}"
         synchronized(cache) { cache[key]?.takeIf { it.expires > System.currentTimeMillis() } }?.let { return@withContext it.metadata }
         locks[(key.hashCode() and Int.MAX_VALUE) % locks.size].withLock {
             val now = System.currentTimeMillis()
@@ -103,7 +125,7 @@ private object OpenGraph {
             }.getOrNull()
             if (cached != null) { synchronized(cache) { cache[key] = cached }; return@withLock cached.metadata }
             val metadata = try {
-                requests.withPermit { withTimeoutOrNull(12_000) { fetch(url) } }
+                requests.withPermit { withTimeoutOrNull(12_000) { fetch(url, podcast) } }
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { null }
             val expires = now + if (metadata == null) 5 * 60_000L else 7 * 86_400_000L
@@ -120,7 +142,7 @@ private object OpenGraph {
         }
     }
 
-    private suspend fun fetch(initial: HttpUrl): LinkMetadata? {
+    private suspend fun fetch(initial: HttpUrl, podcast: PodcastReference?): LinkMetadata? {
         var url = initial
         val fountain = FountainLinks.canonical(initial.toString())
         repeat(4) { hop ->
@@ -136,11 +158,14 @@ private object OpenGraph {
                     val type = response.body.contentType()
                     if (type?.type in setOf("image", "video"))
                         return LinkMetadata(null, null, null, null, "${type!!.type}/${type.subtype}")
-                    if (type != null && type.subtype !in setOf("html", "xhtml+xml")) return null
+                    if (podcast?.episode == true && type?.type == "audio")
+                        return LinkMetadata("Podcast episode", null, null, url.host, audio = url.toString())
+                    val xml = podcast != null && type?.subtype in setOf("xml", "rss+xml", "atom+xml")
+                    if (type != null && type.subtype !in setOf("html", "xhtml+xml") && !xml) return null
                     val buffer = Buffer()
                     val source = response.body.source()
                     var tail = ""
-                    val maxBytes = if (fountain != null) 1_048_576L else 262_144L
+                    val maxBytes = if (fountain != null || xml) 1_048_576L else 262_144L
                     while (buffer.size < maxBytes) {
                         currentCoroutineContext().ensureActive()
                         val oldSize = buffer.size
@@ -148,10 +173,12 @@ private object OpenGraph {
                         val chunk = Buffer()
                         buffer.copyTo(chunk, oldSize, buffer.size - oldSize)
                         val ending = tail + chunk.readString(Charsets.ISO_8859_1).lowercase()
-                        if (fountain == null && "</head>" in ending) break
+                        if (fountain == null && !xml && "</head>" in ending) break
                         tail = ending.takeLast(16)
                     }
-                    val document = Jsoup.parse(buffer.inputStream(), type?.charset()?.name(), url.toString())
+                    val document = Jsoup.parse(buffer.inputStream(), type?.charset()?.name(), url.toString(),
+                        if (xml) org.jsoup.parser.Parser.xmlParser() else org.jsoup.parser.Parser.htmlParser())
+                    if (xml) return podcastFeedMetadata(document, podcast!!)
                     if (fountain != null) {
                         FountainLinks.episode(document, fountain)?.let { episode ->
                             return LinkMetadata(episode.title, null, episode.image, episode.show ?: "Fountain",
@@ -171,12 +198,34 @@ private object OpenGraph {
                         ?.takeIf { it.scheme == "https" && it.port == 443 && it.username.isEmpty() && it.password.isEmpty() }
                         ?.takeIf { runCatching { publicDns.lookup(it.host) }.isSuccess }?.toString()
                     if (title == null && description == null && image == null) return null
-                    return LinkMetadata(title, description, image, clean(meta("og:site_name"), 100))
+                    val audio = if (podcast?.episode == true) meta("og:audio:secure_url", "og:audio", "og:audio:url")
+                        ?.let { url.resolve(it) }?.toString()?.let(MediaContent::secureUrl) else null
+                    return LinkMetadata(title, description, image, clean(meta("og:site_name"), 100), audio = audio)
                 }
             }
         }
         return null
     }
+}
+
+/** Match an RSS enclosure to the exact external episode GUID, never guess the latest episode. */
+private fun podcastFeedMetadata(document: org.jsoup.nodes.Document, reference: PodcastReference): LinkMetadata? {
+    val channel = document.selectFirst("channel") ?: return null
+    val show = channel.children().firstOrNull { it.tagName() == "title" }?.text()?.take(300)
+    val showImage = channel.children().firstOrNull { it.tagName() == "itunes:image" }?.attr("href")
+        ?: channel.selectFirst("image > url")?.text()
+    if (!reference.episode) return LinkMetadata(show, null, MediaContent.secureUrl(showImage), show)
+    val guid = reference.id.removePrefix("podcast:item:guid:")
+    val item = channel.select("item").firstOrNull { it.selectFirst("guid")?.text() == guid } ?: return null
+    val enclosure = item.select("enclosure").firstOrNull { it.attr("type").startsWith("audio/") } ?: return null
+    val audio = MediaContent.secureUrl(enclosure.attr("url")) ?: return null
+    val image = item.children().firstOrNull { it.tagName() == "itunes:image" }?.attr("href") ?: showImage
+    val duration = item.children().firstOrNull { it.tagName() == "itunes:duration" }?.text()
+        ?.split(':')?.takeIf { it.size in 1..3 }?.map { it.toDoubleOrNull() }
+        ?.takeIf { parts -> parts.all { it != null && it.isFinite() && it >= 0 } }
+        ?.fold(0.0) { total, part -> total * 60 + part!! }?.takeIf { it <= 604800 }?.times(1000)?.toLong() ?: 0
+    return LinkMetadata(item.selectFirst("title")?.text()?.take(300), null, MediaContent.secureUrl(image), show,
+        audio = audio, duration = duration)
 }
 
 private suspend fun Call.awaitPreview(): Response = suspendCancellableCoroutine { continuation ->
@@ -198,7 +247,7 @@ private fun OpenGraphCard(link: PreviewLink) {
     val metadata by produceState<LinkMetadata?>(null, link.url, media.resources, media.active, visible) {
         val resources = media.resources
         if (resources != null && media.active && visible) {
-            value = OpenGraph.get(link.url, resources.imageDisk)
+            value = OpenGraph.get(link.url, resources.imageDisk, link.podcast)
             value?.mediaType?.let { DetectedMedia.put(link.url, it) }
         }
     }
@@ -213,13 +262,13 @@ private fun OpenGraphCard(link: PreviewLink) {
             Column(Modifier.padding(12.dp)) {
                 AudioPlayerContent(FountainLinks.canonical(link.url) ?: link.url,
                     AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
-                    compact = true, author = episode.site ?: "Fountain")
+                    compact = true, author = episode.site ?: link.host, smallArtwork = true)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(episode.site ?: "Fountain", style = MaterialTheme.typography.labelSmall,
+                    Text(episode.site ?: link.host, style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                         overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     IconButton(onClick = { context.openWebLink(link.url) }) {
-                        Icon(painterResource(R.drawable.open_external), "Open episode in Fountain", Modifier.size(18.dp))
+                        Icon(painterResource(R.drawable.open_external), "Open podcast source", Modifier.size(18.dp))
                     }
                 }
             }

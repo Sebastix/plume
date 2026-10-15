@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-10-15
+
 ### Added
+- Discover podcast and episode shares, NIP-22 comments and kind-17 episode likes using NIP-73 tags, alongside Fountain links. Show compact playable cards with sharer context, including exact-GUID RSS hints and advertised audio metadata; keep unresolved references accessible.
+- Optional public zap messages from the long-press amount picker, carried in signed NIP-57 zap requests with existing payment recovery protections.
 - Audio playback-speed menu with 0.75×, 1×, 1.25×, 1.5×, 1.75×, 2×, 2.5× and 3× presets. Add a synchronized speed-cycle action to Android media controls for podcasts and voice notes.
 
 ## [0.63.2] - 2026-10-15

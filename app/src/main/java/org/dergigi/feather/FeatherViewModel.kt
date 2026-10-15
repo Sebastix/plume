@@ -68,7 +68,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val signerRequests = SignerRequests()
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
-    private val zapJobs = mutableMapOf<Pair<String, Long>, Job>()
+    private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
@@ -109,9 +109,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             finally { walletBusy.value = false }
         }
     }
-    fun zap(note: Event, amountSats: Long = DEFAULT_ZAP_SATS) {
+    fun zap(note: Event, amountSats: Long = DEFAULT_ZAP_SATS, comment: String = "") {
         if (amountSats !in 1..MAX_ZAP_SATS) return
-        val request = note.id to amountSats
+        val request = Triple(note.id, amountSats, comment.trimEnd())
         if (request in zapJobs || !queueHasRoom()) return
         if (walletBusy.value) { message.value = "Wallet connection is being updated. Try again shortly."; return }
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
@@ -120,7 +120,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 paymentMutex.withLock {
                     check(signer.value === connected) { "Account changed" }
-                    val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats)
+                    val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats, comment)
                     if (signer.value === connected && newlyConfirmed) {
                         val sequence = ++zapCelebrationSequence
                         zapCelebrations.update { previous -> (previous - note.id).entries.toList().takeLast(63)
@@ -139,7 +139,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         }
-        // Different explicit amounts queue behind the active payment. The wallet journal
+        // Different explicit amounts/messages queue behind the active payment. The wallet journal
         // still checks an uncertain previous payment instead of sending another invoice.
         zapJobs[request] = job
         job.start()

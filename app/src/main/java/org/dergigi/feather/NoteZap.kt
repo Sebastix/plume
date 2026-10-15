@@ -47,6 +47,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
     var picker by remember(note.id) { mutableStateOf(false) }
     var custom by remember(note.id) { mutableStateOf(false) }
     var input by remember(note.id) { mutableStateOf("") }
+    var message by remember(note.id) { mutableStateOf("") }
     var choices by remember(note.id) { mutableStateOf(zapActions.amounts) }
     val callback by rememberUpdatedState(onPickerVisibilityChanged)
     LaunchedEffect(enabled) { if (!enabled) { picker = false; custom = false } }
@@ -60,7 +61,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
         Row((if (iconOnly) Modifier.size(56.dp) else Modifier.widthIn(min = 56.dp).heightIn(min = 48.dp)).clip(CircleShape)
             .combinedClickable(enabled = enabled,
                 onClickLabel = "Zap 21 sats", onLongClickLabel = "Choose zap amount",
-                onClick = { if (!pending) zapActions.zap(note, DEFAULT_ZAP_SATS) },
+                onClick = { if (!pending) zapActions.zap(note, DEFAULT_ZAP_SATS, "") },
                 onLongClick = { choices = zapActions.amounts; picker = true }).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             ZapBolt(note.id, publicKey, pending, zapped, celebration, tint,
@@ -73,14 +74,17 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                 choices.forEach { amount ->
                     TextButton(onClick = {
                         picker = false
-                        zapActions.zap(note, amount)
+                        zapActions.zap(note, amount, "")
                     }, modifier = Modifier.semantics { contentDescription = "Zap $amount sats" }) {
                         Text(format.format(amount))
                     }
                 }
                 IconButton(onClick = {
-                    picker = false; input = ""; custom = true
+                    picker = false; input = ""; message = ""; custom = true
                 }) { Icon(Icons.Default.Add, "Custom zap amount") }
+                IconButton(onClick = {
+                    picker = false; input = DEFAULT_ZAP_SATS.toString(); message = ""; custom = true
+                }) { Icon(painterResource(R.drawable.conversation), "Add zap message") }
             }
         }
     }
@@ -88,15 +92,20 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
         val amount = input.toLongOrNull()?.takeIf { it in 1..MAX_ZAP_SATS }
         AlertDialog(onDismissRequest = { custom = false },
             text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = input, onValueChange = { value ->
                     if (value.length <= 16 && value.all { it in '0'..'9' }) input = value
                 }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     suffix = { Text("sats") },
                     modifier = Modifier.semantics { contentDescription = "Zap amount in sats" })
+                OutlinedTextField(value = message, onValueChange = { value ->
+                    if (value.codePointCount(0, value.length) <= 280) message = value
+                }, placeholder = { Text("Public message") }, maxLines = 4, modifier = Modifier.fillMaxWidth())
+                }
             },
             confirmButton = {
                 IconButton(enabled = amount != null, onClick = {
-                    amount?.let { custom = false; zapActions.zap(note, it) }
+                    amount?.let { custom = false; zapActions.zap(note, it, message) }
                 }) { Icon(painterResource(R.drawable.zap), amount?.let { "Zap $it sats" } ?: "Enter zap amount") }
             })
     }

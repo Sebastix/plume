@@ -6,8 +6,8 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
-internal val readableKinds = listOf(1, 1111, 1621, 32267, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
-internal val profileKinds = listOf(1, 1111, 1621, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds + voiceKinds
+internal val readableKinds = listOf(1, 1111, 17, 1621, 32267, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
+internal val profileKinds = listOf(1, 1111, 17, 1621, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds + voiceKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     SEARCH(emptyList(), "Search"), NOTIFICATIONS(emptyList(), "Notifications"),
@@ -15,7 +15,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     REPOSTS(listOf(6, 16), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
-    VOICE(voiceKinds, "Voice"), PODCASTS(listOf(1, 1111), "Podcasts"),
+    VOICE(voiceKinds, "Voice"), PODCASTS(podcastKinds, "Podcasts"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
     ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs"),
     ISSUES(listOf(1621), "Issues");
@@ -35,7 +35,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
-        PODCASTS -> FountainLinks.parse(event.content).isNotEmpty()
+        PODCASTS -> isPodcastActivity(event)
         ZAPS -> zapActivity(event) != null
         REPOSTS -> repostTarget(event) != null
         EMOJI_PACKS -> !event.tagValue("d").isNullOrBlank() && collectionEmojis(event).isNotEmpty()
@@ -166,6 +166,12 @@ internal fun ProfileTab.matchesFeed(event: Event): Boolean =
 
 /** Lightning receipts use p/P; nutzaps use the sender author and recipient p tag. */
 internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFilters(): List<com.vitorpamplona.quartz.nip01Core.relay.filters.Filter> {
+    if (17 in kinds.orEmpty()) {
+        val ordinary = kinds.orEmpty().filter { it != 17 }
+        return (if (ordinary.isEmpty()) emptyList() else listOf(
+            com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(authors = authors, kinds = ordinary,
+                tags = tags, limit = limit, until = until, since = since)).flatMap { it.activityFilters() }) + podcastTagFilters()
+    }
     val people = authors ?: return listOf(this)
     if (kinds.orEmpty().none { it == 9735 || it == 9321 }) return listOf(this)
     return buildList {

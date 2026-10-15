@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -335,10 +336,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showAccount = true else vm.openReply(note, selectedText = text)
     }, LocalRepostActions provides RepostActions(reposting,
         repost = { note -> if (s.publicKey == null) showAccount = true else vm.repost(note) },
-        quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }, zapCelebrations) { note, amount ->
+        quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }, zapCelebrations) { note, amount, message ->
         if (s.publicKey == null) showAccount = true
         else if (!walletConnected) showWallet = true
-        else vm.zap(note, amount)
+        else vm.zap(note, amount, message)
     }, LocalReactionActions provides ReactionActions(pending = reacting, optimistic = optimisticReactions, choices = s.reactionChoices, recentEmojis = s.recentEmojis, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
@@ -993,6 +994,14 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             note.kind == 30030 -> EmojiPackContent(note)
             note.kind == 30023 -> ArticleContent(note, compact, onReference)
             note.kind == 9802 -> HighlightContent(note, state.profiles, compact, onReference)
+            note.kind == 17 -> {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Favorite, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(if (note.content.isBlank() || note.content == "+") "Liked" else note.content.take(80),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                LinkPreviews("", event = note)
+            }
             note.kind == 7 -> {
                 ReactionContent(note)
                 reactionTarget(note)?.let { reference ->
@@ -1015,11 +1024,11 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
         }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
-        LinkPreviews(body)
+        LinkPreviews(body, event = note)
             }
         }
         } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
-        if (note.kind !in listOf(7, 30030)) {
+        if (note.kind !in listOf(7, 17, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()
             val reply = LocalReply.current
             val more = threadRow?.more == true
@@ -1288,7 +1297,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 }
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
-                LinkPreviews(body, limit = 1)
+                LinkPreviews(body, limit = 1, event = note)
                 }
             }
         }

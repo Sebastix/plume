@@ -130,7 +130,7 @@ internal fun AudioContent(note: Event, compact: Boolean, author: String = Feathe
 }
 
 @Composable
-internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, author: String) {
+internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, author: String, smallArtwork: Boolean = false) {
     val media = LocalMedia.current
     val audio = media.audio
     val player = audio?.player?.takeIf { audio.activeId == id }
@@ -149,8 +149,12 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        data.image?.let { RemoteImage(it, Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)), data.title ?: "Podcast artwork") }
-        data.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = if (compact) 3 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis) }
+        if (smallArtwork) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            data.image?.let { RemoteImage(it, Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)), data.title ?: "Podcast artwork") }
+            data.title?.let { Text(it, style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)) }
+        }
+        if (!smallArtwork) data.image?.let { RemoteImage(it, Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)), data.title ?: "Podcast artwork") }
+        if (!smallArtwork) data.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = if (compact) 3 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis) }
         if (data.description.isNotBlank()) Text(data.description, style = MaterialTheme.typography.bodyLarge,
             maxLines = if (compact) 4 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
         if (data.url != null) {

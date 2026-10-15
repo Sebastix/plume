@@ -15,8 +15,8 @@ internal object FountainLinks {
         if (url.host !in setOf("fountain.fm", "www.fountain.fm", "play.fountain.fm") ||
             url.username.isNotEmpty() || url.password.isNotEmpty() || url.port !in setOf(80, 443)) return null
         val path = url.pathSegments.filter(String::isNotEmpty)
-        if (path.size != 2 || path[0] != "episode" || !episodeId.matches(path[1])) return null
-        return "https://fountain.fm/episode/${path[1]}"
+        if (path.size != 2 || path[0] !in setOf("episode", "show") || !episodeId.matches(path[1])) return null
+        return "https://fountain.fm/${path[0]}/${path[1]}"
     }
 
     fun parse(content: String): List<String> = links.findAll(content).mapNotNull {
@@ -27,6 +27,7 @@ internal object FountainLinks {
 
     /** Read public page data only; never execute scripts or pick paid product enclosures. */
     fun episode(document: Document, canonical: String): Episode? {
+        if ("/episode/" !in canonical) return null
         val id = canonical.substringAfterLast('/')
         val chunks = StringBuilder()
         for (script in document.select("script")) {

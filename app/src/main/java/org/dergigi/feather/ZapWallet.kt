@@ -137,8 +137,11 @@ internal class ZapWallet(context: Context) {
         } finally { connection.secret.fill(0) }
     }
     /** True only when this call newly confirms payment; false for an already-paid journal entry. */
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long): Boolean = withContext(Dispatchers.IO) {
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long, comment: String = ""): Boolean = withContext(Dispatchers.IO) {
         require(amountSats in 1..MAX_ZAP_SATS) { "Invalid zap amount" }
+        val message = comment.trimEnd()
+        require(message.codePointCount(0, message.length) <= 280) { "Zap message is too long" }
+        val messageHash = sha256(message.toByteArray(Charsets.UTF_8))
         val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
         var paymentUncertain = false
@@ -186,7 +189,8 @@ internal class ZapWallet(context: Context) {
         try {
             val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
-            if (existing?.optString("status") == "paid" && existing.optLong("sats", DEFAULT_ZAP_SATS) == amountSats) {
+            if (existing?.optString("status") == "paid" && existing.optLong("sats", DEFAULT_ZAP_SATS) == amountSats &&
+                existing.optString("messageHash", sha256(ByteArray(0))) == messageHash) {
                 store.savePayment(paymentId, existing.put("author", signer.pubKey).put("note", note.id))
                 return@withContext false
             }
@@ -203,8 +207,9 @@ internal class ZapWallet(context: Context) {
                 if (confirmedPayment(status, existing.getString("hash"), existing.optLong("sats", DEFAULT_ZAP_SATS), lookup = true)) {
                     store.savePayment(paymentId, existing.put("status", "paid").put("author", signer.pubKey).put("note", note.id))
                     paymentUncertain = false
-                    if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats)
-                        throw WalletFailure("Previous zap confirmed. No new payment was sent; select the new amount again to send it.")
+                    if (existing.optLong("sats", DEFAULT_ZAP_SATS) != amountSats ||
+                        existing.optString("messageHash", sha256(ByteArray(0))) != messageHash)
+                        throw WalletFailure("Previous zap confirmed. No new payment was sent; submit your new zap again to send it.")
                     return@withContext true
                 }
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
@@ -228,8 +233,8 @@ internal class ZapWallet(context: Context) {
             }.toTypedArray()
             val now = System.currentTimeMillis() / 1000
             step = "Signing zap request"
-            val request = signerRequests.run { withTimeout(180_000) { signer.sign<Event>(now, 9734, tags, "") } }
-            require(request.pubKey == signer.pubKey && request.kind == 9734 && request.createdAt == now && request.content.isEmpty() &&
+            val request = signerRequests.run { withTimeout(180_000) { signer.sign<Event>(now, 9734, tags, message) } }
+            require(request.pubKey == signer.pubKey && request.kind == 9734 && request.createdAt == now && request.content == message &&
                 request.tags.contentDeepEquals(tags) && request.verify()) { "Invalid signed zap request" }
             val json = request.toJson()
             val url = callback.toHttpUrl().newBuilder().setQueryParameter("amount", msats.toString()).setQueryParameter("nostr", json).setQueryParameter("lnurl", lnurl).build()
@@ -253,7 +258,7 @@ internal class ZapWallet(context: Context) {
             val hash = invoiceHash(invoice, 'p') ?: error("Invoice is missing its payment hash (BOLT11 p tag). No payment sent")
             diagnostics["Payment hash prefix"] = hash.take(12)
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
-            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("sats", amountSats).put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
+            val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("messageHash", messageHash).put("sats", amountSats).put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
             step = "Saving payment"
             store.savePayment(paymentId, record)
             // Persist before sending: process death or timeout must never cause a duplicate payment.
