@@ -1159,3 +1159,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Debug build passed. Reviewed deleted roots, ancestor gaps and direct/nested reply placeholders; stable row keys; branch expansion through deleted replies; current mute/sensitive/expiry checks; and exclusion of known-deleted IDs from shared relay lookups.
 - Cached text reveals inline behind an eye toggle, with a deleted label and selectable plain text. It has no note actions, link navigation or media loading. The feature does not add content persistence or change retention. No automated tests or device interaction checks were run; no release was requested for this change.
+
+## 2026-10-15 — 0.63.0 release
+
+- Version 0.63.0 (116), source `c9b6c268f05de382220257e7429246a54df044ec`. Deleted-note cached-text reveal and muted/blocked-author placeholders are now released. Muted ancestors and continuations preserve known connections; direct muted replies move to a subdued bottom section. Reveal is per note, keeps sensitive/deleted restrictions, and does not change the mute list or load media. Collapsed direct muted replies do not trigger descendant discovery.
+- Signed release build passed, including its standard lint/R8 pipeline. No tests or emulator runs for this release; the user performs device validation. Updated AGENTS.md to retain that workflow. Earlier debug-build evidence for the deleted-note implementation above predates that instruction.
+- APK SHA-256 `fd6caa156789cd0f1d126ef667baa01edb49c4690436fd8e6c37a07d8598b316`; 15,674,873 bytes. Packaged version, embedded commit and existing signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
+- Signed Zapstore release `c03ce0e9d46c20bc30c3d54414823f9dda78a1d06cf2166d7d08b10a01ea8842` and asset `f9a8d377bec32adfed9b9cd26251b7473f2ee06f39ffe2577fe5a7a0a85faa09` retrieved and verified after retrying an empty asset lookup. Hash, versionCode and certificate match; CDN returns HTTP 200 with matching size. No website deployment.
