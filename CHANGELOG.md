@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-10-15
+
 ### Added
 - Open the current note in another Nostr app from a phone icon beside copy/share in the detail toolbar. Use Android's chooser, exclude Feather, and preserve article/app addresses when opening addressable events.
 
