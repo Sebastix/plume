@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.62.1] - 2026-10-15
+
 ### Fixed
 - Restore cached conversations independently of feed/profile/engagement loading. Remember the replies belonging to the eight most recently opened threads across app restarts, protect their cached notes and deletion requests from publication-age eviction, and continue discovering new replies in the background.
 
