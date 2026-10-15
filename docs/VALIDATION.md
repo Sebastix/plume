@@ -1195,3 +1195,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Added shared widget speed selection and a Media3 media-session custom speed-cycle command up to 3×. Reviewed controller synchronization, trusted-controller command availability and installed Media3 1.11.1 API signatures. Android controls follow the platform media-button preferences mechanism.
 - No build, tests or emulator runs; awaiting release request and user device validation.
+
+## 2026-10-15 — 0.64.0 release
+
+- Version 0.64.0 (119), source `c3a86a1495cd0016c79ff983de3fa9c0a7994075`. Podcast discovery includes NIP-73 shares, NIP-22 root/parent scopes and kind-17 likes with bounded author/tag filters. Visible previews support Fountain audio, exact-GUID RSS hints and advertised audio metadata; unresolved references remain links or copyable identifiers. Playback speed reaches 3× in the shared widget/session. Optional public zap messages use signed kind-9734 content; uncertain payments still recover against their original invoice.
+- Signed release build passed, including standard lint/R8. No tests or emulator runs. Playback, provider metadata and real zap-message delivery remain for device validation.
+- APK SHA-256 `24a4f154cf570ee16b527585e28671adfc1216b4b61f71cb8384446cc7d88e74`; 15,674,873 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
+- Signed Zapstore release `816b824e875cafa5d1e4bd307e0058b324b6253ff89695a0a93537c5ec387c7a` and asset `bb3378d600c217853556a6de9a825162cad9a874e5a91fa5bbc516e521c7c43a` retrieved with signature verification. Hash, versionCode, size and certificate match; CDN HTTP 200 with matching size. No website deployment.
