@@ -1183,3 +1183,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Source review covered shared note/gallery zap controls, bounded per-note/amount queue deduplication, pending-state cleanup, account-change cancellation and unchanged serialized wallet journal handling. Removed GIF suggestion UI, autocomplete effects and keyboard suggestion navigation.
 - No build, tests or emulator runs. Awaiting a release request for the signed build; device validation remains with the user.
+
+## 2026-10-15 — 0.63.2 release
+
+- Version 0.63.2 (118), source `62b056b852d8c3a414534642cbf29e492087d52b`. Zap amount selection remains available during a pending payment, with different amounts queued through the existing serialized payment flow. Duplicate pending note/amount pairs remain suppressed. GIF search suggestion pills and autocomplete are removed.
+- Signed release build passed, including standard lint/R8. No tests or emulator runs; device validation remains with the user.
+- APK SHA-256 `aa78b57d5ecb012e101fe512e71296c96dc93acff7912935b2a0d58596e54ff8`; 15,658,493 bytes. Packaged version, embedded commit and signing certificate verified; mapping archived locally. GitHub asset digest and both GRASP source/tag refs match.
+- Signed Zapstore release `d4de69e114d5b8b3f57da39df2ad392d5a24f3dfe1e2d6f49c3f6e860d83d4d6` and asset `6546bd1c61d98be335ee3af0fa3510dff2ca898bbbb73f717a743bacd7d1792c` retrieved and verified after retrying empty asset lookups. Hash, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
