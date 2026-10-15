@@ -72,7 +72,7 @@ internal fun LinkPreviews(content: String, limit: Int = 2, event: Event? = null)
         }
     }
     links.forEach { link -> key(link.url) {
-        if (link.youtube != null) YouTubePreview(link.youtube) else OpenGraphCard(link)
+        if (link.youtube != null) YouTubePreview(link.youtube) else OpenGraphCard(link, event)
     } }
 }
 
@@ -239,7 +239,7 @@ private suspend fun Call.awaitPreview(): Response = suspendCancellableCoroutine 
 }
 
 @Composable
-private fun OpenGraphCard(link: PreviewLink) {
+private fun OpenGraphCard(link: PreviewLink, event: Event?) {
     val context = LocalContext.current
     val view = LocalView.current
     val media = LocalMedia.current
@@ -260,10 +260,10 @@ private fun OpenGraphCard(link: PreviewLink) {
                 visible = bounds.bottom > 0 && bounds.top < view.height
             }) {
             Column(Modifier.padding(12.dp)) {
-                AudioPlayerContent("podcast:${episode.audio}",
+                AudioPlayerContent("podcast:${event?.id}:${episode.audio}",
                     AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
                     compact = true, author = episode.site ?: link.host, smallArtwork = true,
-                    onOpenSource = { context.openWebLink(link.url) })
+                    onOpenSource = { context.openWebLink(link.url) }, sourceNote = event)
             }
         }
         return

@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Pocket Casts-inspired system audio controls: explicit 10-second rewind and 30-second forward, numeric playback-speed controls through 3×, and a heart action routed through the existing signed orange-heart reaction flow.
+- Open the playing voice note or podcast-share note by tapping the lockscreen/notification player. Heart actions are bound to that source note and account; Android may require unlocking for the signer flow.
+
 ### Changed
 - Restore cached home-feed notes and initial author metadata before tab discovery, engagement loading and cache pruning. Keep cached content visible without a feed spinner while relays refresh.
 - Protect a bounded home-feed window and the signed-in account’s cached profile, follows, mute and discovery lists from routine pruning so they remain available offline.

@@ -67,12 +67,33 @@ class AudioPlayback internal constructor(private val context: Context) {
         private set
     var connecting by mutableStateOf(false)
         private set
+    internal var sourceNote: Event? = null
+        private set
+    private data class HeartRequest(val token: String, val note: Event, val owner: String, val created: Long)
+    private var heartRequest: HeartRequest? = null
+    internal fun requestHeart(owner: String): String? {
+        val note = sourceNote ?: return null
+        val token = java.util.UUID.randomUUID().toString()
+        heartRequest = HeartRequest(token, note, owner, android.os.SystemClock.elapsedRealtime())
+        return token
+    }
+    internal fun pendingHeartToken(owner: String?): String? = heartRequest?.takeIf {
+        it.owner == owner && it.note.id == sourceNote?.id && android.os.SystemClock.elapsedRealtime() - it.created < 60_000
+    }?.token
+    internal fun consumeHeart(token: String?): Pair<Event, String>? {
+        val request = heartRequest ?: return null
+        if (token != request.token) return null
+        heartRequest = null
+        return (request.note to request.owner).takeIf {
+            sourceNote?.id == request.note.id && android.os.SystemClock.elapsedRealtime() - request.created < 60_000
+        }
+    }
     private var connection: com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.MediaController>? = null
 
-    internal fun toggle(id: String, info: AudioInfo, author: String) {
+    internal fun toggle(id: String, info: AudioInfo, author: String, note: Event?) {
         if (info.url == null || connecting) return
         val current = player
-        if (current != null) { toggleConnected(current, id, info, author); return }
+        if (current != null) { toggleConnected(current, id, info, author, note); return }
         connecting = true
         val future = androidx.media3.session.MediaController.Builder(context,
             androidx.media3.session.SessionToken(context, android.content.ComponentName(context, AudioPlaybackService::class.java)))
@@ -97,7 +118,7 @@ class AudioPlayback internal constructor(private val context: Context) {
                         speed = player.playbackParameters.speed
                     }
                 })
-                toggleConnected(controller, id, info, author)
+                toggleConnected(controller, id, info, author, note)
             } catch (error: Exception) {
                 androidx.media3.session.MediaController.releaseFuture(future)
                 connection = null; player = null; requested = false
@@ -106,7 +127,9 @@ class AudioPlayback internal constructor(private val context: Context) {
         }, androidx.core.content.ContextCompat.getMainExecutor(context))
     }
 
-    private fun toggleConnected(current: Player, id: String, info: AudioInfo, author: String) {
+    private fun toggleConnected(current: Player, id: String, info: AudioInfo, author: String, note: Event?) {
+        sourceNote = note
+        AudioPlaybackService.sourceChanged()
         if (current.currentMediaItem?.mediaId != id) {
             val metadata = androidx.media3.common.MediaMetadata.Builder()
                 .setTitle(info.title ?: "Voice note").setArtist(author)
@@ -128,11 +151,11 @@ class AudioPlayback internal constructor(private val context: Context) {
 internal fun AudioContent(note: Event, compact: Boolean, author: String = FeatherRepository.shortKey(note.pubKey)) {
     val info by produceState<AudioInfo?>(null, note.id) { value = withContext(Dispatchers.Default) { audioInfo(note) } }
     val data = info ?: return
-    AudioPlayerContent(note.id, data, compact, author)
+    AudioPlayerContent(note.id, data, compact, author, sourceNote = note)
 }
 
 @Composable
-internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, author: String, smallArtwork: Boolean = false, onOpenSource: (() -> Unit)? = null) {
+internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, author: String, smallArtwork: Boolean = false, onOpenSource: (() -> Unit)? = null, sourceNote: Event? = null) {
     val media = LocalMedia.current
     val audio = media.audio
     val player = audio?.player?.takeIf { audio.activeId == id }
@@ -180,7 +203,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(id, data, author) }) {
+                        IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(id, data, author, sourceNote) }) {
                             if (audio?.connecting == true || (buffering && audio?.requested == true)) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                             else if (player != null && audio?.requested == true) Icon(painterResource(R.drawable.pause), "Pause audio")
                             else Icon(Icons.Default.PlayArrow, "Play audio")

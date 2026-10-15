@@ -15,6 +15,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     val repo = (application as FeatherApplication).repository
     val state = repo.state
     val message = MutableStateFlow<String?>(null)
+    internal val audioHeart = MutableStateFlow<Pair<Event, String>?>(null)
     internal val incomingLink = MutableStateFlow<Pair<Long, NostrContent.Reference>?>(null)
     private var linkJob: Job? = null
     private var linkSequence = 0L

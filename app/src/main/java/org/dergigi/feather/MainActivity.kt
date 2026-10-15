@@ -120,6 +120,9 @@ class MainActivity : ComponentActivity() {
 
     private fun receiveNostrLink(link: Intent) {
         if (link.action != Intent.ACTION_VIEW || link.data?.scheme != "nostr") return
+        (application as FeatherApplication).audio.consumeHeart(link.getStringExtra("audio-heart"))?.let {
+            composerModel.audioHeart.value = it
+        }
         composerModel.receiveNostrLink(link.dataString.orEmpty())
         // Consume once: recreation must not reopen a link after navigating back.
         setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
@@ -176,6 +179,15 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         }
         signer?.registerForegroundLauncher(launch)
         onDispose { signer?.unregisterForegroundLauncher(launch) }
+    }
+    val audioHeart by vm.audioHeart.collectAsStateWithLifecycle()
+    val activityLifecycle by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    LaunchedEffect(audioHeart, connectedSigner, activityLifecycle) {
+        val request = audioHeart ?: return@LaunchedEffect
+        if (!activityLifecycle.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@LaunchedEffect
+        if (vm.audioHeart.compareAndSet(request, null) && connectedSigner?.pubKey == request.second) {
+            vm.react(request.first, ReactionChoice("🧡"))
+        }
     }
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
     val incomingLink by vm.incomingLink.collectAsStateWithLifecycle()
