@@ -331,6 +331,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
+    }, LocalSelectionReply provides { note, text ->
+        if (s.publicKey == null) showAccount = true else vm.openReply(note, selectedText = text)
     }, LocalRepostActions provides RepostActions(reposting,
         repost = { note -> if (s.publicKey == null) showAccount = true else vm.repost(note) },
         quote = { note -> if (s.publicKey == null) showAccount = true else vm.openReply(quote = note) }), LocalContentFilter provides contentFilter, LocalZapActions provides ZapActions(zapping, confirmedZaps, recentZapAmounts[s.publicKey].orEmpty().ifEmpty { defaultZapAmounts }, zapCelebrations) { note, amount ->
@@ -1003,7 +1005,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         val richContent = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
         val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
-        if (content.isNotBlank()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        if (content.isNotBlank()) NoteSelection(note) { Text(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
         quotes.forEachIndexed { index, reference ->
             if (content.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
@@ -1225,7 +1227,9 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 }
                 val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
                 val text = richNoteText(body, note, profiles, onReference)
-                if (text.isNotBlank()) Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                if (text.isNotBlank()) NoteSelection(note) {
+                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                }
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
                 LinkPreviews(body, limit = 1)

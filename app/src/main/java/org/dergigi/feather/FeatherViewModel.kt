@@ -358,7 +358,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         if (!imageUploading.value) imageUploadProgress.compareAndSet(expected, null)
     }
 
-    internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null) {
+    internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null, selectedText: String? = null) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value || imageUploading.value) return
         imageUploadProgress.value = null
@@ -369,7 +369,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val draft = withContext(Dispatchers.IO) {
                     val saved = replyStore.load(owner, note)
                     val mention = mentionProfile?.let(Protocol::publicKey)?.takeIf { note == null }
-                    if (quote != null && note == null) {
+                    if (selectedText != null && note != null) {
+                        saved.withQuotedSelection(selectedText).also(replyStore::save)
+                    } else if (quote != null && note == null) {
                         val pointer = com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(quote.id, quote.pubKey, quote.kind, relay = null)
                         val reference = "nostr:$pointer"
                         if (reference in saved.text) saved else {

@@ -56,6 +56,19 @@ import org.json.JSONArray
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
 internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList())
 
+/** A selected passage is a blockquote in a real reply, not a standalone quote post. */
+internal fun ReplyDraft.withQuotedSelection(selection: String): ReplyDraft {
+    val passage = selection.trim()
+    if (passage.isEmpty()) return this
+    val quote = passage.lineSequence().joinToString("\n") { if (it.isEmpty()) ">" else "> $it" }
+    // Two line breaks leave one empty line between the quote and the reply/cursor.
+    val prefix = "$quote\n\n"
+    if (text.startsWith(prefix)) return copy(initialCursor = text.length)
+    val combined = prefix + text
+    require(combined.length <= 8000) { "The quote and saved draft are too long. Select a shorter passage or shorten your draft." }
+    return copy(text = combined, initialCursor = combined.length)
+}
+
 /** Private local drafts and exact signed retries, bounded and accessed only on IO. */
 internal class ReplyStore(context: Context) {
     private val drafts = context.getSharedPreferences("reply-drafts", Context.MODE_PRIVATE)

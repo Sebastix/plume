@@ -3,7 +3,6 @@ package org.dergigi.feather
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -77,7 +76,7 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
         } else if (title != null) Text(title, Modifier.padding(horizontal = 24.dp), style = typography.headlineLarge)
         if (body == null) CircularProgressIndicator(Modifier.padding(horizontal = 24.dp).size(24.dp), strokeWidth = 2.dp)
         else CompositionLocalProvider(LocalUriHandler provides links) {
-            SelectionContainer {
+            NoteSelection(event) {
                 Markdown(markdownState = markdown, modifier = Modifier.fillMaxWidth().padding(horizontal = if (articleLayout) 24.dp else 0.dp),
                     colors = markdownColor(text = colors.onSurface, codeBackground = colors.surfaceContainerHigh,
                         inlineCodeBackground = colors.surfaceContainerHigh, dividerColor = colors.outlineVariant,
