@@ -35,13 +35,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.VideoSize
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import coil3.size.Dimension
@@ -52,127 +45,8 @@ import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.*
 
 
-data class MediaEnvironment(val resources: MediaStore.Resources?, val active: Boolean, val playback: VisibleVideoPlayer?, internal val audio: AudioPlayback? = null)
+data class MediaEnvironment(val resources: MediaStore.Resources?, val active: Boolean, val playback: VisibleVideos?, internal val audio: AudioPlayback? = null)
 val LocalMedia = staticCompositionLocalOf { MediaEnvironment(null, false, null) }
-
-/** One decoder/player for the entire reading screen; all geometry is reported on the main thread. */
-class VisibleVideoPlayer(private val context: Context, private val resources: MediaStore.Resources) {
-    private data class Candidate(val url: String, val score: Float, val mime: String?)
-    private val candidates = mutableMapOf<String, Candidate>()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var selectionJob: Job? = null
-    private var enabled = true
-    var viewport = Rect.Zero
-    var activeKey by mutableStateOf<String?>(null)
-        private set
-    var player by mutableStateOf<ExoPlayer?>(null)
-        private set
-    var fullscreen by mutableStateOf(false)
-        private set
-    private var inlineView: PlayerView? = null
-    private var fullscreenView: PlayerView? = null
-    private var resumeFullscreen = false
-    var muted by mutableStateOf(true)
-        private set
-    fun report(key: String, url: String, bounds: Rect, height: Float, mime: String? = null) {
-        val score = MediaContent.visibleScore(bounds.top, bounds.bottom, height, viewport.top, viewport.bottom)
-        if (score == null) candidates.remove(key) else candidates[key] = Candidate(url, score, mime)
-        choose()
-    }
-    fun remove(key: String) { candidates.remove(key); choose() }
-    fun enabled(value: Boolean) {
-        if (enabled == value) return
-        enabled = value
-        if (fullscreen) {
-            if (!value) { resumeFullscreen = player?.playWhenReady == true; player?.pause() }
-            else if (resumeFullscreen) player?.play()
-        } else choose()
-    }
-    fun enterFullscreen() {
-        if (player == null || activeKey == null) return
-        selectionJob?.cancel()
-        fullscreen = true
-    }
-    fun exitFullscreen() {
-        if (!fullscreen) return
-        PlayerView.switchTargetView(player!!, fullscreenView, inlineView)
-        fullscreenView = null
-        fullscreen = false
-        choose()
-    }
-    fun bindInline(view: PlayerView) {
-        inlineView = view
-        if (!fullscreen) {
-            if (view.player !== player) view.player = player
-            view.setFullscreenButtonState(false)
-        }
-    }
-    fun unbindInline(view: PlayerView) {
-        view.player = null
-        if (inlineView === view) inlineView = null
-    }
-    fun bindFullscreen(view: PlayerView) {
-        PlayerView.switchTargetView(player!!, inlineView, view)
-        fullscreenView = view
-    }
-    fun unbindFullscreen(view: PlayerView) {
-        view.player = null
-        if (fullscreenView === view) fullscreenView = null
-    }
-    private fun choose() {
-        if (fullscreen) return // Pin the same decoder and timeline while the feed is covered.
-        // Retain the current clip until it leaves the viewport, rather than swapping
-        // players whenever another visible clip becomes closer to the center.
-        val next = if (enabled) activeKey?.takeIf { it in candidates }
-            ?: candidates.minByOrNull { it.value.score }?.key else null
-        if (next == activeKey) { selectionJob?.cancel(); return }
-        selectionJob?.cancel()
-        // Stop immediately off-screen; avoid preparing decoders for items during a fling.
-        if (activeKey !in candidates || !enabled) { player?.stop(); activeKey = null }
-        selectionJob = scope.launch {
-            if (next != null) delay(120)
-            if (next != null && (!enabled || next !in candidates)) return@launch
-            activeKey = next
-            if (next == null) { player?.stop(); return@launch }
-            val engine = player ?: ExoPlayer.Builder(context)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(resources.videoSource))
-                .setAudioAttributes(AudioAttributes.DEFAULT, false)
-                .setHandleAudioBecomingNoisy(true)
-                .setSeekBackIncrementMs(10_000)
-                .setSeekForwardIncrementMs(10_000)
-                .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15_000, 45_000, 500, 1_500).setTargetBufferBytes(16 * 1024 * 1024).build())
-                .build().also { engine ->
-                    player = engine
-                    engine.addListener(object : Player.Listener {
-                        override fun onVideoSizeChanged(size: VideoSize) {
-                            val url = engine.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
-                            if (size.width > 0 && size.height > 0) VideoRatios.put(url, size.width * size.pixelWidthHeightRatio / size.height)
-                        }
-                    })
-                }
-            setVolume(0f)
-            engine.setPlaybackSpeed(1f)
-            engine.repeatMode = Player.REPEAT_MODE_ONE
-            val candidate = candidates.getValue(next)
-            engine.setMediaItem(MediaItem.Builder().setUri(candidate.url).setMimeType(candidate.mime).build())
-            engine.prepare()
-            engine.playWhenReady = true
-        }
-    }
-    fun setVolume(value: Float) {
-        val nextMuted = value <= 0f
-        if (muted != nextMuted) player?.setAudioAttributes(AudioAttributes.DEFAULT, !nextMuted)
-        player?.volume = value.coerceIn(0f, 1f)
-        muted = nextMuted
-    }
-    fun toggleMute() { setVolume(if (muted) 1f else 0f) }
-    fun close() {
-        scope.cancel()
-        inlineView?.player = null; fullscreenView?.player = null
-        inlineView = null; fullscreenView = null
-        player?.release(); player = null; candidates.clear()
-    }
-}
 
 @Composable
 fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Unit) {
@@ -182,7 +56,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     val galleryVisible = LocalGalleryVisible.current
     val active = reading && lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible
     val context = LocalContext.current
-    val playback = remember(resources, reading) { resources?.takeIf { reading }?.let { VisibleVideoPlayer(context, it) } }
+    val playback = remember(resources, reading) { resources?.takeIf { reading }?.let { VisibleVideos(context, it) } }
     val audio = (context.applicationContext as FeatherApplication).audio
     DisposableEffect(playback, audio, lifecycle, galleryVisible) {
         val observer = LifecycleEventObserver { _, event ->
@@ -197,7 +71,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     SideEffect { playback?.enabled(active && !audioRequested) }
     CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback, audio)) {
         content()
-        if (playback?.fullscreen == true) FullscreenVideo(playback)
+        playback?.fullscreenPlayer?.let { FullscreenVideo(it) }
     }
 }
 
@@ -249,23 +123,24 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
         attachments.forEach { attachment ->
             key(attachment.url) {
                 val identity = "$mediaKey:${attachment.url}"
-                val playback = media.playback
-                val selected = attachment.kind == MediaContent.Kind.VIDEO && playback?.activeKey == identity
-                DisposableEffect(identity, playback) { onDispose { playback?.remove(identity) } }
+                val videos = media.playback
+                val playback = videos?.clip(identity)
+                DisposableEffect(identity, videos) { onDispose { videos?.remove(identity) } }
                 if (attachment.kind == MediaContent.Kind.IMAGE) {
                     InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url), note) }
                 } else Box(Modifier.fillMaxWidth().aspectRatio(videoRatios[attachment.url] ?: attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
-                        if (attachment.kind == MediaContent.Kind.VIDEO) playback?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime)
+                        if (attachment.kind == MediaContent.Kind.VIDEO) videos?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime)
                     }) {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
-                        if (selected && playback.player != null) {
+                        if (playback != null && playback.player != null) key(playback) {
                             var feedback by remember(identity) { mutableStateOf<VideoFeedback?>(null) }
                             var feedbackTick by remember(identity) { mutableIntStateOf(0) }
                             var controlsVisible by remember(identity) { mutableStateOf(false) }
                             LaunchedEffect(feedbackTick) { delay(900); feedback = null }
                             AndroidView(factory = { GestureVideoView(it, playback, false) { value -> feedback = value; feedbackTick++ }.apply {
                                 layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                                 resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
                                 setFullscreenButtonClickListener { isFullscreen -> if (isFullscreen) playback.enterFullscreen() }
                                 setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility -> controlsVisible = visibility == android.view.View.VISIBLE })

@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Visible video neighbors now prepare their first frame. Clips that start playing continue until fully offscreen, with at most three visible players and one audible clip.
 - Rebuilt the homepage around concise copy, an interactive feed switcher, VLC-style video gestures, and a local composer/GIF preview.
 
 ## [0.71.0] - 2026-10-16

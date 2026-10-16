@@ -27,8 +27,8 @@ internal class VideoPrefetcher(private val scope: CoroutineScope, private val re
     private val finished = linkedMapOf<String, Long>()
     private var wanted = emptyList<String>()
 
-    fun update(urls: List<String>, playing: String?) {
-        wanted = urls.filter { it != playing }.distinct().take(3)
+    fun update(urls: List<String>, playing: Set<String>) {
+        wanted = urls.filter { it !in playing }.distinct().take(3)
         // Release cache spans promptly when playback takes over, or a fast fling leaves a clip behind.
         running.filterKeys { it !in wanted }.values.toList().forEach { it.cancel() }
         pump()

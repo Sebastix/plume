@@ -1408,3 +1408,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Replaced the long feature catalog with a swipeable five-tab phone preview, bounded six-slot GIF sample picker and local draft preview, video gesture controls, keyboard shortcuts and concise supporting features. Cropped public screenshots remain unchanged; no Android status-bar captures were added.
 - Video playback starts only on request. GIF videos reuse a fixed pool, pause offscreen/in background, and use stills for reduced motion or autoplay refusal. GIF media remains hosted by nostr.build; no native API key is shipped. Drafts and local attachments stay in the browser. CSP allows only the required local scripts and specific GIF media host; privacy copy records preview requests.
 - Reviewed source and a desktop browser rendering; JavaScript syntax and patch whitespace checks passed. No app tests, emulator or app build for this website change.
+
+## 2026-10-17 — visible video playback
+
+- Replaced the screen's single player with a three-player visible window. Paused neighbors prepare through the shared cache and render a first frame; the nearest-center clip starts once after a stable 120ms selection. Started clips retain their timeline while partially visible, including explicit user pauses. Fully offscreen clips release immediately.
+- Only one clip can be audible. Fullscreen transfers the selected player's existing surface/timeline, suspends other decoders, and restores their prior intent on return. Background/covered states stop preparation and decoding; active clip URLs are excluded from speculative prefetch. Failures release the affected slot with a bounded cooldown.
+- Reviewed player/view ownership, selection changes, viewport clipping, manual pause, fullscreen and lifecycle paths. No tests or emulator run; playback behavior awaits device verification.
+- The separately requested website deployment is live; production HTML, CSS, JavaScript and public GIF catalog match the local source over HTTP 200.
