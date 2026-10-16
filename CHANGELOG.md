@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Homepage download heading now reads “Light like a feather.”
+
 ## [0.72.0] - 2026-10-17
 
 ### Changed
