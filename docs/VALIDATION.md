@@ -1273,3 +1273,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Initial build failed due to disk exhaustion. Removed only regenerable intermediate output from three other local Android projects and old Gradle daemon data, retaining APKs/mappings. Final signed build passed including lint/R8 in 36s; no tests or emulators run.
 - APK SHA-256 `3f7f2d24ab9c6376578939b842f95416ab16a3fa5dd28eedc305c22bc3965a3c`; 15,755,661 bytes. Version, embedded source, v2 signature and signing certificate verified. Compressed mapping archived. GitHub asset digest and all three mirror source/tag refs match.
 - Signed Zapstore release `ec05ffa41db232648129b5cd39fd9db5848d6233f13e36777b559aff881a287e` and asset `570de95bcb743486cb68ff88149c73ea73196295e64708723ddb8e00a36e58fc` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200. No website deployment.
+
+## 2026-10-16 — 0.68.0 release
+
+- Version 0.68.0 (127), source `92dfaf89135099174f61c804e651a8b69f4da350`. First-launch welcome reuses the system splash artwork/bounds, reveals login, drifts the feather down and fades into the feed loading underneath. Welcome completion and contextual hint dismissals persist locally; existing signed-in installs skip the welcome. Deep links/shared media bypass it, and disabled system animations skip the sequence. Compose FABs are hidden for guests on home and profiles.
+- Signed release build passed including lint/R8 in 36s. No tests or emulators run. Animation continuity, hint timing and first-launch behavior await device feedback.
+- APK SHA-256 `490ada5e23e72d39b8e413549e5ee9a9ed75ac7a9bb1ff3c31332662c301b2c3`; 15,757,721 bytes. Packaged version, embedded source, v2 signature and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `b1f0aecf53e932ccbbbec33a47e0f5544e6dbfa95ac603c2d1ff985a73c238c0` and asset `1262f83f1c8f5ff861e8e6ee7b4b9f7ba0701d19a669fb0e94e9a6a7d3ba5193` retrieved and signatures verified. Hash, size, versionCode and certificate match. No website deployment.
