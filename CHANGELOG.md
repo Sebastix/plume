@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Homepage download heading now reads “Light like a feather.”
+- Homepage headings now read “Light like a feather.” and “Made for keyboard lovers”.
 
 ## [0.72.0] - 2026-10-17
 
