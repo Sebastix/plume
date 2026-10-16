@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Updated the homepage introduction to “Everything is just one swipe away.”
 - Homepage GIF examples now feature good morning, sunrise, and zap reactions; removed the extra draft prompt.
 - Homepage download caption now reads “No ads. No bullshit.”
 - Removed the homepage hero eyebrow and top-right download link.
