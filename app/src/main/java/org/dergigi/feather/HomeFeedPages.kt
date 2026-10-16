@@ -70,10 +70,28 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
     val currentTabs by rememberUpdatedState(tabs)
+    SideEffect { home.tabs = tabs }
+    LaunchedEffect(home.requestedFeedTab) {
+        val request = home.requestedFeedTab ?: return@LaunchedEffect
+        try {
+            val index = currentTabs.indexOf(request.tab)
+            if (index >= 0) {
+                // Search jumps directly; cycling tabs follows the same animation as a tap.
+                if (request.tab == ProfileTab.SEARCH && home.requestSearchFocus) pager.scrollToPage(index)
+                else pager.animateScrollToPage(index)
+                val visibleKey = pager.layoutInfo.visiblePagesInfo.firstOrNull { it.index == pager.currentPage }?.key
+                ProfileTab.entries.firstOrNull { it.name == visibleKey }?.let { home.tab = it }
+            }
+        } finally {
+            // A swipe, tap or newer shortcut can interrupt this animation. Clear only
+            // this request, never its replacement, and never replay it on returning.
+            if (home.requestedFeedTab === request) home.requestedFeedTab = null
+        }
+    }
     // Keep discovered pages available for the visit. Reorder only at rest and keep the
     // selected category anchored, rather than changing content underneath the user.
     LaunchedEffect(state.feedTabs, state.publicKey) {
-        snapshotFlow { pager.isScrollInProgress }.first { !it }
+        snapshotFlow { !pager.isScrollInProgress && home.requestedFeedTab == null }.first { it }
         run {
             val next = (listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) + state.feedTabs + tabs)
                 .distinct().filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }.sortedBy { it.orderPriority }
@@ -94,7 +112,11 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         }
     }
     LaunchedEffect(home.tab, state.publicKey) { vm.repo.viewNotifications(home.tab == ProfileTab.NOTIFICATIONS && state.publicKey != null) }
-    DisposableEffect(home.key) { onDispose { vm.repo.viewNotifications(false) } }
+    DisposableEffect(home.key) { onDispose {
+        home.requestedFeedTab = null
+        home.requestSearchFocus = false
+        vm.repo.viewNotifications(false)
+    } }
     val hintList = home.feedPage(home.tab).list
     val hintScrolling = hintList.isScrollInProgress || pager.isScrollInProgress
     LaunchedEffect(home.tab, welcoming) {

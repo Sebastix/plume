@@ -295,4 +295,8 @@ Automatically optimize static images above 2 MiB before upload, without a settin
 
 Show original → uploaded size subtly during upload and beneath its thumbnail, omitting the arrow when the formatted sizes are equal. Persist attachment sizes with the account-scoped local draft, prune removed attachments, and clear on successful publication. Preserve the existing thumbnail spacing and corner removal buttons.
 
+## External keyboards
+
 Composer Up/Down keys move the text cursor and support Shift selection. Prevent vertical focus traversal out of the text field, including Bluetooth keyboards that also advertise a D-pad; retain normal text navigation, Tab focus navigation and Ctrl/Cmd+Enter sending.
+
+Ctrl+Tab and Ctrl+Shift+Tab cycle through the current main-feed or profile tabs, wrapping at the ends and using the current discovered tab list. Preserve each feed's scroll position; rapid shortcuts follow the last requested category. Ctrl/Cmd+F opens profile search and focuses the input, retaining its query when already on the main feed and preserving a previous detail/profile screen for Back. Handle navigation shortcuts only in the reader's focused activity window, not underneath composers, dialogs or onboarding. Plain Tab retains normal control focus traversal; Cmd+Tab remains a system shortcut.

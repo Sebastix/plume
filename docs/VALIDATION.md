@@ -1388,3 +1388,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 
 - Added an explicitly requested Native Android feature for external keyboards, addressing mechanical keyboard enthusiasts and listing Ctrl/Cmd+N, Ctrl/Cmd+Enter, arrow movement, Shift selection and Tab navigation. Added a matching keyboard icon and subtle shortcut keycaps.
 - Deployed source `88247d0` to feather.dergigi.com with Vercel CLI 64.4.0 after the installed CLI was rejected as outdated. Live HTML and CSS return HTTP 200 and match the local source exactly. No app build, tests or emulator run.
+
+## Unreleased — reader keyboard navigation
+
+- Ctrl+Tab / Ctrl+Shift+Tab cycle the current feed/profile tab list with wrapping; plain Tab remains untouched. Activity-level dispatch handles the chord before text-field focus traversal, ignores key-up/repeat actions, and leaves Cmd+Tab to the system. Reader navigation is gated by the active window, lifecycle, composer and onboarding state.
+- Feed requests use category identity and the last requested destination, with one cancellable pager effect. Discovery waits for both scrolling and pending keyboard navigation to settle. Completion resolves the rendered page key, and interruption/disposal clears only the matching request so it cannot replay on return. Existing per-feed list states are reused.
+- Ctrl/Cmd+F jumps directly to Search and requests text-field focus only once the page is active. Existing search text is retained on the main feed; opening Search from a profile/detail keeps that reader on the back stack and releases its subscriptions. Reviewed the search-page Back path and separate dialog windows used by composers/settings/gallery.
+- Source review only. No build, tests or emulator run; device verification follows the next requested release.

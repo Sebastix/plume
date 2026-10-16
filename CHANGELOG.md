@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Ctrl+Tab and Ctrl+Shift+Tab cycle through main feeds and profile tabs. Ctrl/Cmd+F opens profile search and focuses its text field.
+
 ### Changed
 - Website now highlights external keyboard support for mechanical keyboard enthusiasts, including composer shortcuts and text navigation.
 

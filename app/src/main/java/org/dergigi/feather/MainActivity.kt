@@ -56,6 +56,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
@@ -97,6 +98,7 @@ private val Sky = Color(0xFF79C4F2)
 class MainActivity : ComponentActivity() {
     private val composerModel: FeatherViewModel by viewModels()
     private val repo get() = (application as FeatherApplication).repository
+    internal var onReaderShortcut: ((ReaderShortcut) -> Unit)? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -135,6 +137,20 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        // Handle these before TextFields turn Tab into focus traversal. Dialogs own a
+        // separate window, so never navigate the reader while a modal has focus.
+        val shortcut = when {
+            event.isAltPressed -> null
+            event.isCtrlPressed && !event.isMetaPressed && event.keyCode == android.view.KeyEvent.KEYCODE_TAB ->
+                if (event.isShiftPressed) ReaderShortcut.PREVIOUS_TAB else ReaderShortcut.NEXT_TAB
+            (event.isCtrlPressed || event.isMetaPressed) && !event.isShiftPressed && event.keyCode == android.view.KeyEvent.KEYCODE_F -> ReaderShortcut.SEARCH
+            else -> null
+        }
+        val readerShortcut = onReaderShortcut
+        if (shortcut != null && readerShortcut != null && window.decorView.hasWindowFocus()) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) readerShortcut(shortcut)
+            return true
+        }
         if ((event.isCtrlPressed || event.isMetaPressed) && event.keyCode == android.view.KeyEvent.KEYCODE_N) {
             if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 if (composerModel.signer.value == null) composerModel.message.value = "Connect an Android signer first."
@@ -231,6 +247,48 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     val navigation = rememberSaveable(saver = ReaderNavigation.saver) { ReaderNavigation() }
     val incomingLink by vm.incomingLink.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val focus = LocalFocusManager.current
+    val shortcutHandler by rememberUpdatedState<(ReaderShortcut) -> Unit>(handler@{ action ->
+        if (!activityLifecycle.isAtLeast(Lifecycle.State.RESUMED) || vm.replyDraft.value != null ||
+            (vm.onboarding.allowed.value && vm.onboarding.state.value?.welcome != true)) return@handler
+        val current = navigation.current
+        if (action == ReaderShortcut.SEARCH) {
+            focus.clearFocus()
+            val searchHome = if (current.screen == "feed") current else ReaderEntry("feed", tab = ProfileTab.SEARCH).also {
+                // Keep the previous reader on the back stack, but release its live subscriptions.
+                vm.repo.openReference(null)
+                vm.repo.viewHashtag(null)
+                vm.repo.viewProfile(null)
+                vm.repo.viewThread(null)
+                navigation.push(it)
+            }
+            searchHome.toolbar = true
+            searchHome.requestSearchFocus = true
+            searchHome.requestedFeedTab = FeedTabRequest(ProfileTab.SEARCH)
+        } else {
+            val state = vm.state.value
+            val tabs = when (current.screen) {
+                "feed" -> current.tabs.filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }
+                "profile" -> if (state.profileTabsFor == current.target) state.profileTabs.toList() else current.tabs
+                else -> return@handler
+            }
+            if (tabs.isEmpty()) return@handler
+            val direction = if (action == ReaderShortcut.NEXT_TAB) 1 else -1
+            val index = tabs.indexOf(current.requestedFeedTab?.tab ?: current.tab)
+            val next = if (index < 0) { if (direction > 0) tabs.first() else tabs.last() }
+                else tabs[(index + direction + tabs.size) % tabs.size]
+            focus.clearFocus()
+            current.toolbar = true
+            current.requestSearchFocus = false
+            if (current.screen == "feed") current.requestedFeedTab = FeedTabRequest(next) else current.tab = next
+        }
+    })
+    DisposableEffect(context, navigation) {
+        val activity = context as? MainActivity
+        val handler: (ReaderShortcut) -> Unit = { shortcutHandler(it) }
+        activity?.onReaderShortcut = handler
+        onDispose { if (activity != null && activity.onReaderShortcut === handler) activity.onReaderShortcut = null }
+    }
     LaunchedEffect(incomingLink) {
         val request = incomingLink ?: return@LaunchedEffect
         val ref = request.second
@@ -250,6 +308,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         vm.incomingLink.compareAndSet(request, null)
     }
     val entry = navigation.current
+    BackHandler(entry.screen == "feed" && navigation.entries.size > 1) { navigation.back() }
     if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else FeatherReader(vm, navigation, entry)

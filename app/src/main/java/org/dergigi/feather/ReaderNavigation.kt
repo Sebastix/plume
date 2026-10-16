@@ -7,6 +7,9 @@ import androidx.compose.runtime.saveable.Saver
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import java.util.UUID
 
+internal enum class ReaderShortcut { NEXT_TAB, PREVIOUS_TAB, SEARCH }
+internal class FeedTabRequest(val tab: ProfileTab)
+
 /** Each visit owns its UI state; opening another reader never overwrites it. */
 internal class ReaderEntry(
     val screen: String,
@@ -21,6 +24,9 @@ internal class ReaderEntry(
     val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
     fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
     var searchQuery by mutableStateOf("")
+    // Explicit, transient keyboard requests; never replay them after restoring a screen.
+    var requestedFeedTab by mutableStateOf<FeedTabRequest?>(null)
+    var requestSearchFocus by mutableStateOf(false)
     var tab by mutableStateOf(tab)
     var toolbar by mutableStateOf(toolbar)
     var reference: NostrContent.Reference? = null

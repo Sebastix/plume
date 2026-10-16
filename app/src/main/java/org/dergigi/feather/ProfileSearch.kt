@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentDescription
@@ -98,7 +100,14 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val query = home.searchQuery.trim()
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
+    val searchFocus = remember { FocusRequester() }
     LaunchedEffect(active) { if (!active) focus.clearFocus() }
+    LaunchedEffect(active, home.requestSearchFocus) {
+        if (active && home.requestSearchFocus) {
+            searchFocus.requestFocus()
+            home.requestSearchFocus = false
+        }
+    }
     LaunchedEffect(query, running, retry) {
         error = null
         loading = false
@@ -121,7 +130,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             OutlinedTextField(value = home.searchQuery, onValueChange = { home.searchQuery = it.take(100) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 trailingIcon = { if (home.searchQuery.isNotEmpty()) IconButton(onClick = { home.searchQuery = "" }) { Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search)) } },
-                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).semantics { contentDescription = "Search profiles" },
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).focusRequester(searchFocus).semantics { contentDescription = "Search profiles" },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focus.clearFocus(); retry++ }))
