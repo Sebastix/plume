@@ -1287,3 +1287,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 27s. No tests or emulators run; visual confirmation remains on device.
 - APK SHA-256 `f543446ce519e145117bb274ab2bdb5048f3f4866d006cde1e2748a2a29e255d`; 15,758,185 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `fcaaf942db9188873b6e8024dd6a2978859ddb7df55bbfc2c10605a5bb3b2d1a` and asset `bbc0635a0b1c52ecc28ad33d54b50331bce4d0858186851206c746afe111c069` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.68.2 release
+
+- Version 0.68.2 (129), source `33f5ae4714470f995f7462c2fed63c5138131275`. Welcome shows “Connect your signer to log in,” then a swipe hint with the shared feed switcher above the welcome surface. A separate lazy preview pager shows differently colored feathers; swipes do not dismiss the hint or start relay discovery for preview pages. Dismissing the hint settles the preview, reveals the selected real feed underneath, drops the feather over 2.4 seconds and fades the background over 800 ms. Completion flags remain intact across upgrades.
+- Signed release build passed including lint/R8 in 25s. No tests or emulators run; device confirmation remains for animation and gesture behavior.
+- APK SHA-256 `5bcd0562b7f24b1f87cbf7203ceddd6ee30b966c0fbf7ff055e0a1ef5cde562e`; 15,758,217 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `e8b3a674f083b5b2f18c5bfecf31baaf0214691bee1ef803f71154a5cd9f40a5` and asset `43d55194b0f1be7a00ad57bf33eaa3f985c3dc8135a6f7a5c4e5d3777cb96f47` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
