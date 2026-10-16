@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.69.2] - 2026-10-16
+
+### Added
+- Blue homepage button beside the Feather profile button in settings.
+
 ### Fixed
 - Keep the selected main feed anchored by category as newly discovered tabs arrive; remove background forced scrolling to a stale selection. Preserve category identity in onboarding previews too.
 

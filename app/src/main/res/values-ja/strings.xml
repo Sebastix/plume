@@ -129,4 +129,5 @@
     <string name="ui_log_in_to_zap">ログインしてZapする</string>
     <string name="ui_log_in_to_react">ログインしてリアクションする</string>
     <string name="ui_signed_in">ログイン済み</string>
+    <string name="ui_open_feather_homepage">Featherのホームページを開く</string>
 </resources>

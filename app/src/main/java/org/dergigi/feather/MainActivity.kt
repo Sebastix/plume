@@ -1402,6 +1402,13 @@ private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, o
                 Icon(painterResource(R.drawable.feature_request), stringResource(R.string.ui_suggest_a_feature))
             }
             Spacer(Modifier.weight(1f))
+            FilledTonalIconButton(onClick = {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://feather.dergigi.com")))
+            }, modifier = Modifier.size(RoundControlSize)) {
+                Icon(Icons.Default.Home, stringResource(R.string.ui_open_feather_homepage),
+                    Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(12.dp))
             FilledTonalIconButton(onClick = onFeather, modifier = Modifier.size(RoundControlSize)) {
                 Icon(painterResource(R.drawable.feather), stringResource(R.string.ui_open_feather_profile), Modifier.size(28.dp), tint = Color.Unspecified)
             }
