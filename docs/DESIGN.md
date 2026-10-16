@@ -285,4 +285,6 @@ Notification filter selections use stable category names in the encrypted settin
 
 First-use login and swipe hints use speech bubbles pointing at their controls, with no close glyph. Observe taps anywhere to dismiss the active hint without consuming control taps or treating swipes/long presses as taps. Keep the welcome surface and tutorial step through signer login; load the personalized feed underneath and continue with swipe guidance before dropping the feather.
 
+Hand off the system splash only after the tutorial feather has drawn with that splash's measured bounds and its own measured window origin. Keep guessed fallback geometry covered during the handoff; use a short, bounded wait for this local draw, never for feeds or network work. Skip the handoff wait when onboarding is already complete or bypassed.
+
 Feed discovery must never navigate away from the visible category. Keep stable pager keys, retain discovered categories for the visit, and resolve selection from the rendered page key rather than applying a saved numeric index to a changed tab list. Only explicit navigation and the one-time onboarding handoff may request a page scroll.

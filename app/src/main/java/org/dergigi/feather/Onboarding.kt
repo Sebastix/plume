@@ -28,6 +28,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -56,7 +57,10 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 internal data class FirstUse(val welcome: Boolean = false, val swipe: Boolean = false)
-internal data class LaunchIcon(val x: Int, val y: Int, val width: Int, val height: Int)
+internal class LaunchIcon(val x: Int, val y: Int, val width: Int, val height: Int) {
+    // A new instance belongs to each splash transfer, even if its bounds are unchanged.
+    val drawn = MutableStateFlow(false)
+}
 
 // Android's splash wraps our vector in an adaptive foreground, enlarged inside the icon view.
 // Match that artwork scale as well as the measured view bounds when handing off to the tutorial.
@@ -119,7 +123,8 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
     }
     LaunchedEffect(signedIn) { if (signedIn && onboarding.step.value == 0) onboarding.step.value = 1 }
     val dismissCurrent = { if (!signerHintDismissed) onboarding.step.value = 1 else if (!swipeHintDismissed) dismissSwipe() }
-    val geometry by onboarding.icon.collectAsStateWithLifecycle()
+    // Capture this composition's geometry so an older draw cannot acknowledge newer bounds.
+    val geometry = onboarding.icon.collectAsStateWithLifecycle().value
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val finish = { onboarding.dismiss("welcome") }
     val latestLogin by rememberUpdatedState(onLogin)
@@ -150,9 +155,10 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
         val height = geometry?.height?.toFloat() ?: fallback
         val screenWidth = with(density) { maxWidth.toPx() }
         val screenHeight = with(density) { maxHeight.toPx() }
-        var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-        val startX = geometry?.x?.minus(origin.x) ?: ((screenWidth - width) / 2f)
-        val startY = geometry?.y?.minus(origin.y) ?: ((screenHeight - height) / 2f)
+        var origin by remember { mutableStateOf<Offset?>(null) }
+        val positioned = origin != null
+        val startX = geometry?.x?.minus(origin?.x ?: 0f) ?: ((screenWidth - width) / 2f)
+        val startY = geometry?.y?.minus(origin?.y ?: 0f) ?: ((screenHeight - height) / 2f)
         Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
             .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)) {
             HorizontalPager(state = preview, key = { latestPages.getOrNull(it)?.name ?: "pending-welcome-page:$it" }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
@@ -169,6 +175,9 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
                         translationX = sin(progress * PI * 3).toFloat() * screenWidth * .1f
                         translationY = progress * (screenHeight - startY + height)
                         rotationZ = sin(progress * PI * 3).toFloat() * 18f
+                    }.drawWithContent {
+                        drawContent()
+                        if (positioned && page == preview.currentPage) geometry?.drawn?.value = true
                     },
                 colorFilter = if (page == initialPage) null else ColorFilter.tint(colors[Math.floorMod(page - initialPage, colors.size)]))
             }

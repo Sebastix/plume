@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,7 +87,10 @@ import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 
 private val Sky = Color(0xFF79C4F2)
 
@@ -97,13 +101,32 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         composerModel.onboarding.allowed.value = intent.action == null || intent.action == Intent.ACTION_MAIN
+        composerModel.onboarding.icon.value = null
         if (android.os.Build.VERSION.SDK_INT >= 31) splashScreen.setOnExitAnimationListener { splash ->
-            splash.iconView?.let { icon ->
-                val location = IntArray(2)
-                icon.getLocationInWindow(location)
-                if (icon.width > 0 && icon.height > 0) composerModel.onboarding.icon.value = LaunchIcon(location[0], location[1], icon.width, icon.height)
+            val icon = splash.iconView
+            if (icon == null || icon.width <= 0 || icon.height <= 0) {
+                splash.remove()
+                return@setOnExitAnimationListener
             }
-            splash.remove()
+            val location = IntArray(2)
+            icon.getLocationInWindow(location)
+            val geometry = LaunchIcon(location[0], location[1], icon.width, icon.height)
+            val onboarding = composerModel.onboarding
+            onboarding.icon.value = geometry
+            lifecycleScope.launch {
+                try {
+                    // Keep the system artwork over the fallback frame until Compose draws
+                    // the measured size/position. Never wait for feeds, relays or media.
+                    withTimeoutOrNull(1_500) {
+                        combine(onboarding.state, onboarding.allowed, geometry.drawn) { firstUse, allowed, drawn ->
+                            !allowed || firstUse?.welcome == true || drawn
+                        }.first { it }
+                    }
+                } finally {
+                    // A draw acknowledgement can resume us during traversal; remove afterward.
+                    window.decorView.post { splash.remove() }
+                }
+            }
         }
         receiveMedia(intent)
         receiveNostrLink(intent)

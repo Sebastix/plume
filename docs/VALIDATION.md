@@ -1342,3 +1342,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 23s. No tests or emulators run; visual confirmation remains on device.
 - APK SHA-256 `0fde97c53b6c6193dba5f4b27fd3beebf9e23fce15db549d878992d2786b2f32`; 15,775,769 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `c9c68c58a66bfcf920a445a883f800044a231d54bea55b97e83d6baa0ddece98` and asset `4fa9d4a1e46301d5121ac51228c24f4a48ba0437f5bf733334574f8a4fb74535` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## Unreleased — splash handoff flicker
+
+- The exit listener published measured icon bounds and immediately removed the system splash, allowing a previously composed 288dp fallback feather to appear before the measurement reached Compose. Scaling the artwork made this transient size difference more visible.
+- Keep the system splash until the visible tutorial feather draws with the captured bounds and measured window origin. Capture geometry per composition so an older frame cannot acknowledge newer measurements. Each activity gets a fresh handoff; removal is posted outside drawing, bypasses completed/skipped onboarding, and has a 1.5s safety bound independent of network loading.
+- Source review only. No build, tests or emulator run; startup appearance awaits device confirmation after a release is requested.
