@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep the selected main feed anchored by category as newly discovered tabs arrive; remove background forced scrolling to a stale selection. Preserve category identity in onboarding previews too.
+
+### Changed
+- Remove the long-press reaction/zap hint. Keep only login and swipe guidance.
+
 ## [0.69.1] - 2026-10-16
 
 ### Changed

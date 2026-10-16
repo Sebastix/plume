@@ -54,7 +54,7 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-internal data class FirstUse(val welcome: Boolean = false, val swipe: Boolean = false, val actions: Boolean = false)
+internal data class FirstUse(val welcome: Boolean = false, val swipe: Boolean = false)
 internal data class LaunchIcon(val x: Int, val y: Int, val width: Int, val height: Int)
 
 /** Device-local education, deliberately separate from account preferences. */
@@ -70,7 +70,7 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
         scope.launch(Dispatchers.IO) {
             // Existing signed-in installations do not need a login introduction.
             val established = context.getSharedPreferences("feather", Context.MODE_PRIVATE).contains("signer")
-            state.value = FirstUse(prefs.getBoolean("welcome", established), prefs.getBoolean("swipe", false), prefs.getBoolean("actions", false))
+            state.value = FirstUse(prefs.getBoolean("welcome", established), prefs.getBoolean("swipe", false))
             if (!prefs.contains("welcome")) prefs.edit().putBoolean("welcome", established).apply()
             ready.complete(Unit)
         }
@@ -83,7 +83,6 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
                 val next = when (key) {
                     "welcome" -> old.copy(welcome = true)
                     "swipe" -> old.copy(swipe = true)
-                    "actions" -> old.copy(actions = true)
                     else -> return@withLock
                 }
                 if (next == old) return@withLock
@@ -96,16 +95,17 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
 
 /** Same artwork and measured bounds as Android's splash; the feed is already running underneath. */
 @Composable
-internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: Int, signedIn: Boolean, onLogin: () -> Unit,
-    onReveal: (Int) -> Unit, feedSwitcher: @Composable (PagerState, Boolean) -> Unit) {
+internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, initialPage: Int, signedIn: Boolean, onLogin: () -> Unit,
+    onReveal: (ProfileTab) -> Unit, feedSwitcher: @Composable (PagerState, Boolean) -> Unit) {
     val login = remember { Animatable(0f) }
     val fall = remember { Animatable(0f) }
     val veil = remember { Animatable(1f) }
     val step by onboarding.step.collectAsStateWithLifecycle()
     val signerHintDismissed = step >= 1
     val swipeHintDismissed = step >= 2
-    val preview = rememberPagerState(initialPage = initialPage) { pageCount }
+    val preview = rememberPagerState(initialPage = initialPage) { pages.size }
     val latestReveal by rememberUpdatedState(onReveal)
+    val latestPages by rememberUpdatedState(pages)
     val dismissSwipe = {
         onboarding.step.value = 2
         onboarding.dismiss("swipe")
@@ -124,8 +124,12 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
     }
     LaunchedEffect(lifecycle, swipeHintDismissed) {
         if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED) || !swipeHintDismissed) return@LaunchedEffect
-        preview.scrollToPage(preview.currentPage)
-        latestReveal(preview.currentPage)
+        val visibleKey = preview.layoutInfo.visiblePagesInfo.firstOrNull { it.index == preview.currentPage }?.key
+        val selected = latestPages.firstOrNull { it.name == visibleKey }
+            ?: latestPages.getOrNull(preview.currentPage) ?: ProfileTab.POSTS
+        val selectedIndex = latestPages.indexOf(selected)
+        if (selectedIndex >= 0) preview.scrollToPage(selectedIndex)
+        latestReveal(selected)
         if (!ValueAnimator.areAnimatorsEnabled()) { finish(); return@LaunchedEffect }
         delay(180)
         fall.animateTo(1f, tween(2400, easing = LinearEasing))
@@ -144,7 +148,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
         val startY = geometry?.y?.minus(origin.y) ?: ((screenHeight - height) / 2f)
         Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
             .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)) {
-            HorizontalPager(state = preview, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
+            HorizontalPager(state = preview, key = { pages[it].name }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
                 modifier = Modifier.fillMaxSize()) { page ->
             val colors = listOf(Color(0xFF7AC8EE), Color(0xFFB39DDB), Color(0xFF81C784), Color(0xFFFFB74D), Color(0xFFF48FB1))
             Box(Modifier.fillMaxSize()) {
