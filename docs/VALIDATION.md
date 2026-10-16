@@ -1308,3 +1308,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 23s. No tests or emulators run. Cross-device filter synchronization and signer interaction await device verification.
 - APK SHA-256 `58b4dc2af67996fd28d5d2a06a3c5ca27e0c3510fa50ae944d7ec426373ad149`; 15,775,545 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `5844087d2e21c2438067d225dff25f6aef44ca2a5901881ae814ef77be659f68` and asset `e0076091dee4f20af186105529a090a142ac8429f3aab14c8b2a892b8f3f593e` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.69.1 release
+
+- Version 0.69.1 (132), source `20eb383c1049377e10c69997ff6fed0d3218ebe5`. Login/feed hints use pointed speech bubbles without close buttons. A non-consuming pointer observer dismisses the active hint on taps, excluding drags, multi-touch and long presses. Tutorial progress survives the login navigation reset in the view model; an incomplete welcome is persisted before signer handoff, and successful login advances to swipe guidance while the feed loads underneath.
+- Signed release build passed including lint/R8 in 24s. No tests or emulators run; bubble layout, gestures and signer return flow await device confirmation.
+- APK SHA-256 `78fdfe6e77a501b8e6a3ec6253c341f25a0a99239bbc1f3ab6e96ace22e4a5d0`; 15,775,881 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `ddf15a4fea0048f9d0ed89148a8d4bc6a930e4a5c362e52e6e0ee01c9ecd0f61` and asset `a3995ab42f78e38c22f8b241a90a19cbef1d9faf47ef4d37f71c1c324ab40d27` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
