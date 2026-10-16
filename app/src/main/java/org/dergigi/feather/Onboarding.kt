@@ -105,7 +105,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
         if (!ValueAnimator.areAnimatorsEnabled()) { finish(); return@LaunchedEffect }
         delay(180)
         fall.animateTo(1f, tween(2400, easing = LinearEasing))
-        veil.animateTo(0f, tween(280))
+        veil.animateTo(0f, tween(800))
         finish()
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {

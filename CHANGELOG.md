@@ -6,6 +6,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Changed
 - Clarify the welcome hint: “Connect your signer to log in.”
+- Gently fade the welcome background over 800 ms after the feather finishes falling.
 
 ## [0.68.1] - 2026-10-16
 
