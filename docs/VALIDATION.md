@@ -1328,3 +1328,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Decoded the 0.69.2 (133) crash with its archived R8 mapping: `xv2.b:14` is `OnboardingKt.WelcomeFlight` line 151, the `pages[index]` key callback. The following frames are Compose's nearest-range key map and pager item provider. This confirms the report of a crash during tutorial sign-in.
 - The count callback could observe a larger page list while the retained key callback captured the previous three-item list. Both now read the same updated state; unique fallback keys guard transitional indices. Main-feed keys/content also handle transient out-of-range indices without indexing unsafely. No forced navigation was reintroduced.
 - Source review only. No build, tests or emulator run; awaiting a release request.
+
+## 2026-10-16 — 0.69.3 release
+
+- Version 0.69.3 (134), source `d25f15fbff08786cfebe2d6d55f34c6def5961e6`. Ships the mapped tutorial crash fix above: welcome page count/key callbacks share updated state, with guarded indices in welcome/home pagers. Tab ordering is unchanged.
+- Signed release build passed including lint/R8 in 23s. No tests or emulators run; tutorial sign-in verification remains on device.
+- APK SHA-256 `e7baef86e08d522196045f1902cc9192d86a326b7ac5c224e0e1eeb24250d07c`; 15,775,769 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `f0262f42a6a004a886d8149ffe335b0225923da6d55215868dee85ef8bab83c5` and asset `de1254a6e9f47b30c90ea0542b3ace873ea32f1586f9a7d7103779b50ccfc1c6` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
