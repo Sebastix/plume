@@ -1362,3 +1362,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Share one bounded settings route set between publication and discovery: three stable public fallback relays and the first two advertised read/write relays, reserved within the existing 12-relay pool. Wait for foreground relay access after the signer returns, collect acknowledgements with a bounded timeout, and retain the same signed event for retry. Reopening Settings/Notifications or refreshing Notifications explicitly retries a failed signer/publication attempt without enabling background signer prompts.
 - Signed-in gallery taps without NWC open the existing wallet sheet. The gallery host retains its page while covered; logged-out taps retain signer login, and neither setup path queues a payment. Reviewed both gallery hosts, including composer attachment previews without source-note actions.
 - Source review only at this stage; no tests or emulator run. The supplied crash issue `80634714` is already resolved (`applied`), as confirmed through ngit; no duplicate status was published.
+
+## 2026-10-16 — 0.69.6 release
+
+- Version 0.69.6 (137), source `282c52aa2e5f2159f01128dc86c6bc93817c8ee9`. Ships consistent encrypted-settings relay routes, notification-page sync retries and gallery wallet setup.
+- Signed release build passed in 29s. No tests or emulators run; reinstall restoration and gallery interaction await device confirmation.
+- APK SHA-256 `117f806c7b5db0e929c51b57a011e49dcb219c2f51b4e2098a61e00250be669b`; 15,775,785 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `5c845bd0c2482b0397b052a4f78b6a351e5329dc30fb37a4c5c89df56a7affe7` and asset `1fdcf057021e3b80d7fb09070293dc2d9e3d33c72df1404bd7e7c1efe856ffc9` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
