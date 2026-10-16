@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Website features now highlight the dedicated Podcasts tab, value-for-value and Podcasting 2.0 discovery, and background playback with lockscreen controls.
+
 ## [0.67.0] - 2026-10-16
 
 ### Added
