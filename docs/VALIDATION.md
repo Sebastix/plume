@@ -1322,3 +1322,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 23s. No tests or emulators run. Repeated swipes during post-login discovery await device verification. Reviewed Android's HorizontalPager documentation confirming key-based scroll retention when pages are inserted.
 - APK SHA-256 `373cc034a634e0e919fe571415ee3a446c477c77861a7f523db08499a8f8f2a8`; 15,775,769 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `08cee6ab8541a2cb146b8d37a12cfcd1ed45e3cddd65904369ab3344b4967313` and asset `4a8ddad4befcdd76002f07190552d8071865bcf3ef119c2adc0401c6217e7997` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## Unreleased — tutorial crash after sign-in
+
+- Decoded the 0.69.2 (133) crash with its archived R8 mapping: `xv2.b:14` is `OnboardingKt.WelcomeFlight` line 151, the `pages[index]` key callback. The following frames are Compose's nearest-range key map and pager item provider. This confirms the report of a crash during tutorial sign-in.
+- The count callback could observe a larger page list while the retained key callback captured the previous three-item list. Both now read the same updated state; unique fallback keys guard transitional indices. Main-feed keys/content also handle transient out-of-range indices without indexing unsafely. No forced navigation was reintroduced.
+- Source review only. No build, tests or emulator run; awaiting a release request.

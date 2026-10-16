@@ -177,11 +177,11 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     Box(Modifier.fillMaxSize().then(if (welcoming) Modifier.clearAndSetSemantics {} else Modifier)) {
     HorizontalPager(
         state = pager,
-        key = { tabs[it].name },
+        key = { tabs.getOrNull(it)?.name ?: "pending-feed-page:$it" },
         beyondViewportPageCount = 0,
         modifier = Modifier.fillMaxSize().semantics { contentDescription = "${home.tab.label} feed" },
     ) { page ->
-        val category = tabs[page]
+        val category = tabs.getOrNull(page) ?: return@HorizontalPager
         if (category == ProfileTab.SEARCH) ProfileSearchPage(vm, navigation, home, active = home.tab == category)
         else if (category == ProfileTab.NOTIFICATIONS) {
             if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }

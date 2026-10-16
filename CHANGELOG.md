@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Fix a tutorial crash after signer login when the pager count grew before its page-key callback received the new tab list. Share the current list across callbacks and guard transient out-of-range indices in welcome and home pagers.
+
 ## [0.69.2] - 2026-10-16
 
 ### Added

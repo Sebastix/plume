@@ -103,9 +103,11 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
     val step by onboarding.step.collectAsStateWithLifecycle()
     val signerHintDismissed = step >= 1
     val swipeHintDismissed = step >= 2
-    val preview = rememberPagerState(initialPage = initialPage) { pages.size }
-    val latestReveal by rememberUpdatedState(onReveal)
+    // Pager count and retained key callbacks must observe the same current list.
+    // Login/discovery can grow it before Compose replaces the previous key callback.
     val latestPages by rememberUpdatedState(pages)
+    val preview = rememberPagerState(initialPage = initialPage) { latestPages.size }
+    val latestReveal by rememberUpdatedState(onReveal)
     val dismissSwipe = {
         onboarding.step.value = 2
         onboarding.dismiss("swipe")
@@ -148,7 +150,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
         val startY = geometry?.y?.minus(origin.y) ?: ((screenHeight - height) / 2f)
         Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
             .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)) {
-            HorizontalPager(state = preview, key = { pages[it].name }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
+            HorizontalPager(state = preview, key = { latestPages.getOrNull(it)?.name ?: "pending-welcome-page:$it" }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
                 modifier = Modifier.fillMaxSize()) { page ->
             val colors = listOf(Color(0xFF7AC8EE), Color(0xFFB39DDB), Color(0xFF81C784), Color(0xFFFFB74D), Color(0xFFF48FB1))
             Box(Modifier.fillMaxSize()) {
