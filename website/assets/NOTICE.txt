@@ -11,3 +11,11 @@ License: https://www.apache.org/licenses/LICENSE-2.0
 ngit header mark: adapted to monochrome from https://ngit.dev/favicon.svg
 Source: https://ngit.dev (ngit-docs, MIT licensed). The mark identifies the
 Nostr/GRASP repository link; it remains the ngit project's brand.
+
+Interactive video sample: flower.mp4 and its extracted poster flower.jpg.
+Source: https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4
+MDN interactive examples, CC0 1.0 Universal.
+https://github.com/mdn/interactive-examples/blob/main/LICENSE
+
+GIF previews link directly to gifs.nostr.build; no GIF media is rehosted.
+Attribution: GIFs from nostr.build — https://nostr.build

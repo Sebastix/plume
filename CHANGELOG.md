@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Rebuilt the homepage around concise copy, an interactive feed switcher, VLC-style video gestures, and a local composer/GIF preview.
+
 ## [0.71.0] - 2026-10-16
 
 ### Added
