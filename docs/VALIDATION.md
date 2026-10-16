@@ -1415,3 +1415,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Only one clip can be audible. Fullscreen transfers the selected player's existing surface/timeline, suspends other decoders, and restores their prior intent on return. Background/covered states stop preparation and decoding; active clip URLs are excluded from speculative prefetch. Failures release the affected slot with a bounded cooldown.
 - Reviewed player/view ownership, selection changes, viewport clipping, manual pause, fullscreen and lifecycle paths. No tests or emulator run; playback behavior awaits device verification.
 - The separately requested website deployment is live; production HTML, CSS, JavaScript and public GIF catalog match the local source over HTTP 200.
+
+## 2026-10-17 — 0.72.0 release
+
+- Version 0.72.0 (140), source `bd847f2c42684c80861793570731b14e0b67903d`. Signed release build passed in 1m 12s. No tests or emulators run. Packaged version, source commit and signing certificate verified; compressed mapping archived.
+- APK SHA-256 `9df26ba0555cec77a21b5d072078ad5cf331036ad1be89eee4dd5a7543271df2`; 15,792,173 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `6fea2c658f9d3c49716f0e729c9c82fc1fc9ea48932606fc24d3d543265901c4` and asset `addfae20809180c66bd072f017d11d7a1ccabcfd0daad6a9e1a4f4e35e48449a` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No additional website deployment as part of this app release.
