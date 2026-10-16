@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
@@ -98,9 +99,35 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     val query = home.searchQuery.trim()
+    val direct = remember(query) { NostrContent.isSearchReference(query) }
+    var opening by remember { mutableStateOf(false) }
+    val searchDescription = stringResource(R.string.ui_search_destination)
+    val invalidReference = stringResource(R.string.ui_invalid_search_reference)
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     val searchFocus = remember { FocusRequester() }
+    fun submit() {
+        if (!running || opening || query.isEmpty()) return
+        focus.clearFocus()
+        if (!direct) { retry++; return }
+        opening = true
+        scope.launch {
+            try {
+                val reference = withContext(Dispatchers.Default) { NostrContent.searchReference(query) }
+                if (reference == null) { AppMessages.show(invalidReference); return@launch }
+                val latest = vm.state.value
+                if (ContentFilter(latest.mutedAuthors, latest.embedded, latest.deletedReactions, latest.showSensitive, latest.deletedNotes).hides(reference)) return@launch
+                if (reference.external != null) {
+                    context.openWebLink("https://njump.to/${reference.external}")
+                } else {
+                    val destination = ReaderEntry(if (reference.hashtag != null) "hashtag" else if (reference.profile) "profile" else "thread", reference.hashtag ?: reference.id)
+                    destination.reference = reference.takeIf { reference.hashtag == null }
+                    navigation.push(destination)
+                }
+            } finally { opening = false }
+        }
+    }
     LaunchedEffect(active) { if (!active) focus.clearFocus() }
     LaunchedEffect(active, home.requestSearchFocus) {
         if (active && home.requestSearchFocus) {
@@ -112,11 +139,11 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         error = null
         loading = false
         results = emptyList()
-        if (!running || query.length < 2) return@LaunchedEffect
+        if (!running || direct || query.length < 2) return@LaunchedEffect
         loading = true
         try {
             delay(400)
-            results = VertexProfileSearch.search(query)
+            results = VertexProfileSearch.search(query.take(100))
         } catch (e: TimeoutCancellationException) { error = "Vertex profile search timed out" }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = "Vertex profile search: ${e.message ?: e.javaClass.simpleName}" }
@@ -127,13 +154,19 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface,
         LocalMedia provides MediaEnvironment(resources, running, null)) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(top = 8.dp)) {
-            OutlinedTextField(value = home.searchQuery, onValueChange = { home.searchQuery = it.take(100) },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
+            OutlinedTextField(value = home.searchQuery, onValueChange = { home.searchQuery = it.take(8192) },
+                leadingIcon = { IconButton(onClick = ::submit) { Icon(Icons.Default.Search, searchDescription) } },
                 trailingIcon = { if (home.searchQuery.isNotEmpty()) IconButton(onClick = { home.searchQuery = "" }) { Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search)) } },
-                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).focusRequester(searchFocus).semantics { contentDescription = "Search profiles" },
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).focusRequester(searchFocus)
+                    .onPreviewKeyEvent { event ->
+                        if (event.key == Key.Enter || event.key == Key.NumPadEnter) {
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0) submit()
+                            true
+                        } else false
+                    }.semantics { contentDescription = searchDescription },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focus.clearFocus(); retry++ }))
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { submit() }))
             if (loading) Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             }

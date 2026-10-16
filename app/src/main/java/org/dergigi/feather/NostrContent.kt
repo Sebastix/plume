@@ -18,6 +18,26 @@ object NostrContent {
         .distinct()
         .toList()
 
+    /** Direct search inputs are submitted explicitly, never sent to profile search providers. */
+    internal fun isSearchReference(raw: String): Boolean {
+        val value = raw.trim()
+        return value.startsWith("nostr:", ignoreCase = true) ||
+            (value.startsWith("#") && value.none(Char::isWhitespace)) ||
+            Regex("^(npub|nprofile|note|nevent|naddr|nrelay|nsec)1", RegexOption.IGNORE_CASE).containsMatchIn(value)
+    }
+
+    internal fun searchReference(raw: String): Reference? {
+        val value = raw.trim()
+        if (value.length > 8192) return null
+        if (value.startsWith("#")) {
+            val match = tokens.matchEntire(value) ?: return null
+            if (match.value.startsWith("#[")) return null
+            val tag = value.drop(1).lowercase(java.util.Locale.ROOT)
+            return Reference(tag, hashtag = tag)
+        }
+        return decode(value)
+    }
+
     fun decode(raw: String): Reference? = runCatching {
         val value = raw.lowercase().removePrefix("nostr:")
         val parsed = Nip19Parser.uriToRoute(value)?.takeIf { it.nip19raw == value && it.additionalChars.isNullOrEmpty() } ?: return null
@@ -27,11 +47,11 @@ object NostrContent {
             is NNote -> Reference(entity.hex)
             is NEvent -> Reference(entity.hex, relays = entity.relay.map { it.url }, author = entity.author, kind = entity.kind,
                 external = value.takeIf { entity.kind != null && entity.kind !in readableKinds })
-            is NAddress -> if (entity.kind == 32267) Reference("${entity.kind}:${entity.author}:${entity.dTag}", author = entity.author, kind = entity.kind,
-                relays = (listOf(ZAPSTORE_RELAY) + entity.relay.map { it.url })) else Reference(entity.author, author = entity.author, kind = entity.kind, external = value)
+            is NAddress -> if (entity.kind in readableKinds && entity.kind in 30000..39999) Reference("${entity.kind}:${entity.author}:${entity.dTag}", author = entity.author, kind = entity.kind,
+                relays = ((if (entity.kind == 32267) listOf(ZAPSTORE_RELAY) else emptyList()) + entity.relay.map { it.url })) else Reference(entity.author, author = entity.author, kind = entity.kind, external = value)
             else -> return null
         }
-        result.takeIf { hex.matches(it.id) || (it.kind == 32267 && it.addressFilter() != null) }?.let { it.copy(relays = it.relays.mapNotNull(Protocol::relay).distinct().take(2), author = it.author?.takeIf(hex::matches)) }
+        result.takeIf { hex.matches(it.id) || (it.addressFilter() != null) }?.let { it.copy(relays = it.relays.mapNotNull(Protocol::relay).distinct().take(2), author = it.author?.takeIf(hex::matches)) }
     }.getOrNull()
 
     fun tokens(text: String, event: Event): List<Token> = tokens.findAll(text).take(64).mapNotNull { match ->

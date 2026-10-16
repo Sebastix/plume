@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-10-17
+
+### Added
+- Submit a single hashtag or Nostr identifier in Search to open its feed, profile, note, article, or other supported content directly. Identifiers bypass Vertex profile search.
+
 ### Changed
 - Updated the homepage introduction to “Everything is just one swipe away.”
 - Homepage GIF examples now feature good morning, sunrise, and zap reactions; removed the extra draft prompt.
