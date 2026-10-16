@@ -41,3 +41,5 @@
 /* Nostr repository mark, with the same monochrome treatment as the header. */
 .source-link{width:44px;height:44px;justify-content:center}header nav .ngit-link .app-icon{width:28px;height:28px}
 @media(max-width:400px){header.wrap{padding-inline:16px}.brand{font-size:23px;gap:5px}header nav{gap:8px;font-size:11px}}
+
+.feature-grid kbd{font:inherit;font-size:.9em;white-space:nowrap;background:var(--mist);border:1px solid var(--line);border-radius:4px;padding:1px 4px;color:var(--ink)}

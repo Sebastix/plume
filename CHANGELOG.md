@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Website now highlights external keyboard support for mechanical keyboard enthusiasts, including composer shortcuts and text navigation.
+
 ## [0.70.0] - 2026-10-16
 
 ### Added
