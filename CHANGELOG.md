@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.69.6] - 2026-10-16
+
 ### Fixed
 - Restore encrypted notification filters after reinstalling by using the same account and public fallback relays for settings publication and discovery. Wait for foreground relay access after signer interaction; retry failed sync when reopening Settings or Notifications, or refreshing Notifications.
 - Open NWC setup when a signed-in reader taps the muted gallery zap button without a connected wallet. Preserve the selected image when closing setup; logged-out taps still open signer login.
