@@ -1427,3 +1427,9 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Search submission (IME search, physical Enter/numpad Enter, or search icon) routes a whole hashtag or NIP-19 identifier directly. Unicode hashtags use the reader's tokenizer and lowercase normalization. Nostr parsing runs on Default; relay hints and address coordinates are retained. Ordinary text keeps bounded Vertex profile search, while direct identifiers (including invalid/private-key-shaped input) bypass it.
 - Expanded shared naddr decoding to supported addressable kinds, including articles and emoji packs. Unsupported public types retain the existing HTTPS fallback. Navigation reuses existing reader activation and cache-first paths, respects content filters, and retains the Search entry for Back. Added English/Japanese accessible labels and invalid-input feedback.
 - Source review only; no tests or emulator run.
+
+## 2026-10-17 — 0.73.0 release
+
+- Version 0.73.0 (141), source `ed60a8cbfb0c243f6216151def35b81ae3639d1e`. Signed release build passed in 56s. No tests or emulators run. Packaged version, source and signing certificate verified; compressed mapping archived.
+- APK SHA-256 `10bf7c705046da6faf7e45dccbf1c33ff3f987593cfb81499ad35b79af84102f`; 15,793,285 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `082ea03949462cfc89b8a41f6d6b183e9daa7edfb1eeb9a3a562c12e7404b1fd` and asset `efc63f44d26b9271b51c5c7fca3518eb82b7df384eaeb64d6184ae704f5e6625` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
