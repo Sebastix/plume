@@ -1395,3 +1395,16 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Feed requests use category identity and the last requested destination, with one cancellable pager effect. Discovery waits for both scrolling and pending keyboard navigation to settle. Completion resolves the rendered page key, and interruption/disposal clears only the matching request so it cannot replay on return. Existing per-feed list states are reused.
 - Ctrl/Cmd+F jumps directly to Search and requests text-field focus only once the page is active. Existing search text is retained on the main feed; opening Search from a profile/detail keeps that reader on the back stack and releases its subscriptions. Reviewed the search-page Back path and separate dialog windows used by composers/settings/gallery.
 - Source review only. No build, tests or emulator run; device verification follows the next requested release.
+
+## 2026-10-16 — 0.71.0 release
+
+- Version 0.71.0 (139), source `9d216df86596c752e73f8c028a4101e7743fd61b`. Ships keyboard tab navigation and Ctrl/Cmd+F profile search.
+- Signed release build passed in 1m 3s after rebuilding stale buildSrc output. No tests or emulators run. Packaged version, embedded source and signing certificate verified; compressed mapping archived.
+- APK SHA-256 `2de57c9a50ddcd2ea7cffaef0db95c42fd3d8ded0624a19dea65c1400f7f1892`; 15,792,169 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `c35bd12d9e781425436cd75c7d0c7d0d57fcfc4aa9b2d0234dfa045ed6e8bbf6` and asset `fb36628a1de09383fb33e4ceff10aa9970a389642c50578c7640b0c2ab10743e` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. Website work is a separate explicit request.
+
+## 2026-10-17 — visual website redesign
+
+- Replaced the long feature catalog with a swipeable five-tab phone preview, bounded six-slot GIF sample picker and local draft preview, video gesture controls, keyboard shortcuts and concise supporting features. Cropped public screenshots remain unchanged; no Android status-bar captures were added.
+- Video playback starts only on request. GIF videos reuse a fixed pool, pause offscreen/in background, and use stills for reduced motion or autoplay refusal. GIF media remains hosted by nostr.build; no native API key is shipped. Drafts and local attachments stay in the browser. CSP allows only the required local scripts and specific GIF media host; privacy copy records preview requests.
+- Reviewed source and a desktop browser rendering; JavaScript syntax and patch whitespace checks passed. No app tests, emulator or app build for this website change.
