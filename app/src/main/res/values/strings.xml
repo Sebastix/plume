@@ -127,4 +127,6 @@
     <string name="ui_hint_signer">Connect your signer to log in</string>
     <string name="ui_hint_swipe">Swipe left or right to explore feeds.</string>
     <string name="ui_hint_actions">Hold a heart to choose an emoji. Hold a lightning bolt to choose a zap amount.</string>
+    <string name="ui_log_in_to_zap">Log in to zap</string>
+    <string name="ui_log_in_to_react">Log in to react</string>
 </resources>

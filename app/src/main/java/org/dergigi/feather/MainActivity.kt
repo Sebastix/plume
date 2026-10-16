@@ -384,7 +384,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }) {
     GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) },
-        onOpenProfile = ::openProfile) {
+        onOpenProfile = ::openProfile, onLogin = { showAccount = true }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount && composingReply == null) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(

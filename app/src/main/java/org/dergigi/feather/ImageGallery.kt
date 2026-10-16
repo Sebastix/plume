@@ -72,7 +72,7 @@ internal class GalleryOpener(private val open: (List<String>, Int, Event?, Boole
 internal val LocalOpenGallery = staticCompositionLocalOf { GalleryOpener { _, _, _, _ -> } }
 
 @Composable
-internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, onOpenProfile: (String) -> Unit, content: @Composable () -> Unit) {
+internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Boolean = false, album: () -> ProfilePhotos = { ProfilePhotos() }, onOpenNote: (String, Event?) -> Unit, onOpenProfile: (String) -> Unit, onLogin: () -> Unit = {}, content: @Composable () -> Unit) {
     var urls by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var noteIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
@@ -117,6 +117,7 @@ internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Bo
                 urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList()
                 onOpenProfile(pubkey)
             },
+            onLogin = onLogin,
             onPage = { index = it },
             onDismiss = { urls = arrayListOf(); noteIds = arrayListOf(); sourceNotes = emptyList() },
             onOpenNote = { page ->
@@ -132,7 +133,7 @@ internal fun GalleryHost(state: FeedState, walletConnected: Boolean, covered: Bo
 
 // Swipe, double-tap/pinch zoom, background cycling and actions follow Boris.
 @Composable
-private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, walletConnected: Boolean, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit, onOpenProfile: (String) -> Unit) {
+private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<String>, state: FeedState, walletConnected: Boolean, sourceNote: (Int) -> Event?, onPage: (Int) -> Unit, onDismiss: () -> Unit, onOpenNote: (Int) -> Unit, onOpenProfile: (String) -> Unit, onLogin: () -> Unit) {
     val pager = rememberPagerState(initialPage = initialIndex.coerceIn(urls.indices), pageCount = { urls.size })
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -294,14 +295,20 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                         Surface(modifier = Modifier.graphicsLayer { alpha = if (canZap) 1f else 0.38f },
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
-                            NoteZap(note, counts, state.publicKey,
+                            if (!canReact) IconButton(onClick = onLogin, modifier = Modifier.size(56.dp)) {
+                                Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_log_in_to_zap),
+                                    Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            } else NoteZap(note, counts, state.publicKey,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canZap,
                                 onPickerVisibilityChanged = { zapPicker = it })
                         }
                         Surface(modifier = Modifier.graphicsLayer { alpha = if (canReact) 1f else 0.38f },
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
-                            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(),
+                            if (!canReact) IconButton(onClick = onLogin, modifier = Modifier.size(56.dp)) {
+                                Icon(Icons.Outlined.FavoriteBorder, stringResource(R.string.ui_log_in_to_react),
+                                    Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            } else OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty(),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer, iconOnly = true, enabled = canReact,
                                 onPickerVisibilityChanged = { reactionPicker = it })
                         }
