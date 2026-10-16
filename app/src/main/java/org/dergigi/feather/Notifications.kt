@@ -108,7 +108,10 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val message by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(active, message) { if (active) message?.let { AppMessages.show(it); vm.message.compareAndSet(it, null) } }
     LaunchedEffect(active, owner) {
-        if (active) { vm.repo.openReference(null); vm.repo.viewProfile(null); vm.repo.viewThread(null); vm.repo.viewHashtag(null) }
+        if (active) {
+            vm.accountSettings.retry()
+            vm.repo.openReference(null); vm.repo.viewProfile(null); vm.repo.viewThread(null); vm.repo.viewHashtag(null)
+        }
     }
     val threshold = with(LocalDensity.current) { 32.dp.toPx() }
     val toolbarScroll = remember(entry, home, threshold) {
@@ -159,7 +162,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         LocalMedia provides MediaEnvironment(resources, active && lifecycle.isAtLeast(Lifecycle.State.STARTED), null),
     ) {
         PullToRefreshBox(isRefreshing = active && state.notificationsLoading,
-            onRefresh = vm.repo::refreshNotifications, modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+            onRefresh = { vm.accountSettings.retry(); vm.repo.refreshNotifications() }, modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             LazyColumn(state = entry.list, modifier = Modifier.fillMaxSize().nestedScroll(toolbarScroll),
                 contentPadding = PaddingValues(bottom = 144.dp)) {
                 stickyHeader("notification-filters") {

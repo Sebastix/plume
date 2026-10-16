@@ -56,16 +56,20 @@ internal class AccountSettings(
                     launch {
                         try { sync() }
                         catch (e: CancellationException) { throw e }
-                        catch (e: Exception) { report("Settings sync: ${e.message ?: e.javaClass.simpleName}. Local preferences kept; reopen settings to retry.") }
+                        catch (e: Exception) { report("Settings sync: ${e.message ?: e.javaClass.simpleName}. Local preferences kept; reopen Settings or Notifications to retry.") }
                     }.join()
                 }
             }
         }
     }
-    fun refresh(active: Boolean, retry: Boolean = false) {
+    fun refresh(active: Boolean) {
         foreground = active
-        if (retry) { attempted = null; attemptedPending = null }
         if (active) wake.trySend(Unit)
+    }
+    fun retry() {
+        attempted = null
+        attemptedPending = null
+        if (foreground) wake.trySend(Unit)
     }
     private fun read(owner: String) = JSONObject(prefs.getString(owner, "{}") ?: "{}")
     private fun write(owner: String, value: JSONObject) {

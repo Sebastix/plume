@@ -384,7 +384,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showSettings = false
     }
     LaunchedEffect(showSettings) {
-        if (showSettings && s.publicKey != null) vm.accountSettings.refresh(true, retry = true)
+        if (showSettings && s.publicKey != null) vm.accountSettings.retry()
     }
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
         if (activePage) vm.loadMutes(s.pendingMuteList)
@@ -408,7 +408,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }) {
     GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) },
-        onOpenProfile = ::openProfile, onLogin = { showAccount = true }) {
+        onOpenProfile = ::openProfile, onLogin = { showAccount = true }, onWallet = { showWallet = true }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount && composingReply == null) {
     savedScreens.SaveableStateProvider(entry.key) {
     Scaffold(

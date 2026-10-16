@@ -124,9 +124,27 @@ class FeatherRepository(context: Context) {
     }
     internal suspend fun publishSettings(event: Event): Boolean = withContext(Dispatchers.IO) {
         check(event.pubKey == state.value.publicKey && event.kind == 30078 && event.tagValue("d") == SETTINGS_D && event.verify())
-        val confirmed = publishReactionEvent(event, event.pubKey, event.pubKey)
-        if (confirmed) accept(event)
-        confirmed
+        ready.await()
+        repeat(3) { attempt ->
+            if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
+            // The signer may have covered the activity and disconnected the relay client.
+            withTimeout(15_000) { foregroundActive.first { it } }
+            currentCoroutineContext().ensureActive()
+            check(state.value.publicKey == event.pubKey) { "Account changed" }
+            updateRoutingPool()
+            client.connect()
+            val routes = settingsRelayUrls().filter { it in routingPool }
+            val confirmed = try {
+                routes.isNotEmpty() && client.publishAndConfirm(event, routes.map { it.normalizeRelayUrl() }.toSet(),
+                    timeoutInSeconds = 15, untilFirstAccept = false)
+            } catch (_: TimeoutCancellationException) { false }
+            catch (_: java.io.IOException) { false }
+            if (confirmed) {
+                accept(event)
+                return@withContext true
+            }
+        }
+        false
     }
     val state: StateFlow<FeedState> = _state.asStateFlow()
     private val threadProgress = ThreadProgress(scope) { target, parent, loading ->
@@ -387,6 +405,14 @@ class FeatherRepository(context: Context) {
         if (authors.isEmpty()) client.unsubscribe("relay-lists")
         else client.subscribe("relay-lists", routingPool.associate { it.normalizeRelayUrl() to listOf(Filter(authors = authors, kinds = listOf(10002), limit = authors.size)) }, listener)
     }
+    // Use the same bounded routes for publishing and latest-version discovery, including
+    // stable public fallbacks a fresh installation can find before it knows the relay list.
+    private fun settingsRelayUrls(): List<String> {
+        val owner = state.value.publicKey ?: return emptyList()
+        val own = relayLists[owner]
+        return (RelayDefaults.seeds.take(3) + own?.write.orEmpty().take(2) + own?.read.orEmpty().take(2))
+            .mapNotNull(Protocol::relay).distinct().filter(::healthy)
+    }
     private fun updateRoutingPool() {
         val own = relayLists[state.value.publicKey]
         val personal = (own?.read.orEmpty() + own?.write.orEmpty()).distinct().filter(::healthy).take(4)
@@ -403,7 +429,7 @@ class FeatherRepository(context: Context) {
         val publishRoutes = publishingAuthor?.let { author ->
             own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
         }.orEmpty()
-        val priority = (relayLists[viewedProfile]?.write.orEmpty().take(2) + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+        val priority = (settingsRelayUrls() + relayLists[viewedProfile]?.write.orEmpty().take(2) + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
             emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
@@ -435,18 +461,21 @@ class FeatherRepository(context: Context) {
             client.subscribe("contacts", contactRelays.associateWith {
                 listOf(Filter(authors = listOf(key), kinds = listOf(3), limit = 1))
             }, listener)
+            val settingsRoutes = settingsRelayUrls().filter { it in routingPool }
+            client.subscribe("account-settings", settingsRoutes.associate { it.normalizeRelayUrl() to
+                listOf(Filter(authors = listOf(key), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1))
+            }, listener)
             val routes = accountRoutes.mapValues { (_, filters) ->
                 filters + Filter(authors = listOf(key), kinds = listOf(7), limit = 200) +
                     Filter(authors = listOf(key), kinds = listOf(5), limit = 256) +
                     Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(10030), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(10063), limit = 1) +
-                    Filter(authors = listOf(key), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1)
             }
             client.subscribe("account", routes, listener)
         }
-            ?: run { client.unsubscribe("account"); client.unsubscribe("contacts") }
+            ?: run { client.unsubscribe("account"); client.unsubscribe("contacts"); client.unsubscribe("account-settings") }
         val authors = s.publicKey?.let { (listOf(it) + s.following).take(1000) }
         client.subscribe("feed", authorFilters(authors, selectedFeed.feedKinds(), 80), listener)
         val discovery = authorFilters(authors, profileKinds, 8).mapValues { (_, filters) ->
