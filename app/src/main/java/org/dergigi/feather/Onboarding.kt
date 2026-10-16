@@ -3,6 +3,9 @@ package org.dergigi.feather
 import android.animation.ValueAnimator
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -84,6 +88,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
     val login = remember { Animatable(0f) }
     val fall = remember { Animatable(0f) }
     val veil = remember { Animatable(1f) }
+    var signerHintDismissed by rememberSaveable { mutableStateOf(false) }
     val geometry by onboarding.icon.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val finish = { onboarding.dismiss("welcome") }
@@ -92,10 +97,14 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
     BackHandler(onBack = finish)
     LaunchedEffect(lifecycle) {
         if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
+        if (ValueAnimator.areAnimatorsEnabled()) login.animateTo(1f, tween(450))
+        else login.snapTo(1f)
+    }
+    LaunchedEffect(lifecycle, signerHintDismissed) {
+        if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED) || !signerHintDismissed) return@LaunchedEffect
         if (!ValueAnimator.areAnimatorsEnabled()) { finish(); return@LaunchedEffect }
-        login.animateTo(1f, tween(450))
         delay(180)
-        fall.animateTo(1f, tween(1700, easing = LinearEasing))
+        fall.animateTo(1f, tween(2400, easing = LinearEasing))
         veil.animateTo(0f, tween(280))
         finish()
     }
@@ -111,7 +120,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
         val startY = geometry?.y?.minus(origin.y) ?: ((screenHeight - height) / 2f)
         Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
             .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = skipLabel, onClick = finish)) {
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = skipLabel, onClick = { signerHintDismissed = true })) {
             Image(painterResource(R.drawable.splash_feather), null,
                 Modifier.offset { IntOffset(startX.roundToInt(), startY.roundToInt()) }
                     .size(with(density) { width.toDp() }, with(density) { height.toDp() })
@@ -134,6 +143,11 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
                 .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
                 Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
+        }
+        AnimatedVisibility(login.value == 1f && !signerHintDismissed,
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, start = 24.dp, end = 12.dp),
+            enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+            FirstUseHint(stringResource(R.string.ui_hint_signer), onDismiss = { signerHintDismissed = true })
         }
         IconButton(onClick = finish, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp, start = 12.dp)) {
             Icon(Icons.Default.Close, stringResource(R.string.ui_skip_welcome), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))

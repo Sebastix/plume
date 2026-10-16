@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-10-16
+
+### Changed
+- Pause the first-launch welcome at a “Connect your signer” hint beneath login. Dismissing it starts a slower feather drift, followed by the swipe hint.
+
 ## [0.68.0] - 2026-10-16
 
 ### Added
@@ -12,8 +17,6 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Changed
 - Hide the compose floating action button on the main feed and profiles while logged out.
-
-### Changed
 - Website features now highlight the dedicated Podcasts tab, value-for-value and Podcasting 2.0 discovery, and background playback with lockscreen controls.
 
 ## [0.67.0] - 2026-10-16

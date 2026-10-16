@@ -124,6 +124,7 @@
     <string name="ui_copied">Copied</string>
     <string name="ui_skip_welcome">Skip welcome</string>
     <string name="ui_dismiss_hint">Dismiss hint</string>
+    <string name="ui_hint_signer">Connect your signer</string>
     <string name="ui_hint_swipe">Swipe left or right to explore feeds.</string>
     <string name="ui_hint_actions">Hold a heart to choose an emoji. Hold a lightning bolt to choose a zap amount.</string>
 </resources>
