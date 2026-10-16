@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextRange
@@ -320,7 +321,15 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_and_keep_draft)) }
                 Spacer(Modifier.weight(1f))
-
+                if (current.target == null) {
+                    val account = state.profiles[current.owner]
+                    val name = account?.name ?: FeatherRepository.shortKey(current.owner)
+                    val postingAs = stringResource(R.string.ui_posting_as, name)
+                    Box(Modifier.size(48.dp).clearAndSetSemantics { contentDescription = postingAs },
+                        contentAlignment = Alignment.Center) {
+                        Avatar(name, 40, account?.picture)
+                    }
+                }
             }
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]

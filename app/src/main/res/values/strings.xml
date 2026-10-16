@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="ui_posting_as">Posting as %1$s</string>
     <string name="ui_add_zap_message">Add zap message</string>
     <string name="ui_already_sent">Already sent</string>
     <string name="ui_article_unavailable_locally_open_externally">Article unavailable locally; open externally</string>
