@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.66.1] - 2026-10-16
+
 ### Added
 - Show the posting account's cached avatar in the top-right corner of the full-screen new-post composer.
 
