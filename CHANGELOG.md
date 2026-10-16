@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.69.5] - 2026-10-16
+
 ### Fixed
 - Prevent the oversized feather flash at startup by keeping Android's splash visible until the tutorial has drawn at the measured icon size and position.
 - Keep the white feather stem visible on every colored tutorial page by changing only the body's fill color.
@@ -1118,7 +1120,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Initial text-first MVP. No DMs, wallet, media uploads, reactions, or notifications.
 - Following subscriptions cover up to 1,000 authors; notes and profiles are cached with retention limits.
 
-[Unreleased]: https://github.com/dergigi/feather/compare/v0.69.4...HEAD
+[Unreleased]: https://github.com/dergigi/feather/compare/v0.69.5...HEAD
+[0.69.5]: https://github.com/dergigi/feather/compare/v0.69.4...v0.69.5
 [0.69.4]: https://github.com/dergigi/feather/compare/v0.69.3...v0.69.4
 [0.23.0]: https://github.com/dergigi/feather/compare/v0.22.2...v0.23.0
 [0.22.2]: https://github.com/dergigi/feather/compare/v0.22.1...v0.22.2
