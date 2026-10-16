@@ -14,7 +14,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.RenderVectorGroup
+import androidx.compose.ui.graphics.vector.VectorConfig
+import androidx.compose.ui.graphics.vector.VectorProperty
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -43,6 +48,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.Lifecycle
@@ -65,6 +71,25 @@ internal class LaunchIcon(val x: Int, val y: Int, val width: Int, val height: In
 // Android's splash wraps our vector in an adaptive foreground, enlarged inside the icon view.
 // Match that artwork scale as well as the measured view bounds when handing off to the tutorial.
 private val SplashForegroundScale = 1f + 2f * AdaptiveIconDrawable.getExtraInsetFraction()
+
+/** Recolor only the named body path; retain the splash vector's white stem and geometry. */
+@Composable
+private fun welcomeFeatherPainter(bodyColor: Color): androidx.compose.ui.graphics.vector.VectorPainter {
+    val vector = ImageVector.vectorResource(R.drawable.splash_feather)
+    val overrides = remember(bodyColor) {
+        val fill = SolidColor(bodyColor)
+        mapOf("body" to object : VectorConfig {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T> getOrDefault(property: VectorProperty<T>, defaultValue: T): T =
+                if (property == VectorProperty.Fill) fill as T else defaultValue
+        })
+    }
+    return rememberVectorPainter(
+        defaultWidth = vector.defaultWidth, defaultHeight = vector.defaultHeight,
+        viewportWidth = vector.viewportWidth, viewportHeight = vector.viewportHeight,
+        autoMirror = vector.autoMirror,
+    ) { _, _ -> RenderVectorGroup(vector.root, overrides) }
+}
 
 /** Device-local education, deliberately separate from account preferences. */
 internal class Onboarding(context: Context, private val scope: CoroutineScope) {
@@ -164,8 +189,9 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
             HorizontalPager(state = preview, key = { latestPages.getOrNull(it)?.name ?: "pending-welcome-page:$it" }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
                 modifier = Modifier.fillMaxSize()) { page ->
             val colors = listOf(Color(0xFF7AC8EE), Color(0xFFB39DDB), Color(0xFF81C784), Color(0xFFFFB74D), Color(0xFFF48FB1))
+            val bodyColor = if (page == initialPage) Color(0xFF79C4F2) else colors[Math.floorMod(page - initialPage, colors.size)]
             Box(Modifier.fillMaxSize()) {
-            Image(painterResource(R.drawable.splash_feather), null,
+            Image(welcomeFeatherPainter(bodyColor), null,
                 Modifier.offset { IntOffset(startX.roundToInt(), startY.roundToInt()) }
                     .size(with(density) { width.toDp() }, with(density) { height.toDp() })
                     .graphicsLayer {
@@ -178,8 +204,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
                     }.drawWithContent {
                         drawContent()
                         if (positioned && page == preview.currentPage) geometry?.drawn?.value = true
-                    },
-                colorFilter = if (page == initialPage) null else ColorFilter.tint(colors[Math.floorMod(page - initialPage, colors.size)]))
+                    })
             }
             }
         }

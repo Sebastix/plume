@@ -6,6 +6,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Fixed
 - Prevent the oversized feather flash at startup by keeping Android's splash visible until the tutorial has drawn at the measured icon size and position.
+- Keep the white feather stem visible on every colored tutorial page by changing only the body's fill color.
 
 ## [0.69.4] - 2026-10-16
 
