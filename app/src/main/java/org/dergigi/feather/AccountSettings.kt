@@ -9,8 +9,25 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import org.json.JSONArray
 
 internal const val SETTINGS_D = "org.dergigi.feather/settings"
+
+// Stable wire names; local masks retain the existing notification category bits.
+internal object NotificationFilterSettings {
+    val names = listOf("replies", "reactions", "zaps", "reposts", "mentions")
+    const val MASK = 62
+    fun encode(mask: Int) = JSONArray(names.filterIndexed { index, _ -> mask and (1 shl (index + 1)) != 0 })
+    fun decode(value: JSONArray): Int {
+        require(value.length() <= 32) { "Too many notification filters" }
+        var mask = 0
+        for (index in 0 until value.length()) {
+            val bit = names.indexOf(value.getString(index))
+            if (bit >= 0) mask = mask or (1 shl (bit + 1))
+        }
+        return mask
+    }
+}
 
 /** NIP-78, NIP-44 encrypted to self. Only explicit settings changes publish. */
 internal class AccountSettings(
@@ -19,6 +36,8 @@ internal class AccountSettings(
     private val repo: FeatherRepository,
     private val signer: () -> NostrSignerExternal?,
     private val requests: SignerRequests,
+    private val readFilters: suspend (String) -> Int,
+    private val applyFilters: suspend (String, Int) -> Unit,
     private val report: (String) -> Unit,
 ) {
     private val prefs = context.getSharedPreferences("account-settings", Context.MODE_PRIVATE)
@@ -54,8 +73,9 @@ internal class AccountSettings(
         prefs.all.keys.filter { it != owner }.drop(31).forEach(edit::remove)
         check(edit.commit()) { "Could not save preferences" }
     }
-    suspend fun change(sensitive: Boolean? = null, pow: Boolean? = null) = withContext(Dispatchers.IO) {
+    suspend fun change(sensitive: Boolean? = null, pow: Boolean? = null, filters: Int? = null, expectedOwner: String? = null) = withContext(Dispatchers.IO) {
         val identity = signer() ?: return@withContext
+        if (expectedOwner != null && identity.pubKey != expectedOwner) return@withContext
         lock.withLock {
             val state = repo.state.value
             if (state.publicKey != identity.pubKey) return@withLock
@@ -64,10 +84,13 @@ internal class AccountSettings(
                 (state.settingsEvent?.createdAt ?: 0) + 1)
             val nextSensitive = sensitive ?: state.showSensitive
             val nextPow = pow ?: state.proofOfWork
+            val nextFilters = (filters ?: readFilters(identity.pubKey)) and NotificationFilterSettings.MASK
+            local.put("notificationFilters", nextFilters)
             local.put("sensitive", nextSensitive).put("pow", nextPow).put("time", revision)
                 .put("dirty", true).remove("event")
             write(identity.pubKey, local)
             repo.applyAccountSettings(identity.pubKey, nextSensitive, nextPow)
+            applyFilters(identity.pubKey, nextFilters)
         }
         wake.trySend(Unit)
     }
@@ -79,6 +102,7 @@ internal class AccountSettings(
         val local = lock.withLock {
             read(owner).also { local ->
                 if (local.has("sensitive")) repo.applyAccountSettings(owner, local.getBoolean("sensitive"), local.getBoolean("pow"))
+                if (local.has("notificationFilters")) applyFilters(owner, local.getInt("notificationFilters") and NotificationFilterSettings.MASK)
             }
         }
         val remote = repo.state.value.settingsEvent?.takeIf { it.pubKey == owner }
@@ -88,7 +112,8 @@ internal class AccountSettings(
             if (attemptedPending == attempt) return
             attemptedPending = attempt
             val plain = JSONObject().put("version", 1).put("showSensitive", local.getBoolean("sensitive"))
-                .put("proofOfWork", local.getBoolean("pow")).toString()
+                .put("proofOfWork", local.getBoolean("pow"))
+                .put("notificationFilters", NotificationFilterSettings.encode(local.optInt("notificationFilters", readFilters(owner)))).toString()
             val signed = local.optString("event").takeIf { it.isNotBlank() }?.let { Event.fromJson(it) } ?: requests.run {
                 check(current()) { "Account changed" }
                 val encrypted = withTimeout(180_000) { identity.nip44Encrypt(plain, owner) }
@@ -131,11 +156,15 @@ internal class AccountSettings(
         require(decoded.getInt("version") == 1) { "Unsupported settings version" }
         val sensitive = decoded.getBoolean("showSensitive")
         val pow = decoded.getBoolean("proofOfWork")
+        val filters = if (decoded.has("notificationFilters")) NotificationFilterSettings.decode(decoded.getJSONArray("notificationFilters")) else null
         lock.withLock {
             if (!current() || read(owner).optBoolean("dirty")) return@withLock
-            write(owner, JSONObject().put("sensitive", sensitive).put("pow", pow)
+            // Older settings events omit this optional field: retain the device selection.
+            val nextFilters = filters ?: readFilters(owner)
+            write(owner, JSONObject().put("notificationFilters", nextFilters).put("sensitive", sensitive).put("pow", pow)
                 .put("time", remote.createdAt).put("id", remote.id))
             repo.applyAccountSettings(owner, sensitive, pow)
+            applyFilters(owner, nextFilters)
         }
     }
 }
