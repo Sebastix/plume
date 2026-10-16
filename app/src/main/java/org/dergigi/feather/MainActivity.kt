@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.net.Uri
@@ -374,11 +376,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             entry.toolbar = true
                         }
                     }, modifier = Modifier.size(48.dp).then(toolbarButtonSurface)) {
-                        Icon(painterResource(R.drawable.feather), "Scroll feed to top", Modifier.size(32.dp), tint = Color.Unspecified)
+                        Icon(painterResource(R.drawable.feather), stringResource(R.string.ui_scroll_feed_to_top), Modifier.size(32.dp), tint = Color.Unspecified)
                     }
                 }
             }, navigationIcon = {
-                if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_back)) }
             }, actions = {
                 val detailNote = if (screen == "thread") {
                     (s.threadNotes.firstOrNull { it.matchesThread(threadId) }
@@ -389,7 +391,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     val pointer = detailNote.nostrPointer()
                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:$pointer"))
-                }, modifier = toolbarButtonSurface) { Icon(painterResource(R.drawable.copy), "Copy Nostr reference", Modifier.size(20.dp)) }
+                }, modifier = toolbarButtonSurface) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_nostr_reference), Modifier.size(20.dp)) }
                 if (detailNote != null) IconButton(onClick = {
                     val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
                         com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
@@ -398,7 +400,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
                     }, "Share note"))
-                }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, "Share note") }
+                }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_note)) }
                 if (detailNote != null) IconButton(enabled = !openingInApp, onClick = {
                     openingInApp = true
                     scrollScope.launch {
@@ -406,9 +408,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         finally { openingInApp = false }
                     }
                 }, modifier = toolbarButtonSurface) {
-                    Icon(painterResource(R.drawable.open_in_app), "Open note in another Nostr app")
+                    Icon(painterResource(R.drawable.open_in_app), stringResource(R.string.ui_open_note_in_another_nostr_app))
                 }
-                if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, "Settings") }
+                if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, stringResource(R.string.ui_settings)) }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {
                         val account = s.profiles[s.publicKey]
@@ -666,19 +668,19 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         }
                                         p?.website?.let { website ->
                                             IconButton(onClick = { context.openWebLink(website) }) {
-                                                Icon(Icons.Default.Home, "Open profile homepage", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                                                Icon(Icons.Default.Home, stringResource(R.string.ui_open_profile_homepage), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                                             }
                                         }
                                         p?.lightning?.trim()?.takeIf { '@' in it }?.let { address ->
                                             IconButton(onClick = {
                                                 val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Lightning address", address))
-                                            }) { Icon(painterResource(R.drawable.zap), "Copy Lightning address", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
+                                            }) { Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_copy_lightning_address), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                         }
                                         IconButton(onClick = {
                                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
-                                        }) { Icon(painterResource(R.drawable.copy), "Copy profile public key", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
+                                        }) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_profile_public_key), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                     }
                                     if (!p?.about.isNullOrBlank()) ProfileBiography(key, p, s, ::openReference)
                                 }
@@ -861,26 +863,26 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     Text(profile?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.Default.Person, "View your profile") }
-                        IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Disconnect account") }
+                        FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.Default.Person, stringResource(R.string.ui_view_your_profile)) }
+                        IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.ui_disconnect_account)) }
                     }
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
                         FilledTonalIconButton(onClick = { showAccount = false; showSettings = true }, modifier = Modifier.size(RoundControlSize)) {
-                            Icon(Icons.Default.Settings, "Settings", Modifier.size(28.dp))
+                            Icon(Icons.Default.Settings, stringResource(R.string.ui_settings), Modifier.size(28.dp))
                         }
                         FilledTonalIconButton(onClick = {
                             try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
                             catch (_: Exception) { error = "Install an Android signer such as Amber first." }
                         }, modifier = Modifier.size(RoundControlSize)) {
-                            Icon(painterResource(R.drawable.login), "Log in with an Android signer", Modifier.size(28.dp))
+                            Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in_with_an_android_signer), Modifier.size(28.dp))
                         }
                     }
                 }
                 error?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) {
-                        Text("Get Amber")
+                        Text(stringResource(R.string.ui_get_amber))
                     }
                 }
             }
@@ -918,7 +920,7 @@ private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> 
         // 12 dp gap below keeps that expansion clear of the author's avatar.
         Box(Modifier.width(48.dp).height(24.dp).clickable(onClickLabel = "View reposting profile", onClick = onProfile),
             contentAlignment = Alignment.CenterStart) {
-            Icon(painterResource(R.drawable.repost), "Repost", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(painterResource(R.drawable.repost), stringResource(R.string.ui_repost), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(state.profiles[repost.pubKey]?.name ?: FeatherRepository.shortKey(repost.pubKey),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1009,7 +1011,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             note.kind == 17 -> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.Favorite, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                    Text(if (note.content.isBlank() || note.content == "+") "Liked" else note.content.take(80),
+                    Text(if (note.content.isBlank() || note.content == "+") stringResource(R.string.ui_liked) else note.content.take(80),
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 LinkPreviews("", event = note)
@@ -1095,7 +1097,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 // Share the actions' height. Bottom alignment also keeps the rail gap aligned if counts wrap.
                 if (more) IconButton(onClick = onMore ?: onOpen,
                     modifier = Modifier.align(Alignment.BottomStart).size(48.dp)) {
-                    Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation",
+                    Icon(painterResource(R.drawable.thread_more), stringResource(R.string.ui_load_more_replies_in_this_conversation),
                         Modifier.offset(x = (-6).dp).size(24.dp), tint = rail)
                 }
             }
@@ -1141,7 +1143,7 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
                 ThreadGap.HIDDEN -> Icon(painterResource(R.drawable.account_hidden), title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.DELETED -> Icon(Icons.Default.Delete, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 ThreadGap.CYCLE -> Icon(Icons.Default.Warning, title, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Icon(painterResource(R.drawable.thread_more), "Load earlier conversation", tint = rail)
+                else -> Icon(painterResource(R.drawable.thread_more), stringResource(R.string.ui_load_earlier_conversation), tint = rail)
             }
         }
     }
@@ -1161,7 +1163,7 @@ private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, Str
     val rail = MaterialTheme.colorScheme.outlineVariant
     val label = if (muted) "Reply from a muted account" else "Note deleted by its author"
     Column {
-        if (row.mutedTailStart) Text("Muted replies", Modifier.padding(start = 24.dp, top = 20.dp, bottom = 4.dp),
+        if (row.mutedTailStart) Text(stringResource(R.string.ui_muted_replies), Modifier.padding(start = 24.dp, top = 20.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Column(Modifier.fillMaxWidth().drawBehind {
         val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 42.dp.toPx() else 42.dp.toPx()
@@ -1175,17 +1177,17 @@ private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, Str
                 else Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (copy != null) IconToggleButton(checked = revealed, onCheckedChange = { revealed = it }) {
-                Icon(painterResource(R.drawable.reveal), if (muted) { if (revealed) "Hide this reply" else "Show this reply" } else { if (revealed) "Hide cached version" else "Show cached version" },
+                Icon(painterResource(R.drawable.reveal), if (muted) { if (revealed) stringResource(R.string.ui_hide_this_reply) else stringResource(R.string.ui_show_this_reply) } else { if (revealed) stringResource(R.string.ui_hide_cached_version) else stringResource(R.string.ui_show_cached_version) },
                     tint = if (revealed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (row.more && onMore != null) IconButton(onClick = onMore) {
-                Icon(painterResource(R.drawable.thread_more), "Load more replies in this conversation", tint = rail)
+                Icon(painterResource(R.drawable.thread_more), stringResource(R.string.ui_load_more_replies_in_this_conversation), tint = rail)
             }
         }
         AnimatedVisibility(revealed && copy != null, enter = fadeIn(tween(140)) + expandVertically(tween(180)),
             exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
             Column(Modifier.padding(start = 72.dp, end = 24.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (muted) "Muted account · shown only here" else "Cached version · deleted by author", style = MaterialTheme.typography.labelSmall,
+                Text(if (muted) stringResource(R.string.ui_muted_account_shown_only_here) else stringResource(R.string.ui_cached_version_deleted_by_author), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Plain selectable text deliberately has no media loads, links or note actions.
                 SelectionContainer { Text(copy?.content.orEmpty(), style = MaterialTheme.typography.bodyLarge) }
@@ -1270,11 +1272,11 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                         var waiting by remember(reference.id) { mutableStateOf(true) }
                         LaunchedEffect(reference.id) { kotlinx.coroutines.delay(12_000); waiting = false }
                         if (waiting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Icon(painterResource(R.drawable.article), "Article unavailable locally; open externally", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        else Icon(painterResource(R.drawable.article), stringResource(R.string.ui_article_unavailable_locally_open_externally), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                         Text(profiles[reference.author]?.name ?: FeatherRepository.shortKey(reference.author ?: reference.id),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     } else {
-                        Icon(painterResource(R.drawable.conversation), "Open referenced note", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(painterResource(R.drawable.conversation), stringResource(R.string.ui_open_referenced_note), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                         Text(FeatherRepository.shortKey(reference.id), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -1343,15 +1345,15 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
                 AccountAvatar(profile?.name ?: FeatherRepository.shortKey(key), 40, profile?.picture)
                 Text(profile?.name ?: FeatherRepository.shortKey(key), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                FilledTonalIconButton(onClick = onWallet, modifier = Modifier.size(RoundControlSize)) { Icon(painterResource(R.drawable.wallet), "Wallet · 21 sats per zap") }
-                FilledTonalIconButton(onClick = onLogout, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Log out") }
+                FilledTonalIconButton(onClick = onWallet, modifier = Modifier.size(RoundControlSize)) { Icon(painterResource(R.drawable.wallet), stringResource(R.string.ui_wallet_21_sats_per_zap)) }
+                FilledTonalIconButton(onClick = onLogout, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.ui_log_out)) }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.sensitive_content), null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
-            Text("Show NSFW", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+            Text(stringResource(R.string.ui_show_nsfw), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = state.showSensitive, onCheckedChange = { show ->
                 scope.launch {
@@ -1373,7 +1375,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         }
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.storage), "Media cache storage", tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.storage), stringResource(R.string.ui_media_cache_storage), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
                 val mb = MediaContent.cacheOptionsMb[selectedBudget]
                 val limit = if (mb >= 1024) "${mb / 1024} GB" else "$mb MB"
@@ -1392,20 +1394,20 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { onIssue(IssueType.BUG) }, modifier = Modifier.size(RoundControlSize)) {
-                Icon(painterResource(R.drawable.bug_report), "Report a bug")
+                Icon(painterResource(R.drawable.bug_report), stringResource(R.string.ui_report_a_bug))
             }
             Spacer(Modifier.width(12.dp))
             FilledTonalIconButton(onClick = { onIssue(IssueType.FEATURE) }, modifier = Modifier.size(RoundControlSize)) {
-                Icon(painterResource(R.drawable.feature_request), "Suggest a feature")
+                Icon(painterResource(R.drawable.feature_request), stringResource(R.string.ui_suggest_a_feature))
             }
             Spacer(Modifier.weight(1f))
             FilledTonalIconButton(onClick = onFeather, modifier = Modifier.size(RoundControlSize)) {
-                Icon(painterResource(R.drawable.feather), "Open Feather profile", Modifier.size(28.dp), tint = Color.Unspecified)
+                Icon(painterResource(R.drawable.feather), stringResource(R.string.ui_open_feather_profile), Modifier.size(28.dp), tint = Color.Unspecified)
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
-                Icon(painterResource(R.drawable.github), "Feather on GitHub, source code and feedback", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(painterResource(R.drawable.github), stringResource(R.string.ui_feather_on_github_source_code_and_feedback), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.weight(1f))
             Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall,

@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -49,17 +51,17 @@ internal fun StatusDetails(title: String, captured: String, onReport: (() -> Uni
         confirmButton = {
             androidx.compose.foundation.layout.Row {
             onReport?.let { report ->
-                IconButton(onClick = report) { Icon(painterResource(R.drawable.bug_report), "Report crash") }
+                IconButton(onClick = report) { Icon(painterResource(R.drawable.bug_report), stringResource(R.string.ui_report_crash)) }
             }
             IconButton(onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Feather status", captured))
-                if (android.os.Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
-            }) { Icon(painterResource(R.drawable.copy), "Copy details") }
+                if (android.os.Build.VERSION.SDK_INT < 33) Toast.makeText(context, context.getString(R.string.ui_copied), Toast.LENGTH_SHORT).show()
+            }) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_details)) }
             }
         },
         dismissButton = {
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close details") }
+            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_details)) }
         },
     )
 }

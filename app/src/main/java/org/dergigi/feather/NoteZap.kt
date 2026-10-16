@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -91,10 +93,10 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                                     }
                                     slot == actionStart -> IconButton(onClick = {
                                         picker = false; input = ""; message = ""; custom = true
-                                    }) { Icon(Icons.Default.Add, "Custom zap amount") }
+                                    }) { Icon(Icons.Default.Add, stringResource(R.string.ui_custom_zap_amount)) }
                                     slot == actionStart + 1 -> IconButton(onClick = {
                                         picker = false; input = DEFAULT_ZAP_SATS.toString(); message = ""; custom = true
-                                    }) { Icon(painterResource(R.drawable.conversation), "Add zap message") }
+                                    }) { Icon(painterResource(R.drawable.conversation), stringResource(R.string.ui_add_zap_message)) }
                                 }
                             }
                         }
@@ -115,7 +117,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
                     modifier = Modifier.semantics { contentDescription = "Zap amount in sats" })
                 OutlinedTextField(value = message, onValueChange = { value ->
                     if (value.codePointCount(0, value.length) <= 280) message = value
-                }, placeholder = { Text("Public message") }, maxLines = 4, modifier = Modifier.fillMaxWidth())
+                }, placeholder = { Text(stringResource(R.string.ui_public_message)) }, maxLines = 4, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {

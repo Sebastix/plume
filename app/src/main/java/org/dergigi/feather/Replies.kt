@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -264,7 +266,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary)) {
             if (busy) ComposerProgress(mining)
-            else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) "Publish post" else "Send reply")
+            else Icon(Icons.AutoMirrored.Filled.Send, if (current.target == null) stringResource(R.string.ui_publish_post) else stringResource(R.string.ui_send_reply))
         }
     }
     val gifButton: @Composable () -> Unit = {
@@ -305,7 +307,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer), onClick = {
                     imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 }) {
-                    Icon(painterResource(R.drawable.photos), "Attach images or videos")
+                    Icon(painterResource(R.drawable.photos), stringResource(R.string.ui_attach_images_or_videos))
                 }
         }
     }
@@ -316,7 +318,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = if (current.target == null) 152.dp else 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, "Close and keep draft") }
+                IconButton(onClick = vm::closeReply) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_and_keep_draft)) }
                 Spacer(Modifier.weight(1f))
 
             }
@@ -354,7 +356,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                         val tile = Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp).clip(RoundedCornerShape(16.dp))
                         if (video) Box(tile.background(MaterialTheme.colorScheme.secondaryContainer)
                             .clickable(onClickLabel = "Preview attached video") { previewVideo = url }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.PlayArrow, "Attached video", Modifier.size(32.dp))
+                            Icon(Icons.Default.PlayArrow, stringResource(R.string.ui_attached_video), Modifier.size(32.dp))
                         } else RemoteImage(current.gifs.find { it.url == url }?.still ?: url, tile
                             .clickable(onClickLabel = "Preview attached image") {
                                 val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
@@ -367,7 +369,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                             onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
                             Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
                                 contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Close, "Remove attachment from post", Modifier.size(18.dp), tint = Color.White)
+                                Icon(Icons.Default.Close, stringResource(R.string.ui_remove_attachment_from_post), Modifier.size(18.dp), tint = Color.White)
                             }
                         }
                     }
@@ -377,7 +379,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             }
             searchError?.let { error -> IconButton(onClick = { AppMessages.show(error) }) {
-                Icon(androidx.compose.material.icons.Icons.Default.Info, "Mention search error")
+                Icon(androidx.compose.material.icons.Icons.Default.Info, stringResource(R.string.ui_mention_search_error))
             } }
             if (mention != null && !busy) suggestions.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }.forEach { profile -> key(profile.event.pubKey) {
                 Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Mention ${profile.name}") {

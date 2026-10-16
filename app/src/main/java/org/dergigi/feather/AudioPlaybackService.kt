@@ -56,16 +56,16 @@ class AudioPlaybackService : MediaSessionService() {
         val reacted = note?.id?.let { id -> state.sentReactions[id].orEmpty().any { it.content == "🧡" } } == true
         return buildList {
             add(CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10).setSessionCommand(backCommand)
-                .setDisplayName("Rewind 10 seconds").setSlots(CommandButton.SLOT_BACK)
+                .setDisplayName(getString(R.string.ui_rewind)).setSlots(CommandButton.SLOT_BACK)
                 .setEnabled(player.isCommandAvailable(Player.COMMAND_SEEK_BACK)).build())
             add(CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_30).setSessionCommand(forwardCommand)
-                .setDisplayName("Forward 30 seconds").setSlots(CommandButton.SLOT_FORWARD)
+                .setDisplayName(getString(R.string.ui_forward)).setSlots(CommandButton.SLOT_FORWARD)
                 .setEnabled(player.isCommandAvailable(Player.COMMAND_SEEK_FORWARD)).build())
             add(CommandButton.Builder(CommandButton.ICON_UNDEFINED).setCustomIconResId(speedIcon)
-                .setSessionCommand(speedCommand).setDisplayName("Speed ${audioSpeedLabel(player.playbackParameters.speed)}; change speed")
+                .setSessionCommand(speedCommand).setDisplayName(getString(R.string.ui_change_speed, audioSpeedLabel(player.playbackParameters.speed)))
                 .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW).build())
             if (note != null) add(CommandButton.Builder(if (reacted) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED)
-                .setSessionCommand(heartCommand).setDisplayName(if (reacted) "Reacted with orange heart" else "React with orange heart")
+                .setSessionCommand(heartCommand).setDisplayName(if (reacted) getString(R.string.ui_heart_sent) else getString(R.string.ui_heart_send))
                 .setEnabled(state.publicKey != null && !reacted)
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW).build())
         }

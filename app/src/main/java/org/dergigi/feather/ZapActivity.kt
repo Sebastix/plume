@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -94,7 +96,7 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
             ZapParty(zap.sender, state.profiles, Modifier.weight(1f), Alignment.Start, onReference)
             Column(Modifier.weight(1.25f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
-                    Icon(painterResource(R.drawable.zap), if (nutzap) "Nutzap from sender to recipient" else "Zap from sender to recipient", modifier = Modifier.size(24.dp), tint = paymentColor)
+                    Icon(painterResource(R.drawable.zap), if (nutzap) stringResource(R.string.ui_nutzap_from_sender_to_recipient) else stringResource(R.string.ui_zap_from_sender_to_recipient), modifier = Modifier.size(24.dp), tint = paymentColor)
                     zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
                 NoteTimestamp(event, alignment = Alignment.CenterHorizontally)

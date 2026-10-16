@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -161,7 +163,7 @@ internal fun ProjectCard(event: Event) {
                     Text(model.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (model.description.isNotBlank()) Text(model.description, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
-                Icon(painterResource(R.drawable.open_external), "Open project", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.open_external), stringResource(R.string.ui_open_project), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
     }

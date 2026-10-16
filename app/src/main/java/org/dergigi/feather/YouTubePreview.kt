@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.draw.clip
 
@@ -142,7 +144,7 @@ internal fun YouTubePreview(link: YouTubeLink) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentAlignment = Alignment.Center) {
                 RemoteImage(link.thumbnail, Modifier.fillMaxSize(), details?.title ?: "YouTube video")
-                Icon(Icons.Default.PlayArrow, "Open in YouTube", Modifier.size(48.dp)
+                Icon(Icons.Default.PlayArrow, stringResource(R.string.ui_open_in_youtube), Modifier.size(48.dp)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = .9f), CircleShape).padding(10.dp),
                     tint = MaterialTheme.colorScheme.primary)
             }

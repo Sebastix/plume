@@ -2,6 +2,8 @@
 
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -246,7 +248,7 @@ internal fun FullscreenVideo(playback: VisibleVideoPlayer) {
             )
             if (controlsVisible) {
                 IconButton(onClick = playback::exitFullscreen, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding()) {
-                    Icon(Icons.Default.Close, "Exit fullscreen", tint = Color.White)
+                    Icon(Icons.Default.Close, stringResource(R.string.ui_exit_fullscreen), tint = Color.White)
                 }
             }
             VideoActions(playback, Modifier.align(Alignment.TopEnd).statusBarsPadding(), controlsVisible)
@@ -284,16 +286,16 @@ private fun VideoActions(playback: VisibleVideoPlayer, modifier: Modifier, visib
         if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
         IconButton(onClick = playback::toggleMute) {
             Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up),
-                if (playback.muted) "Unmute video" else "Mute video", tint = Color.White)
+                if (playback.muted) stringResource(R.string.ui_unmute_video) else stringResource(R.string.ui_mute_video), tint = Color.White)
         }
         IconButton(enabled = !busy, onClick = {
             if (Build.VERSION.SDK_INT >= 29 || ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) export(false)
             else permission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }) { Icon(painterResource(R.drawable.download), "Download video", tint = Color.White) }
-        IconButton(enabled = !busy, onClick = { export(true) }) { Icon(Icons.Default.Share, "Share video", tint = Color.White) }
+        }) { Icon(painterResource(R.drawable.download), stringResource(R.string.ui_download_video), tint = Color.White) }
+        IconButton(enabled = !busy, onClick = { export(true) }) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_video), tint = Color.White) }
         IconButton(onClick = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Video URL", url))
-        }) { Icon(painterResource(R.drawable.copy), "Copy video URL", tint = Color.White) }
+        }) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_video_url), tint = Color.White) }
     }
 }

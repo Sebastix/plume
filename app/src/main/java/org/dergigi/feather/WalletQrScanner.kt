@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -54,7 +56,7 @@ internal fun WalletQrScanner(onDismiss: () -> Unit, onScan: (String) -> Unit, on
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             AndroidView(factory = { camera }, modifier = Modifier.fillMaxSize())
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(12.dp)) {
-                Icon(Icons.Default.Close, "Close QR scanner", tint = Color.White)
+                Icon(Icons.Default.Close, stringResource(R.string.ui_close_qr_scanner), tint = Color.White)
             }
         }
         DisposableEffect(camera, lifecycle) {

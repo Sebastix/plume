@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -35,7 +37,7 @@ internal fun ReactionContent(note: Event) {
     }
     var loaded by remember(note.id, url) { mutableStateOf(false) }
     if (reaction.isEmpty() || reaction == "+") {
-        Icon(Icons.Default.Favorite, "Liked", tint = MaterialTheme.colorScheme.primary)
+        Icon(Icons.Default.Favorite, stringResource(R.string.ui_liked), tint = MaterialTheme.colorScheme.primary)
     } else Box {
         // Preserve the meaning while loading and if the server or decoder fails.
         if (!loaded) Text(if (reaction == "-") "−" else reaction.take(80),

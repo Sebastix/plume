@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.net.Uri
@@ -92,19 +94,19 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
                                 else -> false
                             }
                         }, singleLine = true, shape = RoundedCornerShape(28.dp),
-                    placeholder = { Text("Search GIFs") }, leadingIcon = { Icon(Icons.Default.Search, null) },
+                    placeholder = { Text(stringResource(R.string.ui_search_gifs)) }, leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = { if (input.isNotEmpty()) IconButton(onClick = {
                         input = ""; focus.requestFocus()
-                    }) { Icon(Icons.Default.Close, "Clear GIF search") } })
-                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close GIF picker") }
+                    }) { Icon(Icons.Default.Close, stringResource(R.string.ui_clear_gif_search)) } })
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_gif_picker)) }
             }
             Box(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 180.dp)) {
                 if (error != null) {
                     Column(Modifier.align(Alignment.Center).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(error?.message.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (retryReady) IconButton(onClick = { retryQuery = query; retry++; loading = true }) { Icon(Icons.Default.Refresh, "Retry GIF search") }
+                        if (retryReady) IconButton(onClick = { retryQuery = query; retry++; loading = true }) { Icon(Icons.Default.Refresh, stringResource(R.string.ui_retry_gif_search)) }
                     }
-                } else if (!loading && results.isEmpty()) Text("No GIFs found", Modifier.align(Alignment.Center),
+                } else if (!loading && results.isEmpty()) Text(stringResource(R.string.ui_no_gifs_found), Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else LazyVerticalStaggeredGrid(columns = StaggeredGridCells.Fixed(2), state = grid,
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalItemSpacing = 8.dp,
@@ -126,7 +128,7 @@ internal fun GifPicker(onDismiss: () -> Unit, onPick: (GifItem) -> Unit) {
                 }
                 if (loading) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp), strokeWidth = 2.dp)
             }
-            Text("GIFs from nostr.build", style = MaterialTheme.typography.labelSmall,
+            Text(stringResource(R.string.ui_gifs_from_nostr_build), style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
                     .clickable(onClickLabel = "Open nostr.build") {

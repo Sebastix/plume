@@ -2,6 +2,8 @@
 
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -179,7 +181,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(top = 8.dp))
             onOpenSource?.let { open ->
                 IconButton(onClick = open) {
-                    Icon(painterResource(R.drawable.open_external), "Open podcast source", Modifier.size(18.dp))
+                    Icon(painterResource(R.drawable.open_external), stringResource(R.string.ui_open_podcast_source), Modifier.size(18.dp))
                 }
             }
         }
@@ -205,8 +207,8 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(enabled = media.active && media.resources != null && audio != null && !audio.connecting, onClick = { audio?.toggle(id, data, author, sourceNote) }) {
                             if (audio?.connecting == true || (buffering && audio?.requested == true)) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                            else if (player != null && audio?.requested == true) Icon(painterResource(R.drawable.pause), "Pause audio")
-                            else Icon(Icons.Default.PlayArrow, "Play audio")
+                            else if (player != null && audio?.requested == true) Icon(painterResource(R.drawable.pause), stringResource(R.string.ui_pause_audio))
+                            else Icon(Icons.Default.PlayArrow, stringResource(R.string.ui_play_audio))
                         }
                         Slider(value = dragging ?: if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
                             onValueChange = { dragging = it }, onValueChangeFinished = { dragging?.let { player?.seekTo((it * duration).toLong()) }; dragging = null },
@@ -220,7 +222,7 @@ internal fun AudioPlayerContent(id: String, data: AudioInfo, compact: Boolean, a
                             DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
                                 audioSpeeds.forEach { speed ->
                                     DropdownMenuItem(text = { Text(audioSpeedLabel(speed)) },
-                                        trailingIcon = { if (audio?.speed == speed) Icon(Icons.Default.Check, "Selected") },
+                                        trailingIcon = { if (audio?.speed == speed) Icon(Icons.Default.Check, stringResource(R.string.ui_selected)) },
                                         onClick = { audio?.setSpeed(speed); speedMenu = false })
                                 }
                             }

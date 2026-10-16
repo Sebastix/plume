@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -80,7 +82,7 @@ internal fun SoftwareAppContent(event: Event, onReference: (NostrContent.Referen
                 Text(event.tagValue("d").orEmpty(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = { context.openWebLink(app.url) }) {
-                Icon(painterResource(R.drawable.open_external), "Open app in Zapstore", tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.open_external), stringResource(R.string.ui_open_app_in_zapstore), tint = MaterialTheme.colorScheme.primary)
             }
         }
         if (app.summary.isNotBlank()) Text(app.summary, style = MaterialTheme.typography.bodyLarge)
@@ -94,10 +96,10 @@ internal fun SoftwareAppContent(event: Event, onReference: (NostrContent.Referen
         if (event.content.isNotBlank()) ArticleMarkdown(event, onReference, articleLayout = false)
         Row(verticalAlignment = Alignment.CenterVertically) {
             (MediaContent.secureUrl(event.tagValue("website")) ?: MediaContent.secureUrl(event.tagValue("url")))?.let { url ->
-                IconButton(onClick = { context.openWebLink(url) }) { Icon(Icons.Default.Home, "Open app website", tint = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = { context.openWebLink(url) }) { Icon(Icons.Default.Home, stringResource(R.string.ui_open_app_website), tint = MaterialTheme.colorScheme.primary) }
             }
             MediaContent.secureUrl(event.tagValue("repository"))?.let { url ->
-                IconButton(onClick = { context.openWebLink(url) }) { Icon(painterResource(R.drawable.github), "Open source repository", tint = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = { context.openWebLink(url) }) { Icon(painterResource(R.drawable.github), stringResource(R.string.ui_open_source_repository), tint = MaterialTheme.colorScheme.primary) }
             }
             event.tagValue("license")?.takeIf { it.isNotBlank() }?.let {
                 Text(it.take(80), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

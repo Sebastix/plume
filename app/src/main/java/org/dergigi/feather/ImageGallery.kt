@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -246,7 +248,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it }) {
             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 4.dp)
                 .background(colors[background].copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close gallery", tint = foreground) }
+                IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, stringResource(R.string.ui_close_gallery), tint = foreground) }
                 currentNote?.let { note ->
                     val author = state.profiles[note.pubKey]
                     val name = author?.name ?: FeatherRepository.shortKey(note.pubKey)
@@ -257,21 +259,21 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 }
                 Spacer(Modifier.weight(1f))
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = foreground, strokeWidth = 2.dp)
-                IconButton(onClick = { background = (background + 1) % colors.size }) { Icon(painterResource(R.drawable.contrast), "Change gallery background", tint = foreground) }
-                IconButton(onClick = { download(listOf(urls[pager.currentPage])) }, enabled = !busy) { Icon(painterResource(R.drawable.download), "Save image to Pictures", tint = foreground) }
-                IconButton(onClick = { share(urls[pager.currentPage]) }, enabled = !busy) { Icon(Icons.Outlined.Share, "Share image", tint = foreground) }
+                IconButton(onClick = { background = (background + 1) % colors.size }) { Icon(painterResource(R.drawable.contrast), stringResource(R.string.ui_change_gallery_background), tint = foreground) }
+                IconButton(onClick = { download(listOf(urls[pager.currentPage])) }, enabled = !busy) { Icon(painterResource(R.drawable.download), stringResource(R.string.ui_save_image_to_pictures), tint = foreground) }
+                IconButton(onClick = { share(urls[pager.currentPage]) }, enabled = !busy) { Icon(Icons.Outlined.Share, stringResource(R.string.ui_share_image), tint = foreground) }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "More image actions", tint = foreground) }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.ui_more_image_actions), tint = foreground) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         Row {
                             IconButton(enabled = !busy, onClick = { menu = false; download(urls.toList()) }) {
-                                Icon(painterResource(R.drawable.download_all), "Save all images")
+                                Icon(painterResource(R.drawable.download_all), stringResource(R.string.ui_save_all_images))
                             }
                             IconButton(onClick = { menu = false; clipboard.setText(AnnotatedString(urls[pager.currentPage])) }) {
-                                Icon(painterResource(R.drawable.copy), "Copy image URL")
+                                Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_image_url))
                             }
                             IconButton(onClick = { menu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(urls[pager.currentPage]))) } }) {
-                                Icon(painterResource(R.drawable.open_external), "Open image in browser")
+                                Icon(painterResource(R.drawable.open_external), stringResource(R.string.ui_open_image_in_browser))
                             }
                         }
                     }
@@ -306,7 +308,7 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                     } }
                     FloatingActionButton(onClick = { onOpenNote(pager.currentPage) },
                         shape = androidx.compose.foundation.shape.CircleShape) {
-                        Icon(painterResource(R.drawable.conversation), "Open image's note")
+                        Icon(painterResource(R.drawable.conversation), stringResource(R.string.ui_open_image_s_note))
                     }
                 }
             }
@@ -317,9 +319,9 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 .background(colors[background].copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (urls.size > 1) Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Previous image", tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
+                IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.ui_previous_image), tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
                 Text("${pager.currentPage + 1} / ${urls.size}", color = foreground, modifier = Modifier.padding(horizontal = 16.dp))
-                IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "Next image", tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
+                IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.ui_next_image), tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
                 }
             }
             }
@@ -360,7 +362,7 @@ private fun ZoomableGalleryImage(url: String, isCurrent: Boolean, onToggleContro
     LaunchedEffect(isCurrent) { if (!isCurrent) { scale = 1f; offset = Offset.Zero } }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (failed) {
-            IconButton(onClick = { failed = false; loaded = false; retry++ }) { Icon(Icons.Outlined.Refresh, "Image failed to load. Retry.") }
+            IconButton(onClick = { failed = false; loaded = false; retry++ }) { Icon(Icons.Outlined.Refresh, stringResource(R.string.ui_image_failed_to_load_retry)) }
         } else if (resources != null) key(url, retry) {
             AsyncImage(model = request, imageLoader = resources!!.images, contentDescription = "Gallery image; tap for controls, pinch or double-tap to zoom, swipe vertically to adjust brightness", contentScale = ContentScale.Fit,
                 onSuccess = { loaded = true; decoded = it.result.image }, onError = { failed = true },

@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -49,7 +51,7 @@ internal fun IssueComposer(vm: FeatherViewModel) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 20.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = reports::close) { Icon(Icons.Default.Close, "Close issue draft") }
+                    IconButton(onClick = reports::close) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_issue_draft)) }
                     Spacer(Modifier.weight(1f))
                     Icon(painterResource(if (draft?.type == IssueType.FEATURE) R.drawable.feature_request else R.drawable.bug_report), null,
                         tint = MaterialTheme.colorScheme.primary)
@@ -63,24 +65,24 @@ internal fun IssueComposer(vm: FeatherViewModel) {
                 if (published != null) {
                     Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Default.Check, "Issue published", Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Check, stringResource(R.string.ui_issue_published), Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
                         TextButton(onClick = {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://gitworkshop.dev/${published}"))) }
                                 .onFailure { AppMessages.show("Could not open issue") }
-                        }) { Text("View issue") }
+                        }) { Text(stringResource(R.string.ui_view_issue)) }
                     }
                 } else {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(if (current.type == IssueType.FEATURE) "Suggest a feature" else "Report a bug", style = MaterialTheme.typography.titleLarge)
+                        Text(if (current.type == IssueType.FEATURE) stringResource(R.string.ui_suggest_a_feature) else stringResource(R.string.ui_report_a_bug), style = MaterialTheme.typography.titleLarge)
                         OutlinedTextField(current.title, { reports.edit(it, current.body) }, enabled = !busy,
-                            label = { Text("Title") }, singleLine = true, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth())
+                            label = { Text(stringResource(R.string.ui_title)) }, singleLine = true, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth())
                         TextField(current.body, { reports.edit(current.title, it) }, enabled = !busy,
-                            placeholder = { Text(if (current.type == IssueType.FEATURE) "Your idea" else "What happened?") },
+                            placeholder = { Text(if (current.type == IssueType.FEATURE) stringResource(R.string.ui_your_idea) else stringResource(R.string.ui_what_happened)) },
                             shape = RoundedCornerShape(20.dp), minLines = 8, modifier = Modifier.fillMaxWidth(),
                             colors = TextFieldDefaults.colors(focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                                 unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent))
                         val name = signer?.pubKey?.let { state.profiles[it]?.name ?: FeatherRepository.shortKey(it) }
-                        Text(if (name != null) "Public issue · $name" else "Public issue · sign in to send",
+                        Text(if (name != null) stringResource(R.string.ui_public_issue_author, name) else stringResource(R.string.ui_public_issue_sign_in),
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         error?.let { text -> TextButton(onClick = { AppMessages.show(text) }) {
                             Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -90,11 +92,11 @@ internal fun IssueComposer(vm: FeatherViewModel) {
                         if (signer == null) FilledTonalIconButton(onClick = {
                             try { login.launch(ExternalSignerLogin.createIntent(emptyList())) }
                             catch (_: Exception) { reports.error.value = "Install an Android signer such as Amber first." }
-                        }, modifier = Modifier.size(56.dp)) { Icon(painterResource(R.drawable.login), "Sign in to report an issue") }
+                        }, modifier = Modifier.size(56.dp)) { Icon(painterResource(R.drawable.login), stringResource(R.string.ui_sign_in_to_report_an_issue)) }
                         else FilledIconButton(onClick = reports::send, enabled = !busy && current.title.isNotBlank() && current.body.isNotBlank(),
                             modifier = Modifier.size(56.dp)) {
                             if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            else Icon(Icons.AutoMirrored.Filled.Send, "Publish public issue")
+                            else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.ui_publish_public_issue))
                         }
                     }
                 }

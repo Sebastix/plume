@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -118,7 +120,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(top = 8.dp)) {
             OutlinedTextField(value = home.searchQuery, onValueChange = { home.searchQuery = it.take(100) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
-                trailingIcon = { if (home.searchQuery.isNotEmpty()) IconButton(onClick = { home.searchQuery = "" }) { Icon(Icons.Default.Close, "Clear search") } },
+                trailingIcon = { if (home.searchQuery.isNotEmpty()) IconButton(onClick = { home.searchQuery = "" }) { Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search)) } },
                 modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 72.dp).semantics { contentDescription = "Search profiles" },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -127,7 +129,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             }
             error?.let { message -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                IconButton(onClick = { AppMessages.show(message); retry++ }) { Icon(Icons.Default.Warning, "Search failed; show error and retry", tint = MaterialTheme.colorScheme.error) }
+                IconButton(onClick = { AppMessages.show(message); retry++ }) { Icon(Icons.Default.Warning, stringResource(R.string.ui_search_failed_show_error_and_retry), tint = MaterialTheme.colorScheme.error) }
             } }
             LazyColumn(state = home.feedPage(ProfileTab.SEARCH).list, contentPadding = PaddingValues(top = 8.dp, bottom = 144.dp)) {
                 items(results.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }, key = { it.event.pubKey }) { profile ->

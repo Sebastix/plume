@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -74,7 +76,7 @@ internal fun CopyableMessageHost() {
         Snackbar(modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
             .padding(16.dp).widthIn(max = 560.dp).clickable(onClickLabel = "Copy message", onClick = ::copy),
             action = {
-                IconButton(onClick = ::copy) { Icon(painterResource(R.drawable.copy), "Copy message") }
+                IconButton(onClick = ::copy) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_message)) }
             }) {
             Text(shown.text, maxLines = 6, overflow = TextOverflow.Ellipsis)
         }

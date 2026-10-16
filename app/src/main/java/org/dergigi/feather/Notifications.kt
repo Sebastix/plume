@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -208,8 +210,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                         if (state.notificationsLoading || !emptySettled) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                         else if (state.error != null) IconButton(onClick = { AppMessages.show(state.error!!) }) {
-                            Icon(Icons.Default.Warning, "Notification connection error", tint = MaterialTheme.colorScheme.error)
-                        } else Icon(Icons.Default.Notifications, "No notifications", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Default.Warning, stringResource(R.string.ui_notification_connection_error), tint = MaterialTheme.colorScheme.error)
+                        } else Icon(Icons.Default.Notifications, stringResource(R.string.ui_no_notifications), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 items(visiblePreviews, key = { it.event.id }) { item ->

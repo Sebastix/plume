@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -99,7 +101,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                                 "Your reaction: ${latestReaction.content}", crop = false)
                         }
                     }
-                } else Icon(Icons.Default.FavoriteBorder, "React; hold to choose an emoji",
+                } else Icon(Icons.Default.FavoriteBorder, stringResource(R.string.ui_react_hold_to_choose_an_emoji),
                     Modifier.size(20.dp), tint = tint)
             }
             if (!iconOnly && count > 0 && !(count == 1 && latestReaction != null)) Text(count.toString(), style = MaterialTheme.typography.labelMedium, color = tint)
@@ -116,7 +118,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                             Text(if (choice.image == null) choice.display else "◌", fontSize = 24.sp,
                                 modifier = Modifier.semantics { contentDescription = if (alreadySent) "Remove ${choice.description} reaction" else "React with ${choice.content}" })
                             choice.image?.let { RemoteImage(it, Modifier.size(28.dp), "React with ${choice.content}", crop = false) }
-                            if (alreadySent) Icon(Icons.Default.Check, "Already sent", Modifier.size(14.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
+                            if (alreadySent) Icon(Icons.Default.Check, stringResource(R.string.ui_already_sent), Modifier.size(14.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -124,7 +126,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                     picker = false
                     fullPicker = true
                 }, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Default.Add, "Open full emoji picker")
+                    Icon(Icons.Default.Add, stringResource(R.string.ui_open_full_emoji_picker))
                 }
             }
         }

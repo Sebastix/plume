@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.combinedClickable
@@ -66,7 +68,7 @@ internal fun LinkPreviews(content: String, limit: Int = 2, event: Event? = null)
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(onClick = { context.copyLink(reference.id) }) {
-                    Icon(painterResource(R.drawable.copy), "Copy podcast identifier")
+                    Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_podcast_identifier))
                 }
             }
         }

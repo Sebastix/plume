@@ -2,6 +2,8 @@
 
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -273,10 +275,10 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 update = playback::bindInline)
                             VideoGestureFeedback(feedback, Modifier.align(Alignment.Center))
                             if (!controlsVisible) IconButton(onClick = playback::enterFullscreen, modifier = Modifier.align(Alignment.BottomEnd)) {
-                                Icon(painterResource(R.drawable.fullscreen), "Fullscreen video", tint = Color.White)
+                                Icon(painterResource(R.drawable.fullscreen), stringResource(R.string.ui_fullscreen_video), tint = Color.White)
                             }
                             IconButton(onClick = playback::toggleMute, modifier = Modifier.align(Alignment.TopEnd)) {
-                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) "Unmute video" else "Mute video", tint = Color.White)
+                                Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) stringResource(R.string.ui_unmute_video) else stringResource(R.string.ui_mute_video), tint = Color.White)
                             }
                         }
                 }

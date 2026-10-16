@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -71,10 +73,10 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         CopyableMessageHost()
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Wallet", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.ui_wallet), style = MaterialTheme.typography.titleLarge)
             if (connected) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(details.name ?: "Wallet connected", modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    Text(details.name ?: stringResource(R.string.ui_wallet_connected), modifier = Modifier.weight(1f).padding(end = 12.dp),
                         style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     details.balanceSats?.let { balance ->
                         val amount = remember(balance) { java.text.NumberFormat.getIntegerInstance().format(balance) }
@@ -82,7 +84,7 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     if (loadingDetails) CircularProgressIndicator(Modifier.padding(horizontal = 12.dp).size(16.dp), strokeWidth = 2.dp)
-                    IconButton(enabled = !busy && paying.isEmpty(), onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, "Remove wallet connection") }
+                    IconButton(enabled = !busy && paying.isEmpty(), onClick = vm::disconnectWallet) { Icon(Icons.Default.Delete, stringResource(R.string.ui_remove_wallet_connection)) }
                 }
             } else {
                 OutlinedTextField(value = input, onValueChange = { input = it.take(8192) }, singleLine = true,
@@ -92,14 +94,14 @@ internal fun WalletSheet(vm: FeatherViewModel, onDismiss: () -> Unit) {
                     IconButton(enabled = !busy, onClick = {
                         scanError = null
                         cameraPermission.launch(Manifest.permission.CAMERA)
-                    }) { Icon(painterResource(R.drawable.qr_scan), "Scan wallet QR code") }
+                    }) { Icon(painterResource(R.drawable.qr_scan), stringResource(R.string.ui_scan_wallet_qr_code)) }
                     IconButton(enabled = !busy && input.isNotBlank(), onClick = {
                         scanError = null
                         vm.connectWallet(input); input = ""
                     }) {
                         if (busy) CircularProgressIndicator(
                             Modifier.size(24.dp).semantics { contentDescription = "Connecting wallet" }, strokeWidth = 2.dp,
-                        ) else Icon(Icons.Default.Check, "Connect wallet")
+                        ) else Icon(Icons.Default.Check, stringResource(R.string.ui_connect_wallet))
                     }
                 }
                 scanError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }

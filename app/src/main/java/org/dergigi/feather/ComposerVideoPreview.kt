@@ -2,6 +2,8 @@
 
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -52,7 +54,7 @@ internal fun ComposerVideoPreview(url: String, onDismiss: () -> Unit) {
             AndroidView(factory = { PlayerView(it).apply { this.player = player } },
                 modifier = Modifier.fillMaxSize(), onRelease = { it.player = null })
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopStart)) {
-                Icon(Icons.Default.Close, "Close video preview", tint = Color.White)
+                Icon(Icons.Default.Close, stringResource(R.string.ui_close_video_preview), tint = Color.White)
             }
         }
     }

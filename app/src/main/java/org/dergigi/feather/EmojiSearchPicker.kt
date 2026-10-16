@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import androidx.compose.ui.res.stringResource
+
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -103,10 +105,10 @@ internal fun SearchableEmojiPicker(recent: List<String>, custom: List<ReactionCh
     Column(modifier) {
         OutlinedTextField(value = query, onValueChange = { query = it.take(100) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-            placeholder = { Text("Search emojis") }, singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, "Search emojis") },
+            placeholder = { Text(stringResource(R.string.ui_search_emojis)) }, singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, stringResource(R.string.ui_search_emojis)) },
             trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear search") }
+                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search)) }
             }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search))
         if (query.isBlank() && custom.isNotEmpty()) {
             LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
@@ -137,9 +139,9 @@ internal fun SearchableEmojiPicker(recent: List<String>, custom: List<ReactionCh
             } else if (result.query != query || (result.items == null && !result.failed)) {
                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             } else if (result.failed) {
-                Text("Emoji search unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.ui_emoji_search_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else if (result.items.isNullOrEmpty()) {
-                Text("No emojis found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.ui_no_emojis_found), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 // Reset only search results, never the feed or the note behind the sheet.
                 key(result.query) {
