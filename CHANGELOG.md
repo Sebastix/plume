@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.68.3] - 2026-10-16
+
 ### Changed
 - Tapping the muted gallery like or zap button while logged out opens signer login. No reaction or payment is queued; signed-in accounts without a wallet still have zapping disabled.
 
