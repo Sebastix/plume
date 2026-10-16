@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-10-16
+
 ### Added
 - Ctrl+Tab and Ctrl+Shift+Tab cycle through main feeds and profile tabs. Ctrl/Cmd+F opens profile search and focuses its text field.
 
