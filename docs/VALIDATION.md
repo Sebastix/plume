@@ -1315,3 +1315,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 24s. No tests or emulators run; bubble layout, gestures and signer return flow await device confirmation.
 - APK SHA-256 `78fdfe6e77a501b8e6a3ec6253c341f25a0a99239bbc1f3ab6e96ace22e4a5d0`; 15,775,881 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `ddf15a4fea0048f9d0ed89148a8d4bc6a930e4a5c362e52e6e0ee01c9ecd0f61` and asset `a3995ab42f78e38c22f8b241a90a19cbef1d9faf47ef4d37f71c1c324ab40d27` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.69.2 release
+
+- Version 0.69.2 (133), source `8e4bf250b64590f65416a93a33cb94eebbc81884`. Settings adds a matching blue homepage action beside the Feather profile button. Only login/swipe hints remain. Feed discovery no longer scrolls to a potentially stale home selection; stable pager keys preserve the visible category, and selection follows the rendered page key. Welcome preview pages and handoff also use category identity.
+- Signed release build passed including lint/R8 in 23s. No tests or emulators run. Repeated swipes during post-login discovery await device verification. Reviewed Android's HorizontalPager documentation confirming key-based scroll retention when pages are inserted.
+- APK SHA-256 `373cc034a634e0e919fe571415ee3a446c477c77861a7f523db08499a8f8f2a8`; 15,775,769 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `08cee6ab8541a2cb146b8d37a12cfcd1ed45e3cddd65904369ab3344b4967313` and asset `4a8ddad4befcdd76002f07190552d8071865bcf3ef119c2adc0401c6217e7997` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
