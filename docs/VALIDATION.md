@@ -1294,3 +1294,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 25s. No tests or emulators run; device confirmation remains for animation and gesture behavior.
 - APK SHA-256 `5bcd0562b7f24b1f87cbf7203ceddd6ee30b966c0fbf7ff055e0a1ef5cde562e`; 15,758,217 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `e8b3a674f083b5b2f18c5bfecf31baaf0214691bee1ef803f71154a5cd9f40a5` and asset `43d55194b0f1be7a00ad57bf33eaa3f985c3dc8135a6f7a5c4e5d3777cb96f47` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.68.3 release
+
+- Version 0.68.3 (130), source `82dc8b0e59e2d0436974442cb6daeaac4eaafe8f`. Muted guest gallery like/zap controls invoke the existing signer-login launcher via an explicit callback, without queuing reactions or payments. Signed-in wallet-less zaps remain disabled. Added English/Japanese login action descriptions.
+- Signed release build passed including lint/R8 in 26s. No tests or emulators run; signer handoff remains for device verification.
+- APK SHA-256 `757ece90781b53d79c0c0f0b8abf7eed449475bc85d0873736309b1b4c10f039`; 15,759,165 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `91f14afa3c9c62a18797bd0038f74391693429fdaf20fc1e8e0e1fc5361d1bf0` and asset `464590dcabb8d55488f22760e0b9d98550b99a584233266ebb7b43325412c8d4` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
