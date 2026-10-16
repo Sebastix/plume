@@ -6,6 +6,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ### Changed
 - Use the Feather silhouette as the lockscreen and notification audio player's app icon instead of the default play icon.
+- Add the “x” suffix to every system playback-speed icon and keep numeral size and stroke weight consistent across speeds.
 
 ## [0.65.0] - 2026-10-16
 
