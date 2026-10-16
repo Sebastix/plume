@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.IntOffset
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.*
@@ -96,26 +97,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     LaunchedEffect(home.tab, state.publicKey) { vm.repo.viewNotifications(home.tab == ProfileTab.NOTIFICATIONS && state.publicKey != null) }
     DisposableEffect(home.key) { onDispose { vm.repo.viewNotifications(false) } }
-    Box(Modifier.fillMaxSize()) {
-    Box(Modifier.fillMaxSize().then(if (welcoming) Modifier.clearAndSetSemantics {} else Modifier)) {
-    HorizontalPager(
-        state = pager,
-        key = { tabs[it].name },
-        beyondViewportPageCount = 0,
-        modifier = Modifier.fillMaxSize().semantics { contentDescription = "${home.tab.label} feed" },
-    ) { page ->
-        val category = tabs[page]
-        if (category == ProfileTab.SEARCH) ProfileSearchPage(vm, navigation, home, active = home.tab == category)
-        else if (category == ProfileTab.NOTIFICATIONS) {
-            if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
-        } else FeatherReader(vm, navigation, home.feedPage(category),
-            activePage = category == home.tab, homeToolbar = home,
-            accountRequested = accountRequested && category == home.tab,
-            onAccountHandled = { accountRequested = false })
-    }
-    // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
-    AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), modifier = Modifier.align(Alignment.BottomCenter),
-        enter = slideInVertically(tween(220)) { it }, exit = slideOutVertically(tween(180)) { it }) {
+    val feedSwitcher: @Composable (PagerState, Boolean) -> Unit = { switcherPager, enabled ->
         CenterAlignedTopAppBar(
             title = {
                 val slots = tabs.size.coerceIn(1, 5)
@@ -129,33 +111,34 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     for ((index, category) in tabs.withIndex()) {
                         key(category) {
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.offset {
-                                val position = pager.currentPage + pager.currentPageOffsetFraction
+                                val position = switcherPager.currentPage + switcherPager.currentPageOffsetFraction
                                 val start = (position - (slots - 1) / 2f).coerceIn(0f, maxStart)
                                 IntOffset(((index - start) * slotWidth.toPx()).roundToInt(), 0)
                             }.width(slotWidth).height(48.dp).clip(CircleShape).combinedClickable(
                                 role = Role.Button,
+                                enabled = enabled,
                                 onLongClickLabel = "Go to home feed",
                                 onLongClick = {
                                     if (!reordering) scope.launch {
                                         val homeIndex = currentTabs.indexOf(ProfileTab.POSTS)
-                                        if (homeIndex >= 0) pager.scrollToPage(homeIndex)
+                                        if (homeIndex >= 0) switcherPager.scrollToPage(homeIndex)
                                         home.toolbar = true
                                     }
                                 },
                                 onClick = {
                                 if (!reordering) scope.launch {
-                                    if (index == pager.settledPage && !pager.isScrollInProgress) {
+                                    if (!welcoming && index == switcherPager.settledPage && !switcherPager.isScrollInProgress) {
                                         val list = home.feedPage(category).list
                                         if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
                                         home.toolbar = true
-                                    } else pager.animateScrollToPage(index)
+                                    } else switcherPager.animateScrollToPage(index)
                                 }
                             }).semantics {
                                 contentDescription = "${category.label} feed"
-                                selected = index == pager.currentPage
+                                selected = index == switcherPager.currentPage
                             }) {
                                 FeedCategoryIcon(category, Modifier.size(24.dp).graphicsLayer {
-                                    val distance = abs(index - pager.currentPage - pager.currentPageOffsetFraction)
+                                    val distance = abs(index - switcherPager.currentPage - switcherPager.currentPageOffsetFraction)
                                     alpha = when {
                                         distance <= 1f -> 1f - 0.58f * distance
                                         distance <= 2f -> 0.42f - 0.26f * (distance - 1f)
@@ -176,6 +159,28 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                 titleContentColor = MaterialTheme.colorScheme.primary,
                 actionIconContentColor = MaterialTheme.colorScheme.primary),
         )
+    }
+    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().then(if (welcoming) Modifier.clearAndSetSemantics {} else Modifier)) {
+    HorizontalPager(
+        state = pager,
+        key = { tabs[it].name },
+        beyondViewportPageCount = 0,
+        modifier = Modifier.fillMaxSize().semantics { contentDescription = "${home.tab.label} feed" },
+    ) { page ->
+        val category = tabs[page]
+        if (category == ProfileTab.SEARCH) ProfileSearchPage(vm, navigation, home, active = home.tab == category)
+        else if (category == ProfileTab.NOTIFICATIONS) {
+            if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
+        } else FeatherReader(vm, navigation, home.feedPage(category),
+            activePage = category == home.tab, homeToolbar = home,
+            accountRequested = accountRequested && category == home.tab,
+            onAccountHandled = { accountRequested = false })
+    }
+    // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
+    AnimatedVisibility(home.toolbar || (pager.isScrollInProgress && !reordering), modifier = Modifier.align(Alignment.BottomCenter),
+        enter = slideInVertically(tween(220)) { it }, exit = slideOutVertically(tween(180)) { it }) {
+        feedSwitcher(pager, true)
     }
     AnimatedVisibility(home.toolbar,
         modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
@@ -244,7 +249,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     if (welcoming) {
         if (firstUse == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
-        else WelcomeFlight(vm.onboarding) { accountRequested = true }
+        else WelcomeFlight(vm.onboarding, pageCount = tabs.size, initialPage = tabs.indexOf(ProfileTab.POSTS).coerceAtLeast(0),
+            onLogin = { accountRequested = true },
+            onReveal = { page -> scope.launch { pager.scrollToPage(page.coerceIn(0, tabs.lastIndex)) } },
+            feedSwitcher = feedSwitcher)
     }
     }
 }

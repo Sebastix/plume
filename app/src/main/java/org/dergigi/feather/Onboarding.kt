@@ -9,11 +9,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,24 +87,33 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
 
 /** Same artwork and measured bounds as Android's splash; the feed is already running underneath. */
 @Composable
-internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
+internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: Int, onLogin: () -> Unit,
+    onReveal: (Int) -> Unit, feedSwitcher: @Composable (PagerState, Boolean) -> Unit) {
     val login = remember { Animatable(0f) }
     val fall = remember { Animatable(0f) }
     val veil = remember { Animatable(1f) }
     var signerHintDismissed by rememberSaveable { mutableStateOf(false) }
+    var swipeHintDismissed by rememberSaveable { mutableStateOf(false) }
+    val preview = rememberPagerState(initialPage = initialPage) { pageCount }
+    val latestReveal by rememberUpdatedState(onReveal)
+    val dismissSwipe = {
+        swipeHintDismissed = true
+        onboarding.dismiss("swipe")
+    }
     val geometry by onboarding.icon.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val finish = { onboarding.dismiss("welcome") }
     val latestLogin by rememberUpdatedState(onLogin)
-    val skipLabel = stringResource(R.string.ui_skip_welcome)
     BackHandler(onBack = finish)
     LaunchedEffect(lifecycle) {
         if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         if (ValueAnimator.areAnimatorsEnabled()) login.animateTo(1f, tween(450))
         else login.snapTo(1f)
     }
-    LaunchedEffect(lifecycle, signerHintDismissed) {
-        if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED) || !signerHintDismissed) return@LaunchedEffect
+    LaunchedEffect(lifecycle, swipeHintDismissed) {
+        if (!lifecycle.isAtLeast(Lifecycle.State.RESUMED) || !swipeHintDismissed) return@LaunchedEffect
+        preview.scrollToPage(preview.currentPage)
+        latestReveal(preview.currentPage)
         if (!ValueAnimator.areAnimatorsEnabled()) { finish(); return@LaunchedEffect }
         delay(180)
         fall.animateTo(1f, tween(2400, easing = LinearEasing))
@@ -119,8 +131,11 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
         val startX = geometry?.x?.minus(origin.x) ?: ((screenWidth - width) / 2f)
         val startY = geometry?.y?.minus(origin.y) ?: ((screenHeight - height) / 2f)
         Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
-            .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = skipLabel, onClick = { signerHintDismissed = true })) {
+            .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)) {
+            HorizontalPager(state = preview, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
+                modifier = Modifier.fillMaxSize()) { page ->
+            val colors = listOf(Color(0xFF7AC8EE), Color(0xFFB39DDB), Color(0xFF81C784), Color(0xFFFFB74D), Color(0xFFF48FB1))
+            Box(Modifier.fillMaxSize()) {
             Image(painterResource(R.drawable.splash_feather), null,
                 Modifier.offset { IntOffset(startX.roundToInt(), startY.roundToInt()) }
                     .size(with(density) { width.toDp() }, with(density) { height.toDp() })
@@ -129,7 +144,10 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
                         translationX = sin(progress * PI * 3).toFloat() * screenWidth * .1f
                         translationY = progress * (screenHeight - startY + height)
                         rotationZ = sin(progress * PI * 3).toFloat() * 18f
-                    })
+                    },
+                colorFilter = if (page == initialPage) null else ColorFilter.tint(colors[Math.floorMod(page - initialPage, colors.size)]))
+            }
+            }
         }
         // Identical placement to the real home account control, so it stays put as the veil fades.
         IconButton(onClick = { finish(); latestLogin() },
@@ -148,6 +166,16 @@ internal fun WelcomeFlight(onboarding: Onboarding, onLogin: () -> Unit) {
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, start = 24.dp, end = 12.dp),
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
             FirstUseHint(stringResource(R.string.ui_hint_signer), onDismiss = { signerHintDismissed = true })
+        }
+        AnimatedVisibility(signerHintDismissed,
+            modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn(tween(180))) {
+            feedSwitcher(preview, !swipeHintDismissed)
+        }
+        AnimatedVisibility(signerHintDismissed && !swipeHintDismissed,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                .padding(horizontal = 24.dp).padding(bottom = 96.dp),
+            enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+            FirstUseHint(stringResource(R.string.ui_hint_swipe), onDismiss = dismissSwipe)
         }
         IconButton(onClick = finish, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp, start = 12.dp)) {
             Icon(Icons.Default.Close, stringResource(R.string.ui_skip_welcome), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))

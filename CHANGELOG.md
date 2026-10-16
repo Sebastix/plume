@@ -4,8 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.68.2] - 2026-10-16
+
 ### Changed
 - Clarify the welcome hint: “Connect your signer to log in.”
+- Show the swipe hint and feed switcher over the welcome background. Swipe between colored feathers to practice; dismiss the hint to drop the selected feather and reveal that feed.
 - Gently fade the welcome background over 800 ms after the feather finishes falling.
 
 ## [0.68.1] - 2026-10-16
