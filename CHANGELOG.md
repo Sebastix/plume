@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-10-16
+
 ### Changed
 - Sync notification filter selections with encrypted account settings over Nostr, retaining existing local selections and compatibility with older settings events.
 - Swap the open-in-app and share actions in detail toolbars.
