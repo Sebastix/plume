@@ -115,6 +115,7 @@ class FeatherRepository(context: Context) {
     ))
     internal suspend fun applyAccountSettings(owner: String, sensitive: Boolean, pow: Boolean) = withContext(Dispatchers.IO) {
         if (state.value.publicKey != owner) return@withContext
+        if (state.value.showSensitive == sensitive && state.value.proofOfWork == pow) return@withContext
         check(prefs.edit().putBoolean("show-sensitive:$owner", sensitive).putBoolean("proof-of-work:$owner", pow).commit())
         _state.update { if (it.publicKey == owner) it.copy(showSensitive = sensitive, proofOfWork = pow) else it }
         feedDiscoveryAt = 0L

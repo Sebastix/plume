@@ -32,9 +32,14 @@ internal class AccountSettings(
         scope.launch(Dispatchers.IO) {
             for (ignored in wake) {
                 if (!foreground) continue
-                try { sync() }
-                catch (e: CancellationException) { throw e }
-                catch (e: Exception) { report("Settings sync: ${e.message ?: e.javaClass.simpleName}. Saved locally; will retry when settings are reopened.") }
+                // Logout may cancel the current signer operation; keep the queue alive for the next account.
+                supervisorScope {
+                    launch {
+                        try { sync() }
+                        catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { report("Settings sync: ${e.message ?: e.javaClass.simpleName}. Local preferences kept; reopen settings to retry.") }
+                    }.join()
+                }
             }
         }
     }
