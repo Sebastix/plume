@@ -1376,3 +1376,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Reviewed the upload path: processing runs under the existing IO upload mutex, hashing/signing/mirroring use only sanitized output, and temporary candidates are removed. Original/uploaded byte sizes persist with bounded local drafts and are removed with their attachments. Original phone files are never modified.
 - Inspected Compose 1.12.1 source: its D-pad preview interceptor calls `moveFocus` before normal text navigation. Canceling Up/Down focus traversal makes that call return false, allowing the built-in text handler to move the caret by line and retain Shift selection. Tab and Ctrl/Cmd+Enter shortcuts remain unchanged.
 - Source review only at this stage; no tests or emulator run. Image quality, size captions and Bluetooth keyboard behavior await device confirmation.
+
+## 2026-10-16 — 0.70.0 release
+
+- Version 0.70.0 (138), source `7acaff0abc1aa59e560738ea68b089df69b6916a`. Ships automatic large-photo optimization, persisted attachment size captions and composer Up/Down focus handling.
+- Signed release build passed in 28s. No tests or emulators run; image quality and keyboard interaction await device confirmation.
+- APK SHA-256 `de44f77526be3c0e2d2ea3405e4e43f0518717c1d090e44b724308e4181769bc`; 15,775,785 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `b82ebff946dbfe876e8274cec8049f83942500853885f8c7b8df46c67a7bbb9e` and asset `4f26d1abcb9568d1b42299e7cdd6a9b1a3ece1c7e90105e77d2f86897521dde1` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
