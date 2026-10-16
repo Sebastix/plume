@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Corrected spacing in the homepage’s “Swipe, tap, done.” heading.
 - Homepage headings now read “Light like a feather.”, “Made for keyboard lovers”, and “Batteries (and GIFs) included.”
 
 ## [0.72.0] - 2026-10-17
