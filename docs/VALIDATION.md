@@ -1258,3 +1258,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 1m 20s. No tests or emulator runs. Japanese layout/wording and system icon appearance await device feedback.
 - APK SHA-256 `d23f53592c796c02819f1c1dec38f896116c334a1d33bbcfc06b3bd7fb3dcf6b`; 15,739,057 bytes. Version, embedded source commit, v2 signature and certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `a9db9403ed66b4a3d3f5779de93c7a8f44cad3b8460c400d1dbee8d362c75089` and asset `95fcc8d96c8e66edc690670c12bd071586a8bc3f9f54bca763fa91da2445de0e` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN returns HTTP 200. No website deployment.
+
+## 2026-10-16 — 0.66.1 release
+
+- Version 0.66.1 (125), source `cf6682e7d9465aea458b8f219ded3bfc403ece9c`. Full-screen new-post composer shows the draft owner's cached avatar at top right, with localized account accessibility text and the existing initial fallback.
+- Signed release build passed including lint/R8 in 1m 18s. No tests or emulator runs; device validation remains with the user.
+- APK SHA-256 `3ccf262f8a1590a9ea65a3e29a1d6bc4fa7f15fb341368f091a5b079ae9d3501`; 15,739,521 bytes. Packaged version, embedded source, v2 signature and existing signing certificate verified. Compressed mapping archived. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `39d2d8460d33b2147bd68c6bca2ee2f65412b9ee9cfd0fcfe246ebd341fddfb5` and asset `2007aed847d9d8235da4baa2c509e159df639e83e8eac9146b1d171a93342512` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200. No website deployment.
