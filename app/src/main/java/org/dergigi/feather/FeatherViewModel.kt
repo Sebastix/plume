@@ -344,13 +344,15 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                         val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
                             if (uploadJob.isActive && imageUploadJob === uploadJob)
                                 imageUploadProgress.value = progress.copy(size = progress.size ?: selectedSize)
-                        }) { url ->
+                        }) { attachment ->
                             withContext(Dispatchers.Main) {
                                 check(currentUpload()) { "Upload canceled" }
                                 val latest = replyDraft.value
                                 check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
+                                val url = attachment.url
                                 val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
                                 require(text.length <= 8000) { "Draft is full; uploaded attachment: $url" }
+                                replyDraft.value = latest.copy(uploads = (latest.uploads.filterNot { it.url == url } + attachment).takeLast(32))
                                 editReply(text)
                             }
                             replySaveJob?.join()
@@ -422,7 +424,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal fun editReply(text: String) {
         if (replyBusy.value) return
         val previous = replyDraft.value ?: return
-        val draft = previous.copy(text = text.take(8000), gifs = previous.gifs.filter { it.url in text })
+        val draft = previous.copy(text = text.take(8000), gifs = previous.gifs.filter { it.url in text }, uploads = previous.uploads.filter { it.url in text })
         replyDraft.value = draft
         replySaveJob?.cancel()
         replySaveJob = viewModelScope.launch {

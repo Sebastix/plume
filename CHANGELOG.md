@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-10-16
+
+### Added
+- Automatically optimize large static photo uploads: above 2 MB, fit within 2,560 pixels on the longest edge and encode at JPEG quality 85. Prefer lossless compression for screenshots and transparent images, retain animation, and keep the smaller sanitized version when available. Process oversized originals before enforcing the upload limit.
+- Subtle original/uploaded size labels in the composer, retained with saved attachment drafts.
+
+### Fixed
+- Keep Bluetooth keyboard Up/Down arrows inside the composer text field for cursor movement and selection instead of moving focus to buttons and toggling the software keyboard.
+
 ## [0.69.6] - 2026-10-16
 
 ### Fixed

@@ -1369,3 +1369,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 29s. No tests or emulators run; reinstall restoration and gallery interaction await device confirmation.
 - APK SHA-256 `117f806c7b5db0e929c51b57a011e49dcb219c2f51b4e2098a61e00250be669b`; 15,775,785 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `5c845bd0c2482b0397b052a4f78b6a351e5329dc30fb37a4c5c89df56a7affe7` and asset `1fdcf057021e3b80d7fb09070293dc2d9e3d33c72df1404bd7e7c1efe856ffc9` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — image optimization and composer keyboard review
+
+- Large static photos use target-sized decoding and one JPEG encode at quality 85, capped at 2,560 pixels on the longest edge. PNG, lossless/alpha WebP and recognized screenshot filenames retain their dimensions on the lossless path. Container inspection preserves GIF/WebP/APNG animation; optional optimization falls back to the sanitized original when smaller or when decoding exceeds the memory budget. The 20 MiB image upload limit is enforced after processing, within the existing 250 MiB staging bound.
+- Reviewed the upload path: processing runs under the existing IO upload mutex, hashing/signing/mirroring use only sanitized output, and temporary candidates are removed. Original/uploaded byte sizes persist with bounded local drafts and are removed with their attachments. Original phone files are never modified.
+- Inspected Compose 1.12.1 source: its D-pad preview interceptor calls `moveFocus` before normal text navigation. Canceling Up/Down focus traversal makes that call return false, allowing the built-in text handler to move the caret by line and retain Shift selection. Tab and Ctrl/Cmd+Enter shortcuts remain unchanged.
+- Source review only at this stage; no tests or emulator run. Image quality, size captions and Bluetooth keyboard behavior await device confirmation.

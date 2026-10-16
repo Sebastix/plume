@@ -36,6 +36,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
@@ -57,7 +58,7 @@ import org.json.JSONObject
 import org.json.JSONArray
 
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
-internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList())
+internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList(), val uploads: List<UploadedAttachment> = emptyList())
 
 /** A selected passage is a blockquote in a real reply, not a standalone quote post. */
 internal fun ReplyDraft.withQuotedSelection(selection: String): ReplyDraft {
@@ -76,11 +77,22 @@ internal fun ReplyDraft.withQuotedSelection(selection: String): ReplyDraft {
 internal class ReplyStore(context: Context) {
     private val drafts = context.getSharedPreferences("reply-drafts", Context.MODE_PRIVATE)
     private val media = context.getSharedPreferences("reply-gifs", Context.MODE_PRIVATE)
+    private val uploads = context.getSharedPreferences("reply-uploads", Context.MODE_PRIVATE)
     private val pending = context.getSharedPreferences("reply-pending", Context.MODE_PRIVATE)
     private fun key(owner: String, target: Event?) = "$owner:${target?.id ?: "post"}"
     @Synchronized fun load(owner: String, target: Event?): ReplyDraft = ReplyDraft(owner, target,
         drafts.getString(key(owner, target), "").orEmpty().take(8000),
-        gifs = GifItem.list(media.getString(key(owner, target), "[]").orEmpty()))
+        gifs = GifItem.list(media.getString(key(owner, target), "[]").orEmpty()),
+        uploads = runCatching {
+            val array = JSONArray(uploads.getString(key(owner, target), "[]"))
+            (0 until minOf(array.length(), 32)).mapNotNull { index ->
+                runCatching {
+                    val item = array.getJSONObject(index)
+                    UploadedAttachment(item.getString("url"), item.getLong("originalSize"), item.getLong("size"))
+                        .takeIf { it.url.length <= 2048 && it.originalSize in 1..250L * 1024 * 1024 && it.size in 1..250L * 1024 * 1024 }
+                }.getOrNull()
+            }
+        }.getOrDefault(emptyList()))
     @Synchronized fun save(draft: ReplyDraft) {
         val key = key(draft.owner, draft.target)
         val edit = drafts.edit()
@@ -93,6 +105,14 @@ internal class ReplyStore(context: Context) {
         else mediaEdit.putString(key, JSONArray(attachments.map { it.json() }).toString())
         media.all.keys.filter { it != key }.drop(15).forEach(mediaEdit::remove)
         check(mediaEdit.commit()) { "Could not save GIF attachments" }
+        val sizes = draft.uploads.filter { it.url in draft.text }.distinctBy { it.url }.take(32)
+        val uploadEdit = uploads.edit()
+        if (sizes.isEmpty()) uploadEdit.remove(key)
+        else uploadEdit.putString(key, JSONArray(sizes.map {
+            JSONObject().put("url", it.url).put("originalSize", it.originalSize).put("size", it.size)
+        }).toString())
+        uploads.all.keys.filter { it != key }.drop(15).forEach(uploadEdit::remove)
+        check(uploadEdit.commit()) { "Could not save attachment sizes" }
     }
     @Synchronized fun signed(draft: ReplyDraft): Event? = pending.getString(key(draft.owner, draft.target), null)?.let {
         runCatching { Event.fromJson(JSONObject(it).getString("event")) }.getOrNull()
@@ -104,6 +124,7 @@ internal class ReplyStore(context: Context) {
         check(edit.commit()) { "Could not save signed reply for retry" }
     }
     @Synchronized fun complete(draft: ReplyDraft) {
+        check(uploads.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear attachment sizes" }
         check(media.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear GIF attachments" }
         check(drafts.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply draft" }
         check(pending.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply retry" }
@@ -282,7 +303,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 uploadProgress?.let { progress ->
                     Column(Modifier.padding(end = 6.dp), horizontalAlignment = Alignment.End) {
                         progress.size?.let { size ->
-                            Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, size),
+                            Text(attachmentSizeLabel(LocalContext.current, size, progress.originalSize),
                                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text(if (!uploading && progress.percent == 100) "100%" else progress.stage,
@@ -338,7 +359,11 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
             }, visualTransformation = transform, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp).focusRequester(focus)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp)
+                    // Some Bluetooth keyboards also advertise a D-pad. Deny vertical focus
+                    // traversal so Compose passes arrows to its normal text/caret handler.
+                    .focusProperties { up = FocusRequester.Cancel; down = FocusRequester.Cancel }
+                    .focusRequester(focus)
                     .onPreviewKeyEvent { event ->
                         if ((event.isCtrlPressed || event.isMetaPressed) && event.key == Key.N) {
                             true // Already composing: preserve this draft and do not insert an N.
@@ -359,7 +384,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             val openGallery = LocalOpenGallery.current
             if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
-                Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
+                Box(Modifier.width((images.size * 96 + 16).dp).height(if (current.uploads.any { it.url in images }) 144.dp else 112.dp)) {
                     images.forEachIndexed { index, url ->
                         val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
                         val tile = Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp).clip(RoundedCornerShape(16.dp))
@@ -371,6 +396,13 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                                 val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
                                 openGallery(photos, photos.indexOf(url), expandAlbum = false)
                             }, "Attached image")
+                        current.uploads.find { it.url == url }?.let { attachment ->
+                            Text(attachmentSizeLabel(LocalContext.current, attachment.size, attachment.originalSize),
+                                modifier = Modifier.offset(x = (index * 96).dp, y = 116.dp).width(88.dp),
+                                fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     images.forEachIndexed { index, url ->
                         IconButton(enabled = !busy,
@@ -448,6 +480,12 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
             }
     }
+}
+
+private fun attachmentSizeLabel(context: Context, size: Long, originalSize: Long?): String {
+    val result = android.text.format.Formatter.formatShortFileSize(context, size)
+    val original = originalSize?.takeIf { it > size }?.let { android.text.format.Formatter.formatShortFileSize(context, it) }
+    return if (original == null || original == result) result else "$original → $result"
 }
 
 /** Shared, single-line parent summary for displayed replies and the composer. */

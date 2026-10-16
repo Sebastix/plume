@@ -6,58 +6,143 @@ import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.os.Build
 import androidx.exifinterface.media.ExifInterface
+import kotlinx.coroutines.CancellationException
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FilterOutputStream
 import java.io.OutputStream
+import java.io.RandomAccessFile
+import kotlin.math.roundToInt
 
 /** Only sanitized bytes leave the device. Unknown/malformed containers fail closed. */
 internal object ImagePrivacy {
     private const val MAX_BYTES = 20L * 1024 * 1024
+    private const val COMPRESS_ABOVE = 2L * 1024 * 1024
+    private const val PHOTO_EDGE = 2560
 
-    fun clean(source: File, destination: File, mime: String): String {
-        require(source.length() in 1..MAX_BYTES) { "Image exceeds 20 MB" }
-        val bytes = source.readBytes()
+    fun clean(source: File, destination: File, mime: String, preferLossless: Boolean = false, onCompress: () -> Unit = {}): String {
+        require(source.length() in 1..250L * 1024 * 1024) { "Image exceeds 250 MB" }
         val orientation = if (mime in setOf("image/jpeg", "image/png", "image/webp"))
             ExifInterface(source).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) else 1
         require(orientation in 0..8) { "Invalid image orientation" }
-        val stripped = when (mime) {
-            "image/jpeg" -> jpeg(bytes)
-            "image/png" -> png(bytes)
-            "image/webp" -> webp(bytes)
-            "image/gif" -> gif(bytes)
-            else -> null
-        }
-        if (stripped != null && orientation <= 1) {
+        val container = inspect(source, mime)
+        require(!container.animated || orientation <= 1) { "Cannot safely rotate this animated image" }
+        // Preserve the sanitized original when it already fits, and compare it with any
+        // optional compression result. Never read an oversized source into a byte array.
+        val originalMime = if (source.length() <= MAX_BYTES && orientation <= 1 &&
+            mime in setOf("image/jpeg", "image/png", "image/webp", "image/gif")) {
+            val bytes = source.readBytes()
+            val stripped = when (mime) {
+                "image/jpeg" -> jpeg(bytes)
+                "image/png" -> png(bytes)
+                "image/webp" -> webp(bytes)
+                else -> gif(bytes)
+            }
             destination.writeBytes(stripped)
-            return mime
+            mime
+        } else null
+        if (container.animated) {
+            require(originalMime != null) { "Animated image exceeds 20 MB" }
+            return originalMime
         }
-        // Bake EXIF orientation into pixels instead of copying any EXIF to the new file.
-        // Animated images with unusual orientation must not silently become a single frame.
-        if (orientation > 1) {
-            require(!(mime == "image/png" && pngAnimated(bytes)) &&
-                !(mime == "image/webp" && webpAnimated(bytes))) { "Cannot safely rotate this animated image" }
-        }
-        return encodePixels(source, destination, mime, orientation)
+        val optimize = source.length() > COMPRESS_ABOVE
+        if (originalMime != null && (!optimize || destination.length() <= COMPRESS_ABOVE)) return originalMime
+        val candidate = File.createTempFile("blossom-", ".image", destination.parentFile)
+        try {
+            if (optimize) onCompress()
+            val lossless = preferLossless || container.lossless || mime !in setOf("image/jpeg", "image/webp", "image/heic", "image/heif", "image/avif")
+            val encodedMime = try {
+                encodePixels(source, candidate, mime, orientation, optimize, lossless)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                // Optional optimization must not reject an already sanitized, uploadable image.
+                if (originalMime != null) return originalMime
+                throw e
+            }
+            if (originalMime != null && destination.length() <= candidate.length()) return originalMime
+            candidate.copyTo(destination, overwrite = true)
+            return encodedMime
+        } finally { candidate.delete() }
     }
 
-    private fun encodePixels(source: File, destination: File, mime: String, orientation: Int): String {
+    private data class Container(val animated: Boolean = false, val lossless: Boolean = false)
+
+    /** Read only chunk headers, including on Android versions that cannot decode APNG animation. */
+    private fun inspect(source: File, mime: String): Container {
+        if (mime == "image/gif") return Container(animated = true, lossless = true)
+        if (mime !in setOf("image/png", "image/webp")) return Container()
+        return RandomAccessFile(source, "r").use { input ->
+            fun text(n: Int): String = ByteArray(n).also(input::readFully).toString(Charsets.US_ASCII)
+            fun uint(little: Boolean = false): Long = (if (little) Integer.reverseBytes(input.readInt()) else input.readInt()).toLong() and 0xffffffffL
+            val png = mime == "image/png"
+            val end = if (png) {
+                val signature = ByteArray(8).also(input::readFully)
+                require(signature.contentEquals(byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10))) { "Invalid PNG" }
+                input.length()
+            } else {
+                require(text(4) == "RIFF") { "Invalid WebP" }
+                val end = uint(true) + 8
+                require(text(4) == "WEBP" && end in 12..input.length()) { "Invalid WebP" }
+                end
+            }
+            var animated = false
+            var lossless = png
+            var chunks = 0
+            while (input.filePointer < end) {
+                require(++chunks <= 16384 && end - input.filePointer >= (if (png) 12 else 8)) { "Invalid image chunks" }
+                val length: Long
+                val type: String
+                if (png) { length = uint(); type = text(4) } else { type = text(4); length = uint(true) }
+                val next = input.filePointer + length + (if (png) 4L else (length and 1L))
+                require(next <= end) { "Truncated image chunk" }
+                if (png && type == "acTL" || !png && type in setOf("ANIM", "ANMF")) animated = true
+                if (!png && type in setOf("VP8L", "ALPH")) lossless = true
+                if (!png && type == "VP8X") {
+                    require(length == 10L) { "Invalid WebP header" }
+                    val flags = input.readUnsignedByte()
+                    animated = animated || (flags and 2) != 0
+                    lossless = lossless || (flags and 16) != 0 // Preserve alpha without JPEG conversion.
+                }
+                input.seek(next)
+                if (png && type == "IEND") return@use Container(animated, lossless)
+            }
+            require(!png && input.filePointer == end) { "Missing image end marker" }
+            Container(animated, lossless)
+        }
+    }
+
+    private fun encodePixels(source: File, destination: File, mime: String, orientation: Int, optimize: Boolean, lossless: Boolean): String {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(source.path, bounds)
-        val pixels = bounds.outWidth.toLong() * bounds.outHeight
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Invalid image dimensions" }
+        val edge = maxOf(bounds.outWidth, bounds.outHeight)
+        val scale = if (optimize && !lossless) minOf(1.0, PHOTO_EDGE.toDouble() / edge) else 1.0
+        val width = (bounds.outWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (bounds.outHeight * scale).roundToInt().coerceAtLeast(1)
+        val pixels = width.toLong() * height
         val budget = minOf(24_000_000L, Runtime.getRuntime().maxMemory() / 20)
-        require(bounds.outWidth > 0 && bounds.outHeight > 0 && pixels <= budget) { "Image is too large to remove metadata safely" }
+        require(pixels <= budget) { "Image is too large to process safely without losing detail" }
         val bitmap = if (Build.VERSION.SDK_INT >= 28) {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(source)) { decoder, info, _ ->
                 require(!info.isAnimated) { "Cannot safely remove metadata from this animated format" }
+                // ImageDecoder's dimensions and output already account for EXIF rotation.
+                val ratio = if (optimize && !lossless) minOf(1.0, PHOTO_EDGE.toDouble() / maxOf(info.size.width, info.size.height)) else 1.0
+                val targetWidth = (info.size.width * ratio).roundToInt().coerceAtLeast(1)
+                val targetHeight = (info.size.height * ratio).roundToInt().coerceAtLeast(1)
+                require(targetWidth.toLong() * targetHeight <= budget) { "Image is too large to process safely without losing detail" }
+                decoder.setTargetSize(targetWidth, targetHeight)
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 decoder.setTargetColorSpace(android.graphics.ColorSpace.get(android.graphics.ColorSpace.Named.SRGB))
                 decoder.setOnPartialImageListener { false }
             }
         } else {
             require(mime in setOf("image/jpeg", "image/png", "image/webp")) { "Unsupported image format for metadata removal" }
+            // Round sampling up so the intermediate bitmap cannot exceed the target budget.
+            var sample = 1
+            while ((bounds.outWidth.toLong() + sample - 1) / sample > width || (bounds.outHeight.toLong() + sample - 1) / sample > height) sample *= 2
             val original = BitmapFactory.decodeFile(source.path, BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
+                inSampleSize = sample
             }) ?: error("Could not decode image")
             val matrix = Matrix().apply {
                 when (orientation) {
@@ -77,7 +162,10 @@ internal object ImagePrivacy {
             } catch (e: Exception) { original.recycle(); throw e }
         }
         try {
-            val png = bitmap.hasAlpha() || mime == "image/png"
+            val keepLossless = lossless || bitmap.hasAlpha()
+            val format = if (keepLossless) {
+                if (optimize && Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSLESS else Bitmap.CompressFormat.PNG
+            } else Bitmap.CompressFormat.JPEG
             destination.outputStream().use { raw ->
                 val bounded = object : FilterOutputStream(raw) {
                     var written = 0L
@@ -85,9 +173,10 @@ internal object ImagePrivacy {
                     override fun write(b: ByteArray, off: Int, len: Int) { checkSize(len); out.write(b, off, len) }
                     fun checkSize(n: Int) { written += n; require(written <= MAX_BYTES) { "Sanitized image exceeds 20 MB" } }
                 }
-                check(bitmap.compress(if (png) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 95, bounded)) { "Could not sanitize image" }
+                check(bitmap.compress(format, if (keepLossless) 50 else if (optimize) 85 else 95, bounded)) { "Could not sanitize image" }
             }
-            return if (png) "image/png" else "image/jpeg"
+            return if (!keepLossless) "image/jpeg"
+                else if (optimize && Build.VERSION.SDK_INT >= 30) "image/webp" else "image/png"
         } finally { bitmap.recycle() }
     }
 
@@ -144,7 +233,6 @@ internal object ImagePrivacy {
         error("Missing JPEG end marker")
     }
 
-    private fun pngAnimated(b: ByteArray) = pngChunks(b).any { it.first == "acTL" }
     private fun pngChunks(b: ByteArray): List<Pair<String, IntRange>> {
         require(b.size >= 8 && b.copyOfRange(0, 8).contentEquals(byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10))) { "Invalid PNG" }
         val chunks = mutableListOf<Pair<String, IntRange>>()
@@ -169,7 +257,6 @@ internal object ImagePrivacy {
         return out.toByteArray()
     }
 
-    private fun webpAnimated(b: ByteArray) = webpChunks(b).any { it.first == "ANIM" }
     private fun webpChunks(b: ByteArray): List<Pair<String, IntRange>> {
         require(b.size >= 12 && text(b, 0, 4) == "RIFF" && text(b, 8, 4) == "WEBP") { "Invalid WebP" }
         val length = int32(b, 4, true)
