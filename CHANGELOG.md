@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Homepage headings now read “Light like a feather.” and “Made for keyboard lovers”.
+- Homepage headings now read “Light like a feather.”, “Made for keyboard lovers”, and “Batteries (and GIFs) included.”
 
 ## [0.72.0] - 2026-10-17
 
