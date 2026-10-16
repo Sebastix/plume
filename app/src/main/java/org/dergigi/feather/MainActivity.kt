@@ -347,6 +347,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (it.resultCode == RESULT_OK && data != null) {
             val result = ExternalSignerLogin.parseResult(data)
             if (result is SignerResult.RequestAddressed.Successful) {
+                if (vm.onboarding.allowed.value && vm.onboarding.state.value?.welcome == false) vm.onboarding.step.value = 1
                 vm.login(result.result.pubkey, result.result.packageName); showAccount = false; goHome()
             } else vm.message.value = "Could not connect the signer. Please try again."
         }

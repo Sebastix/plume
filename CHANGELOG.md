@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.69.1] - 2026-10-16
+
+### Changed
+- Onboarding hints are speech bubbles pointing at login and the feed switcher. Tap anywhere to dismiss each hint; swipe gestures still work, and close buttons are removed.
+- Keep the welcome screen through signer login and continue with swipe guidance while the personalized feed loads behind it.
+
 ## [0.69.0] - 2026-10-16
 
 ### Changed

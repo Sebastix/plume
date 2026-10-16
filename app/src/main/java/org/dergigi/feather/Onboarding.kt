@@ -19,12 +19,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -57,12 +65,13 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
     val state = MutableStateFlow<FirstUse?>(null)
     val icon = MutableStateFlow<LaunchIcon?>(null)
     val allowed = MutableStateFlow(true)
+    val step = MutableStateFlow(0)
     init {
         scope.launch(Dispatchers.IO) {
             // Existing signed-in installations do not need a login introduction.
             val established = context.getSharedPreferences("feather", Context.MODE_PRIVATE).contains("signer")
             state.value = FirstUse(prefs.getBoolean("welcome", established), prefs.getBoolean("swipe", false), prefs.getBoolean("actions", false))
-            if (established && !prefs.contains("welcome")) prefs.edit().putBoolean("welcome", true).apply()
+            if (!prefs.contains("welcome")) prefs.edit().putBoolean("welcome", established).apply()
             ready.complete(Unit)
         }
     }
@@ -87,19 +96,22 @@ internal class Onboarding(context: Context, private val scope: CoroutineScope) {
 
 /** Same artwork and measured bounds as Android's splash; the feed is already running underneath. */
 @Composable
-internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: Int, onLogin: () -> Unit,
+internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: Int, signedIn: Boolean, onLogin: () -> Unit,
     onReveal: (Int) -> Unit, feedSwitcher: @Composable (PagerState, Boolean) -> Unit) {
     val login = remember { Animatable(0f) }
     val fall = remember { Animatable(0f) }
     val veil = remember { Animatable(1f) }
-    var signerHintDismissed by rememberSaveable { mutableStateOf(false) }
-    var swipeHintDismissed by rememberSaveable { mutableStateOf(false) }
+    val step by onboarding.step.collectAsStateWithLifecycle()
+    val signerHintDismissed = step >= 1
+    val swipeHintDismissed = step >= 2
     val preview = rememberPagerState(initialPage = initialPage) { pageCount }
     val latestReveal by rememberUpdatedState(onReveal)
     val dismissSwipe = {
-        swipeHintDismissed = true
+        onboarding.step.value = 2
         onboarding.dismiss("swipe")
     }
+    LaunchedEffect(signedIn) { if (signedIn && onboarding.step.value == 0) onboarding.step.value = 1 }
+    val dismissCurrent = { if (!signerHintDismissed) onboarding.step.value = 1 else if (!swipeHintDismissed) dismissSwipe() }
     val geometry by onboarding.icon.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val finish = { onboarding.dismiss("welcome") }
@@ -120,7 +132,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
         veil.animateTo(0f, tween(800))
         finish()
     }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().dismissHintOnTap(!swipeHintDismissed, step, dismissCurrent)) {
         val density = LocalDensity.current
         val fallback = with(density) { 288.dp.toPx() }
         val width = geometry?.width?.toFloat() ?: fallback
@@ -150,7 +162,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
             }
         }
         // Identical placement to the real home account control, so it stays put as the veil fades.
-        IconButton(onClick = { finish(); latestLogin() },
+        IconButton(onClick = { if (!signedIn) { onboarding.step.value = 1; latestLogin() } },
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp)
                 .size(RoundControlSize).graphicsLayer {
                     alpha = login.value
@@ -159,13 +171,14 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
                 }) {
             Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, CircleShape)
                 .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                if (signedIn) Icon(Icons.Default.Check, stringResource(R.string.ui_signed_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                else Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
         AnimatedVisibility(login.value == 1f && !signerHintDismissed,
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, start = 24.dp, end = 12.dp),
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
-            FirstUseHint(stringResource(R.string.ui_hint_signer), onDismiss = { signerHintDismissed = true })
+            FirstUseHint(stringResource(R.string.ui_hint_signer), onDismiss = { onboarding.step.value = 1 }, pointer = HintPointer.LOGIN)
         }
         AnimatedVisibility(signerHintDismissed,
             modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn(tween(180))) {
@@ -173,23 +186,66 @@ internal fun WelcomeFlight(onboarding: Onboarding, pageCount: Int, initialPage: 
         }
         AnimatedVisibility(signerHintDismissed && !swipeHintDismissed,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
-                .padding(horizontal = 24.dp).padding(bottom = 96.dp),
+                .padding(horizontal = 24.dp).padding(bottom = 64.dp),
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
-            FirstUseHint(stringResource(R.string.ui_hint_swipe), onDismiss = dismissSwipe)
+            FirstUseHint(stringResource(R.string.ui_hint_swipe), onDismiss = dismissSwipe, pointer = HintPointer.FEEDS)
         }
-        IconButton(onClick = finish, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp, start = 12.dp)) {
-            Icon(Icons.Default.Close, stringResource(R.string.ui_skip_welcome), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))
+
+    }
+}
+
+internal enum class HintPointer { LOGIN, FEEDS }
+
+/** Observe taps without consuming them: child controls still work and swipes never dismiss hints. */
+@Composable
+internal fun Modifier.dismissHintOnTap(enabled: Boolean, key: Any?, onDismiss: () -> Unit): Modifier {
+    val latestDismiss by rememberUpdatedState(onDismiss)
+    return pointerInput(enabled, key) {
+        if (!enabled) return@pointerInput
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val dismiss = latestDismiss
+            var moved = false
+            var elapsed = 0L
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Final)
+                val pointer = event.changes.firstOrNull { it.id == down.id }
+                if (event.changes.size > 1 || pointer == null) moved = true
+                if (pointer != null) {
+                    if ((pointer.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                    elapsed = pointer.uptimeMillis - down.uptimeMillis
+                }
+                val pressed = event.changes.any { it.pressed }
+            } while (pressed)
+            if (!moved && elapsed < viewConfiguration.longPressTimeoutMillis) dismiss()
         }
     }
 }
 
 @Composable
-internal fun FirstUseHint(text: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.widthIn(max = 360.dp), shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 2.dp) {
-        Row(Modifier.padding(start = 18.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.ui_dismiss_hint)) }
+internal fun FirstUseHint(text: String, onDismiss: () -> Unit, modifier: Modifier = Modifier, pointer: HintPointer? = null) {
+    val color = MaterialTheme.colorScheme.surfaceContainerHigh
+    val dismissLabel = stringResource(R.string.ui_dismiss_hint)
+    Box(modifier.widthIn(max = 360.dp).drawBehind {
+        val tail = if (pointer == null) 0f else 12.dp.toPx()
+        val top = if (pointer == HintPointer.LOGIN) tail else 0f
+        val bodyHeight = size.height - tail
+        drawRoundRect(color, topLeft = Offset(0f, top), size = Size(size.width, bodyHeight), cornerRadius = CornerRadius(20.dp.toPx()))
+        if (pointer != null) {
+            // Login's 48dp control is aligned to the same right margin as this bubble.
+            val x = if (pointer == HintPointer.LOGIN) size.width - 24.dp.toPx() else size.width / 2f
+            val base = if (pointer == HintPointer.LOGIN) top + 1f else bodyHeight - 1f
+            drawPath(Path().apply {
+                moveTo(x - 10.dp.toPx(), base)
+                lineTo(x, if (pointer == HintPointer.LOGIN) 0f else size.height)
+                lineTo(x + 10.dp.toPx(), base)
+                close()
+            }, color)
         }
+    }.clickable(onClickLabel = dismissLabel, onClick = onDismiss)
+        .padding(top = if (pointer == HintPointer.LOGIN) 12.dp else 0.dp,
+            bottom = if (pointer == HintPointer.FEEDS) 12.dp else 0.dp)
+        .padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
