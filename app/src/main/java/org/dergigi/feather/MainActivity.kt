@@ -184,6 +184,9 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     }
     val audioHeart by vm.audioHeart.collectAsStateWithLifecycle()
     val activityLifecycle by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    LaunchedEffect(appState.settingsEvent?.id, connectedSigner, activityLifecycle) {
+        vm.accountSettings.refresh(activityLifecycle.isAtLeast(Lifecycle.State.RESUMED))
+    }
     LaunchedEffect(audioHeart, connectedSigner, activityLifecycle) {
         val request = audioHeart ?: return@LaunchedEffect
         if (!activityLifecycle.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) return@LaunchedEffect
@@ -336,6 +339,17 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 vm.login(result.result.pubkey, result.result.packageName); showAccount = false; goHome()
             } else vm.message.value = "Could not connect the signer. Please try again."
         }
+    }
+    LaunchedEffect(showAccount, s.publicKey) {
+        if (showAccount && s.publicKey == null) {
+            showAccount = false
+            try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
+            catch (_: Exception) { vm.message.value = "Install an Android signer such as Amber first." }
+        }
+        if (s.publicKey == null) showSettings = false
+    }
+    LaunchedEffect(showSettings) {
+        if (showSettings && s.publicKey != null) vm.accountSettings.refresh(true, retry = true)
     }
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
         if (activePage) vm.loadMutes(s.pendingMuteList)
@@ -836,11 +850,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     } // Reaction actions.
     } // Per-visit saved UI state.
     if (showWallet && connectedSigner != null) WalletSheet(vm) { showWallet = false }
-    if (showSettings) {
+    if (showSettings && s.publicKey != null) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             CopyableMessageHost()
-            Settings(s, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
+            Settings(s, onChange = { sensitive, pow -> vm.changeSettings(sensitive, pow) }, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 onIssue = { type -> showSettings = false; vm.issues.open(type) },
                 onFeather = {
                     showSettings = false; showAccount = false
@@ -849,8 +863,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
-    if (showAccount) {
-        var error by remember { mutableStateOf<String?>(null) }
+    if (showAccount && s.publicKey != null) {
         ModalBottomSheet(onDismissRequest = { showAccount = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             CopyableMessageHost()
@@ -865,24 +878,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         FilledTonalIconButton(onClick = { showAccount = false; openProfile(key) }, modifier = Modifier.size(RoundControlSize)) { Icon(Icons.Default.Person, stringResource(R.string.ui_view_your_profile)) }
                         IconButton(onClick = { vm.logout(); showAccount = false; goHome() }) { Icon(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.ui_disconnect_account)) }
-                    }
-                } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
-                        FilledTonalIconButton(onClick = { showAccount = false; showSettings = true }, modifier = Modifier.size(RoundControlSize)) {
-                            Icon(Icons.Default.Settings, stringResource(R.string.ui_settings), Modifier.size(28.dp))
-                        }
-                        FilledTonalIconButton(onClick = {
-                            try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
-                            catch (_: Exception) { error = "Install an Android signer such as Amber first." }
-                        }, modifier = Modifier.size(RoundControlSize)) {
-                            Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in_with_an_android_signer), Modifier.size(28.dp))
-                        }
-                    }
-                }
-                error?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://zapstore.dev/apps/com.greenart7c3.nostrsigner"))) }) {
-                        Text(stringResource(R.string.ui_get_amber))
                     }
                 }
             }
@@ -1320,7 +1315,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 }
 
 @Composable
-private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
+private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -1356,10 +1351,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             Text(stringResource(R.string.ui_show_nsfw), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = state.showSensitive, onCheckedChange = { show ->
-                scope.launch {
-                    runCatching { (context.applicationContext as FeatherApplication).repository.showSensitive(show) }
-                        .onFailure { AppMessages.show("Could not save content setting") }
-                }
+                onChange(show, null)
             }, modifier = Modifier.semantics { contentDescription = "Show NSFW and content-warning tagged content" })
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1367,10 +1359,7 @@ private fun Settings(state: FeedState, onLogout: () -> Unit, onWallet: () -> Uni
             Spacer(Modifier.width(16.dp))
             Text("PoW", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             Switch(checked = state.proofOfWork, onCheckedChange = { enabled ->
-                scope.launch {
-                    runCatching { (context.applicationContext as FeatherApplication).repository.proofOfWork(enabled) }
-                        .onFailure { AppMessages.show("Could not save proof-of-work setting") }
-                }
+                onChange(null, enabled)
             }, modifier = Modifier.semantics { contentDescription = "Proof of work for posts and emoji reactions" })
         }
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

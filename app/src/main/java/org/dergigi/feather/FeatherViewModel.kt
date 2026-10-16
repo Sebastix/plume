@@ -67,6 +67,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     internal val zapCelebrations = MutableStateFlow<Map<String, Long>>(emptyMap())
     private var zapCelebrationSequence = 0L
     internal val signerRequests = SignerRequests()
+    internal val accountSettings by lazy { AccountSettings(getApplication(), viewModelScope, repo, { signer.value }, signerRequests) { message.value = it } }
+    internal fun changeSettings(sensitive: Boolean? = null, pow: Boolean? = null) = viewModelScope.launch {
+        try { accountSettings.change(sensitive, pow) }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { message.value = "Settings: ${e.message}" }
+    }
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()

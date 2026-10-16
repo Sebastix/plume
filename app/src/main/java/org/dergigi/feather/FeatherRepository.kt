@@ -66,6 +66,7 @@ data class FeedState(
     val recentEmojis: List<String> = emptyList(),
     val customEmojis: List<ReactionChoice> = emptyList(),
     val mutedAuthors: Set<String> = emptySet(),
+    val settingsEvent: Event? = null,
     val showSensitive: Boolean = false,
     val proofOfWork: Boolean = true,
     val pendingMuteList: Event? = null,
@@ -108,20 +109,23 @@ class FeatherRepository(context: Context) {
     @Volatile private var engagementIds: List<String> = emptyList()
     @Volatile private var engagementApps: List<String> = emptyList()
     private val _state = MutableStateFlow(FeedState(
-        showSensitive = prefs.getBoolean("show-sensitive", false),
-        proofOfWork = prefs.getBoolean("proof-of-work", true),
+        showSensitive = prefs.getString("pubkey", null)?.let { prefs.getBoolean("show-sensitive:$it", prefs.getBoolean("show-sensitive", false)) } ?: false,
+        proofOfWork = prefs.getString("pubkey", null)?.let { prefs.getBoolean("proof-of-work:$it", prefs.getBoolean("proof-of-work", true)) } ?: true,
         publicKey = prefs.getString("pubkey", null)?.takeIf { !prefs.getString("signer", null).isNullOrBlank() }, signerPackage = prefs.getString("signer", null)?.takeIf { it.isNotBlank() },
     ))
-    suspend fun showSensitive(show: Boolean) = withContext(Dispatchers.IO) {
-        check(prefs.edit().putBoolean("show-sensitive", show).commit()) { "Could not save content setting" }
-        _state.update { it.copy(showSensitive = show) }
+    internal suspend fun applyAccountSettings(owner: String, sensitive: Boolean, pow: Boolean) = withContext(Dispatchers.IO) {
+        if (state.value.publicKey != owner) return@withContext
+        check(prefs.edit().putBoolean("show-sensitive:$owner", sensitive).putBoolean("proof-of-work:$owner", pow).commit())
+        _state.update { if (it.publicKey == owner) it.copy(showSensitive = sensitive, proofOfWork = pow) else it }
         feedDiscoveryAt = 0L
         threadChanges.tryEmit(Unit)
         changed.tryEmit(Unit)
     }
-    suspend fun proofOfWork(enabled: Boolean) = withContext(Dispatchers.IO) {
-        check(prefs.edit().putBoolean("proof-of-work", enabled).commit()) { "Could not save proof-of-work setting" }
-        _state.update { it.copy(proofOfWork = enabled) }
+    internal suspend fun publishSettings(event: Event): Boolean = withContext(Dispatchers.IO) {
+        check(event.pubKey == state.value.publicKey && event.kind == 30078 && event.tagValue("d") == SETTINGS_D && event.verify())
+        val confirmed = publishReactionEvent(event, event.pubKey, event.pubKey)
+        if (confirmed) accept(event)
+        confirmed
     }
     val state: StateFlow<FeedState> = _state.asStateFlow()
     private val threadProgress = ThreadProgress(scope) { target, parent, loading ->
@@ -229,6 +233,12 @@ class FeatherRepository(context: Context) {
         }
     }
     init {
+        // Migrate legacy device preferences only to the currently connected account.
+        state.value.publicKey?.let { owner ->
+            prefs.edit().putBoolean("show-sensitive:$owner", state.value.showSensitive)
+                .putBoolean("proof-of-work:$owner", state.value.proofOfWork).apply()
+        }
+        prefs.edit().remove("show-sensitive").remove("proof-of-work").apply()
         client.disconnect()
         prefs.edit().remove("relays").remove("draft").remove("draftReply").remove("pending").apply()
         if (_state.value.publicKey == null) prefs.edit().remove("pubkey").remove("signer").apply()
@@ -430,6 +440,7 @@ class FeatherRepository(context: Context) {
                     Filter(authors = listOf(key), kinds = listOf(10000), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(10030), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(10063), limit = 1) +
+                    Filter(authors = listOf(key), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1) +
                     Filter(authors = listOf(key), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1)
             }
             client.subscribe("account", routes, listener)
@@ -637,7 +648,8 @@ class FeatherRepository(context: Context) {
 
     private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
-        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind == 30078 && (event.pubKey != state.value.publicKey || event.tagValue("d") != SETTINGS_D || event.content.length > 8192)) return false
+        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10000, 10002, 10030, 10063, 30030, 30078)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         if (event.kind == 17 && !isPodcastActivity(event)) return false
         mutex.withLock {
             val cached = verified[event.id]
@@ -895,6 +907,10 @@ class FeatherRepository(context: Context) {
         deletedReactions = reactionDeletions.deleted()
         rememberDeleted(cachedViewEvents())
         val key = _state.value.publicKey
+        val settings = key?.let { owner -> mutex.withLock {
+            db.query<Event>(Filter(authors = listOf(owner), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1)).firstOrNull()
+        } }
+        _state.update { if (it.publicKey == key) it.copy(settingsEvent = settings) else it }
         val thread = viewedThread
         val ancestorLimit = threadAncestorLimit
         val requestedParent = threadRequestedParent
@@ -1136,7 +1152,7 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(kinds = listOf(0), authors = homeAuthors, limit = homeAuthors.size)).map { it.id }
         val protected = recentThreads.protectedIds() + accountRecords + homeNotes.map { it.id } +
             homeNotes.mapNotNull(::repostTarget).map { it.id } + homeProfiles
-        for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30030 to 64)) {
+        for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10030 to 8, 10063 to 8, 30078 to 32, 30030 to 64)) {
             var unprotected = 0
             val evict = mutableListOf<String>()
             // Raw rows avoid decoding every event's tags/content merely to evict it.
@@ -1481,7 +1497,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
+        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
         ready.await(); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
@@ -1489,7 +1505,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(publicKey = null, signerPackage = null, following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
+        _state.update { it.copy(publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS, ProfileTab.REPLIES), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
         threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     fun feedTab(tab: ProfileTab) {

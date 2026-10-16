@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-10-16
+
+### Added
+- Sync per-account NSFW and PoW settings over Nostr using encrypted NIP-78 app data, with local persistence and bounded publishing retries. Cache limits and wallet credentials stay on the device.
+
+### Changed
+- Logged-out account buttons open the Android signer directly. Settings are available only when logged in; logging out restores guest defaults.
+
 ## [0.66.1] - 2026-10-16
 
 ### Added
