@@ -114,6 +114,8 @@ internal class AccountSettings(
                     write(owner, latest)
                 } else wake.trySend(Unit)
             }
+            // Reconcile a newer remote edit that may have arrived while this one was offline.
+            wake.trySend(Unit)
             return
         }
         if (remote == null || remote.id == local.optString("id") || remote.createdAt < local.optLong("time") ||
