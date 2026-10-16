@@ -1383,3 +1383,8 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 28s. No tests or emulators run; image quality and keyboard interaction await device confirmation.
 - APK SHA-256 `de44f77526be3c0e2d2ea3405e4e43f0518717c1d090e44b724308e4181769bc`; 15,775,785 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `b82ebff946dbfe876e8274cec8049f83942500853885f8c7b8df46c67a7bbb9e` and asset `4f26d1abcb9568d1b42299e7cdd6a9b1a3ece1c7e90105e77d2f86897521dde1` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — external keyboard website feature
+
+- Added an explicitly requested Native Android feature for external keyboards, addressing mechanical keyboard enthusiasts and listing Ctrl/Cmd+N, Ctrl/Cmd+Enter, arrow movement, Shift selection and Tab navigation. Added a matching keyboard icon and subtle shortcut keycaps.
+- Deployed source `88247d0` to feather.dergigi.com with Vercel CLI 64.4.0 after the installed CLI was rejected as outdated. Live HTML and CSS return HTTP 200 and match the local source exactly. No app build, tests or emulator run.
