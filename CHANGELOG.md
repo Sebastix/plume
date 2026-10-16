@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Use the Feather silhouette as the lockscreen and notification audio player's app icon instead of the default play icon.
+
 ## [0.65.0] - 2026-10-16
 
 ### Added
