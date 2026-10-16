@@ -1348,3 +1348,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - The exit listener published measured icon bounds and immediately removed the system splash, allowing a previously composed 288dp fallback feather to appear before the measurement reached Compose. Scaling the artwork made this transient size difference more visible.
 - Keep the system splash until the visible tutorial feather draws with the captured bounds and measured window origin. Capture geometry per composition so an older frame cannot acknowledge newer measurements. Each activity gets a fresh handoff; removal is posted outside drawing, bypasses completed/skipped onboarding, and has a 1.5s safety bound independent of network loading.
 - Source review only. No build, tests or emulator run; startup appearance awaits device confirmation after a release is requested.
+
+## 2026-10-16 — 0.69.5 release
+
+- Version 0.69.5 (136), source `e13d4ad2824ae5cb6207b887b31d6c41bb985605`. Ships the bounded splash-to-tutorial handoff above and recolors only the vector's named body path, preserving its white stem on colored pages.
+- Signed release build passed including lint/R8 in 23s. No tests or emulators run; startup continuity and tutorial artwork await device confirmation.
+- APK SHA-256 `30b821d2033da0114fe5eda21a9aa03f2057100de01fa8d1e9758b6907efd8ad`; 15,775,789 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `0ae04c12dccd2200e17dcc11f8aaa98a59ac2fc53c13f340d9e25959ad0c5a54` and asset `a778d5cfd4fdb52c92128750ea4099465c0e374def10204b8d0721f193b03e56` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
