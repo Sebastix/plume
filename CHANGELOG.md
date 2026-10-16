@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Match the tutorial feather to Android's splash artwork scale so its size stays consistent during the handoff.
+
 ## [0.69.3] - 2026-10-16
 
 ### Fixed

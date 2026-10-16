@@ -2,6 +2,7 @@ package org.dergigi.feather
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.drawable.AdaptiveIconDrawable
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -56,6 +57,10 @@ import kotlin.math.sin
 
 internal data class FirstUse(val welcome: Boolean = false, val swipe: Boolean = false)
 internal data class LaunchIcon(val x: Int, val y: Int, val width: Int, val height: Int)
+
+// Android's splash wraps our vector in an adaptive foreground, enlarged inside the icon view.
+// Match that artwork scale as well as the measured view bounds when handing off to the tutorial.
+private val SplashForegroundScale = 1f + 2f * AdaptiveIconDrawable.getExtraInsetFraction()
 
 /** Device-local education, deliberately separate from account preferences. */
 internal class Onboarding(context: Context, private val scope: CoroutineScope) {
@@ -158,6 +163,8 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
                 Modifier.offset { IntOffset(startX.roundToInt(), startY.roundToInt()) }
                     .size(with(density) { width.toDp() }, with(density) { height.toDp() })
                     .graphicsLayer {
+                        scaleX = SplashForegroundScale
+                        scaleY = SplashForegroundScale
                         val progress = fall.value
                         translationX = sin(progress * PI * 3).toFloat() * screenWidth * .1f
                         translationY = progress * (screenHeight - startY + height)
