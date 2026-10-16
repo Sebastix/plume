@@ -1250,3 +1250,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed, including lint/R8. No tests or emulator runs. Flight-mode startup, system seek/speed placement, notification-to-note navigation and signer handoff require device confirmation.
 - APK SHA-256 `0f1e4216a1c8a1f77fc1780e6efb38d10a3d794940dac73e09b3d35c11283106`; 15,680,877 bytes. Packaged version, embedded commit and signing certificate verified; compressed mapping archived locally. GitHub digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `c9a200d5d6faae342efebc444ebfc15d89a3c7a9f9b52621330d26ac153f00bb` and asset `44c36785849f8c81327a568986c91c4fe4f68633926139ee5b2af4508cce5969` retrieved with signature verification. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.66.0 release
+
+- Version 0.66.0 (124), source `0756759900aa2db920b5fc732b1c7575ae1e6cee`. Initial Japanese localization: 121 standard resource strings for core UI labels, common icon descriptions, selection reply and system audio controls. Android selects `values-ja` automatically, with English in `values/strings.xml` as fallback. Technical diagnostics and some dynamic accessibility descriptions remain English. Future UI strings should use these resources rather than Kotlin literals.
+- Media notifications use a monochrome Feather silhouette. All eight speed icons include an x suffix and share numeral scale and stroke weight.
+- Signed release build passed including lint/R8 in 1m 20s. No tests or emulator runs. Japanese layout/wording and system icon appearance await device feedback.
+- APK SHA-256 `d23f53592c796c02819f1c1dec38f896116c334a1d33bbcfc06b3bd7fb3dcf6b`; 15,739,057 bytes. Version, embedded source commit, v2 signature and certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `a9db9403ed66b4a3d3f5779de93c7a8f44cad3b8460c400d1dbee8d362c75089` and asset `95fcc8d96c8e66edc690670c12bd071586a8bc3f9f54bca763fa91da2445de0e` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN returns HTTP 200. No website deployment.
