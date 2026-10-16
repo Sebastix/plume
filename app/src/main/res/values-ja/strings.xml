@@ -122,4 +122,8 @@
     <string name="ui_heart_sent">オレンジのハートでリアクション済み</string>
     <string name="ui_heart_send">オレンジのハートでリアクション</string>
     <string name="ui_copied">コピーしました</string>
+    <string name="ui_skip_welcome">ようこそ画面をスキップ</string>
+    <string name="ui_dismiss_hint">ヒントを閉じる</string>
+    <string name="ui_hint_swipe">左右にスワイプしてフィードを切り替えられます。</string>
+    <string name="ui_hint_actions">ハートを長押しすると絵文字を、稲妻を長押しするとZapの金額を選べます。</string>
 </resources>

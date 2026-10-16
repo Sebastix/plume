@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,9 @@ import kotlinx.coroutines.flow.first
 @Composable
 internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, home: ReaderEntry) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val firstUse by vm.onboarding.state.collectAsStateWithLifecycle()
+    val welcomeAllowed by vm.onboarding.allowed.collectAsStateWithLifecycle()
+    val welcoming = welcomeAllowed && state.publicKey == null && firstUse?.welcome != true
     val walletConnected by vm.wallet.store.connected.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val mediaStore = (LocalContext.current.applicationContext as FeatherApplication).media
@@ -93,6 +97,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     LaunchedEffect(home.tab, state.publicKey) { vm.repo.viewNotifications(home.tab == ProfileTab.NOTIFICATIONS && state.publicKey != null) }
     DisposableEffect(home.key) { onDispose { vm.repo.viewNotifications(false) } }
     Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().then(if (welcoming) Modifier.clearAndSetSemantics {} else Modifier)) {
     HorizontalPager(
         state = pager,
         key = { tabs[it].name },
@@ -206,14 +211,41 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         targetValue = if (scrolling) 0.4f else 1f,
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
-    FeatherComposeButton(onClick = {
-        if (state.publicKey == null) {
-            if (home.tab == ProfileTab.SEARCH) scope.launch { pager.animateScrollToPage(tabs.indexOf(ProfileTab.POSTS)) }
-            accountRequested = true
-        } else vm.openReply()
+    if (state.publicKey != null) FeatherComposeButton(onClick = {
+        vm.openReply()
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
         .graphicsLayer { alpha = featherAlpha.value; compositingStrategy = CompositingStrategy.ModulateAlpha },
         showShadow = !scrolling && featherAlpha.value == 1f)
+    } // Feed content remains mounted and loads behind the first-launch veil.
+    val hintList = home.feedPage(home.tab).list
+    val hintScrolling = hintList.isScrollInProgress || pager.isScrollInProgress
+    var readSomeContent by remember { mutableStateOf(false) }
+    LaunchedEffect(hintList.firstVisibleItemIndex, hintList.firstVisibleItemScrollOffset, welcoming) {
+        if (!welcoming && (hintList.firstVisibleItemIndex > 0 || hintList.firstVisibleItemScrollOffset > 100)) readSomeContent = true
+    }
+    LaunchedEffect(home.tab, welcoming) {
+        if (!welcoming && home.tab != ProfileTab.POSTS) vm.onboarding.dismiss("swipe")
+    }
+    val hint = when {
+        welcoming || firstUse == null || hintScrolling || !home.toolbar -> null
+        firstUse?.swipe == false -> "swipe"
+        firstUse?.actions == false && state.publicKey != null && readSomeContent && home.tab == ProfileTab.POSTS -> "actions"
+        else -> null
+    }
+    var showHint by remember { mutableStateOf(false) }
+    var displayedHint by remember { mutableStateOf("swipe") }
+    LaunchedEffect(hint) { showHint = false; if (hint != null) { kotlinx.coroutines.delay(700); displayedHint = hint; showHint = true } }
+    AnimatedVisibility(showHint && hint != null,
+        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 144.dp),
+        enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
+        val key = displayedHint
+        FirstUseHint(stringResource(if (key == "swipe") R.string.ui_hint_swipe else R.string.ui_hint_actions),
+            onDismiss = { showHint = false; vm.onboarding.dismiss(key) })
+    }
+    if (welcoming) {
+        if (firstUse == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+        else WelcomeFlight(vm.onboarding) { accountRequested = true }
+    }
     }
 }
 

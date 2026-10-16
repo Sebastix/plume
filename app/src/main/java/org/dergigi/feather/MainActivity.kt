@@ -96,6 +96,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        composerModel.onboarding.allowed.value = intent.action == null || intent.action == Intent.ACTION_MAIN
+        if (android.os.Build.VERSION.SDK_INT >= 31) splashScreen.setOnExitAnimationListener { splash ->
+            splash.iconView?.let { icon ->
+                val location = IntArray(2)
+                icon.getLocationInWindow(location)
+                if (icon.width > 0 && icon.height > 0) composerModel.onboarding.icon.value = LaunchIcon(location[0], location[1], icon.width, icon.height)
+            }
+            splash.remove()
+        }
         receiveMedia(intent)
         receiveNostrLink(intent)
         setContent {
@@ -116,6 +125,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.action in listOf(Intent.ACTION_VIEW, Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE))
+            composerModel.onboarding.allowed.value = false
         receiveMedia(intent)
         receiveNostrLink(intent)
     }
@@ -438,7 +449,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }
         },
         floatingActionButton = {
-            if (screen == "profile" && profileKey != null) {
+            if (screen == "profile" && profileKey != null && s.publicKey != null) {
                 val opacity by androidx.compose.animation.core.animateFloatAsState(
                     if (activeListState.isScrollInProgress) 0.4f else 1f, tween(180), label = "Profile feather scroll opacity")
                 FeatherComposeButton(onClick = {

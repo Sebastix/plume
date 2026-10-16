@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-10-16
+
+### Added
+- First-launch welcome: login gently appears while the splash feather drifts away, revealing the feed already loading underneath. Skippable, respects disabled animations and never replays after completion.
+- Brief, dismissible hints for swiping feeds and long-pressing reaction/zap controls, remembered on the device.
+
+### Changed
+- Hide the compose floating action button on the main feed and profiles while logged out.
+
 ### Changed
 - Website features now highlight the dedicated Podcasts tab, value-for-value and Podcasting 2.0 discovery, and background playback with lockscreen controls.
 

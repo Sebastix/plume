@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 
 class FeatherViewModel(application: Application) : AndroidViewModel(application) {
     val repo = (application as FeatherApplication).repository
+    internal val onboarding = Onboarding(application, viewModelScope)
     val state = repo.state
     val message = MutableStateFlow<String?>(null)
     internal val audioHeart = MutableStateFlow<Pair<Event, String>?>(null)
