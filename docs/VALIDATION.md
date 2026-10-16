@@ -1301,3 +1301,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed including lint/R8 in 26s. No tests or emulators run; signer handoff remains for device verification.
 - APK SHA-256 `757ece90781b53d79c0c0f0b8abf7eed449475bc85d0873736309b1b4c10f039`; 15,759,165 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
 - Signed Zapstore release `91f14afa3c9c62a18797bd0038f74391693429fdaf20fc1e8e0e1fc5361d1bf0` and asset `464590dcabb8d55488f22760e0b9d98550b99a584233266ebb7b43325412c8d4` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-16 — 0.69.0 release
+
+- Version 0.69.0 (131), source `89842d35a5804fd155c99c8d2b8f584dd44d56e8`. Notification filters join the existing encrypted NIP-78 settings payload as stable category names, reusing per-account local persistence and bounded settings publishing. Missing filter fields in older payloads retain the local selection; unknown category names are ignored. Explicit filter edits check the originating account. Detail toolbar order is copy, open in app, share.
+- Signed release build passed including lint/R8 in 23s. No tests or emulators run. Cross-device filter synchronization and signer interaction await device verification.
+- APK SHA-256 `58b4dc2af67996fd28d5d2a06a3c5ca27e0c3510fa50ae944d7ec426373ad149`; 15,775,545 bytes. Packaged version, embedded source and signing certificate verified. Compressed mapping archived. GitHub asset digest and GitHub/both GRASP source/tag refs match.
+- Signed Zapstore release `5844087d2e21c2438067d225dff25f6aef44ca2a5901881ae814ef77be659f68` and asset `e0076091dee4f20af186105529a090a142ac8429f3aab14c8b2a892b8f3f593e` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
