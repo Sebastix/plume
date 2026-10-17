@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-10-18
+
 ### Added
 - Native NIP-88 polls with their own feed/profile tab, single- and multiple-choice voting through the signer, closing times, and cached results from the poll’s advertised relays.
 
