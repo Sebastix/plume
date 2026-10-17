@@ -30,6 +30,7 @@ internal class ReaderEntry(
     var tab by mutableStateOf(tab)
     var toolbar by mutableStateOf(toolbar)
     var reference: NostrContent.Reference? = null
+    var hashtagAuthor: String? = null
     // Event objects are shared with the repository, never serialized into saved instance state.
     val notes = mutableMapOf<ProfileTab, List<Event>>()
     var topics: List<String> = emptyList()
@@ -53,7 +54,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
     val entries = mutableStateListOf<ReaderEntry>().apply { addAll(entries) }
     val current get() = entries.last()
     fun push(entry: ReaderEntry) {
-        if (entry.screen == current.screen && entry.target == current.target) return
+        if (entry.screen == current.screen && entry.target == current.target && entry.hashtagAuthor == current.hashtagAuthor) return
         entries.add(entry)
         // Bound retained event references; older destinations still restore from the repository.
         entries.dropLast(8).forEach { it.notes.clear(); it.topics = emptyList(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
@@ -82,12 +83,14 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 }) }
                 putStringArrayList("relays", ArrayList(entry.reference?.relays.orEmpty()))
                 putString("author", entry.reference?.author)
+                putString("hashtagAuthor", entry.hashtagAuthor)
                 entry.reference?.kind?.let { putInt("kind", it) }
             } }) },
             restore = { saved -> ReaderNavigation(saved.map { bundle ->
                 ReaderEntry(bundle.getString("screen")!!, bundle.getString("target"), bundle.getString("key")!!,
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
+                    entry.hashtagAuthor = bundle.getString("hashtagAuthor")
                     entry.threadPositioned = bundle.getBoolean("threadPositioned")
                     entry.expandedThreadParents = bundle.getStringArrayList("threadExpanded").orEmpty().takeLast(64)
                     entry.threadAncestorLimit = bundle.getInt("threadAncestorLimit", INITIAL_THREAD_ANCESTORS)

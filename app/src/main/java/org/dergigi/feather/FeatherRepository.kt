@@ -186,6 +186,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var profileLimit = 100
     @Volatile private var profileUntil: Long? = null
     @Volatile private var viewedHashtag: String? = null
+    @Volatile private var viewedHashtagAuthor: String? = null
     @Volatile private var hashtagUntil: Long? = null
     @Volatile private var viewedThread: String? = null
     @Volatile private var threadContext: Conversation? = null
@@ -500,7 +501,7 @@ class FeatherRepository(context: Context) {
         }, listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
-        viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it), listener) }
+        viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it, author = viewedHashtagAuthor), listener) }
         subscribeReadingData()
         subscribeNotifications()
         if (refreshTimeout?.isActive == true) return
@@ -1053,10 +1054,11 @@ class FeatherRepository(context: Context) {
                 .distinct().sortedBy { it.orderPriority }
         }.orEmpty()
         val hashtag = viewedHashtag
+        val hashtagAuthor = viewedHashtagAuthor
         val hashtagCeiling = hashtagUntil
         val hashtagCount = hashtagLimit
         val hashtagNotes = hashtag?.let { tag ->
-            timeline(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
+            timeline(Filter(kinds = listOf(1), authors = hashtagAuthor?.let(::listOf), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
         }.orEmpty()
         val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
         val notifications = if (viewingNotifications && key != null) mutex.withLock {
@@ -1167,7 +1169,7 @@ class FeatherRepository(context: Context) {
         references = refs
         embeddedIds = quoteIds + addressRefs.map { it.id }
         profileAuthors = authors
-        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || thread != viewedThread || ancestorLimit != threadAncestorLimit || requestedParent != threadRequestedParent || feed != selectedFeed || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
+        if (key != _state.value.publicKey || profile != viewedProfile || tab != profileTab || hashtag != viewedHashtag || hashtagAuthor != viewedHashtagAuthor || thread != viewedThread || ancestorLimit != threadAncestorLimit || requestedParent != threadRequestedParent || feed != selectedFeed || feedCeiling != feedUntil || profileCeiling != profileUntil || profileCount != profileLimit || hashtagCeiling != hashtagUntil || hashtagCount != hashtagLimit) { changed.tryEmit(Unit); return }
         emojiPackRequests = packs
         val lists = mutex.withLock { db.query<Event>(Filter(kinds = listOf(10002), limit = 1100)) }
             .associate { it.pubKey to Outbox.parse(it) }
@@ -1750,10 +1752,12 @@ class FeatherRepository(context: Context) {
             client.subscribe("thread-deletions", threadRelays(id).associate { it.normalizeRelayUrl() to deletions }, listener)
         }
     }
-    fun viewHashtag(tag: String?) {
-        if (viewedHashtag == tag) return
+    fun viewHashtag(tag: String?, author: String? = null) {
+        val scopedAuthor = author.takeIf { tag != null }
+        if (viewedHashtag == tag && viewedHashtagAuthor == scopedAuthor) return
         historyJob?.cancel()
         viewedHashtag = tag
+        viewedHashtagAuthor = scopedAuthor
         hashtagUntil = null
         hashtagLimit = 200
         changed.tryEmit(Unit)
@@ -1774,8 +1778,11 @@ class FeatherRepository(context: Context) {
     private fun followedHashtagFilters(tags: Set<String>, until: Long? = null) = state.value.relays.associate {
         it.normalizeRelayUrl() to listOf(Filter(kinds = listOf(1), tags = mapOf("t" to tags.take(256)), limit = 80, until = until))
     }
-    private fun hashtagFilters(tag: String, until: Long? = null) = state.value.relays.associate {
-        it.normalizeRelayUrl() to listOf(Filter(kinds = listOf(1), tags = mapOf("t" to listOf(tag)), limit = 80, until = until))
+    private fun hashtagFilters(tag: String, until: Long? = null, author: String? = null): Map<NormalizedRelayUrl, List<Filter>> {
+        val relays = if (author == null) state.value.relays.map { it.normalizeRelayUrl() }
+            else authorFilters(listOf(author), listOf(1), 80, until).keys.toList()
+        val filter = Filter(kinds = listOf(1), authors = author?.let(::listOf), tags = mapOf("t" to listOf(tag)), limit = 80, until = until)
+        return relays.associateWith { listOf(filter) }
     }
     @Synchronized
     fun older(author: String? = null): Boolean {
@@ -1786,9 +1793,10 @@ class FeatherRepository(context: Context) {
         val tab = profileTab
         val feed = selectedFeed
         val tag = viewedHashtag
+        val tagAuthor = viewedHashtagAuthor
         val account = state.value.publicKey
         val followedTagsAtStart = state.value.followedHashtags
-        fun sameScreen() = active && profile == viewedProfile && tab == profileTab && feed == selectedFeed && tag == viewedHashtag && viewedThread == null && account == state.value.publicKey && (feed != ProfileTab.POSTS || followedTagsAtStart == state.value.followedHashtags)
+        fun sameScreen() = active && profile == viewedProfile && tab == profileTab && feed == selectedFeed && tag == viewedHashtag && tagAuthor == viewedHashtagAuthor && viewedThread == null && account == state.value.publicKey && (feed != ProfileTab.POSTS || followedTagsAtStart == state.value.followedHashtags)
         _state.update { it.copy(loadingOlder = true) }
         historyJob = scope.launch(start = CoroutineStart.LAZY) {
             try {
@@ -1796,7 +1804,7 @@ class FeatherRepository(context: Context) {
                 if (!sameScreen()) return@launch
                 val current = state.value
                 val homeFeed = author == null && tag == null && feed == ProfileTab.POSTS
-                val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
+                val authors = if (tag != null) tagAuthor?.let(::listOf) else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
                 val kinds = if (author != null) tab.kinds else if (tag != null) listOf(1) else feed.feedKinds()
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
                     .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (homeFeed && it.matchesHashtags(current.followedHashtags)) || (it.kind == 9321 && it.tagValue("p") in authors) || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
@@ -1816,7 +1824,7 @@ class FeatherRepository(context: Context) {
                     }
                     found = found || received
                 } else if (!found) {
-                    val routes = if (homeFeed) homeFilters(authors, current.followedHashtags, oldest - 1) else if (tag != null) hashtagFilters(tag, oldest - 1) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
+                    val routes = if (homeFeed) homeFilters(authors, current.followedHashtags, oldest - 1) else if (tag != null) hashtagFilters(tag, oldest - 1, tagAuthor) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
                     if (routes.isEmpty()) return@launch
                     val complete = CompletableDeferred<Unit>()
                     val ended = java.util.concurrent.ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()

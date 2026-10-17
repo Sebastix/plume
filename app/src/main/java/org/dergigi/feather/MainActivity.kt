@@ -382,7 +382,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     fun activate(destination: ReaderEntry, clicked: Event? = null) {
         vm.repo.openReference(destination.reference)
-        vm.repo.viewHashtag(destination.target.takeIf { destination.screen == "hashtag" })
+        vm.repo.viewHashtag(destination.target.takeIf { destination.screen == "hashtag" }, destination.hashtagAuthor)
         vm.repo.viewProfile(destination.target.takeIf { destination.screen == "profile" })
         if (destination.screen == "profile") vm.repo.profileTab(destination.tab)
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
@@ -417,6 +417,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         }
         val destination = ReaderEntry(if (ref.hashtag != null) "hashtag" else if (ref.profile) "profile" else "thread", ref.hashtag ?: ref.id)
         destination.reference = ref.takeIf { ref.hashtag == null }
+        destination.hashtagAuthor = ref.author.takeIf { ref.hashtag != null }
         navigation.push(destination); activate(navigation.current)
     }
     fun openProfile(key: String) = openReference(NostrContent.Reference(key, profile = true))
@@ -561,7 +562,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     val retained = entry.notes[profileTab].orEmpty().filterNot(contentFilter::hides)
                     value = preparation to withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
-                    "hashtag" -> s.hashtagNotes.filter { event -> event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
+                    "hashtag" -> s.hashtagNotes.filter { event -> (entry.hashtagAuthor == null || event.pubKey == entry.hashtagAuthor) && event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
@@ -880,7 +881,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             items(topics, key = { "topic:$it" }) { tag ->
                                 ProfileTabRow(tabSpace, "topic:$tag", profileViewport) {
                                     Text("#$tag", Modifier.fillMaxWidth()
-                                        .clickable { openReference(NostrContent.Reference(tag, hashtag = tag)) }
+                                        .clickable { openReference(NostrContent.Reference(tag, hashtag = tag, author = profileKey.takeIf { screen == "profile" })) }
                                         .padding(horizontal = 24.dp, vertical = 16.dp),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.primary,
