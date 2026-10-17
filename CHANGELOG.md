@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Removed file size captions below composer attachment thumbnails and their extra spacing; upload progress still shows size.
+
 ## [0.73.1] - 2026-10-17
 
 ### Fixed

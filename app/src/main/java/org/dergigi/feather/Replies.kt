@@ -384,7 +384,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             val openGallery = LocalOpenGallery.current
             if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
-                Box(Modifier.width((images.size * 96 + 16).dp).height(if (current.uploads.any { it.url in images }) 144.dp else 112.dp)) {
+                Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
                     images.forEachIndexed { index, url ->
                         val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
                         val tile = Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp).clip(RoundedCornerShape(16.dp))
@@ -396,13 +396,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                                 val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
                                 openGallery(photos, photos.indexOf(url), expandAlbum = false)
                             }, "Attached image")
-                        current.uploads.find { it.url == url }?.let { attachment ->
-                            Text(attachmentSizeLabel(LocalContext.current, attachment.size, attachment.originalSize.takeIf { attachment.compressed }),
-                                modifier = Modifier.offset(x = (index * 96).dp, y = 116.dp).width(88.dp),
-                                fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+
                     }
                     images.forEachIndexed { index, url ->
                         IconButton(enabled = !busy,
