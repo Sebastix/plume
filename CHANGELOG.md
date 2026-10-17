@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- NWC pairing failures use the copyable error toast with the failed step, relay host, wallet error code, and sanitized stack trace.
+
 ### Changed
 - Author-filtered hashtag feeds show a single text title, “#hashtag by Name,” in the top bar; tap the header to open their profile.
 

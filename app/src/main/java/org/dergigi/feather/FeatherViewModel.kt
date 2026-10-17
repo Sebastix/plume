@@ -110,7 +110,10 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         walletJob = viewModelScope.launch {
             try { wallet.connect(raw, identity.pubKey) }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { walletError.value = "Could not connect. Check the connection and wallet permissions." }
+            catch (failure: WalletFailure) {
+                AppMessages.show(failure.message ?: "Wallet connection failed", failure.report ?: failure.message ?: "Wallet connection failed")
+            }
+            catch (failure: Exception) { AppMessages.show("NWC: ${walletErrorReason(failure)}") }
             finally { walletBusy.value = false }
         }
     }

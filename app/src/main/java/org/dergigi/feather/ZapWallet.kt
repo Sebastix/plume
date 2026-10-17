@@ -127,14 +127,44 @@ internal class ZapWallet(context: Context) {
         error("Too many Lightning redirects")
     }
     suspend fun connect(raw: String, owner: String) = withContext(Dispatchers.IO) {
-        val connection = WalletConnection.parse(raw)
+        var step = "Reading wallet connection"
+        var connection: WalletConnection? = null
         try {
-            val info = NwcWallet.request(connection, "get_info", JSONObject())
+            val parsed = WalletConnection.parse(raw)
+            connection = parsed
+            step = "Requesting wallet information (get_info)"
+            val info = NwcWallet.request(parsed, "get_info", JSONObject())
+            step = "Checking wallet payment permission"
             val methods = info.optJSONArray("methods")
             require(methods != null && (0 until methods.length()).any { methods.optString(it) == "pay_invoice" }) { "Wallet does not allow payments" }
             currentCoroutineContext().ensureActive()
+            step = "Saving wallet connection"
             store.save(raw, owner)
-        } finally { connection.secret.fill(0) }
+        } catch (failure: Exception) {
+            if (failure is CancellationException && failure !is TimeoutCancellationException) throw failure
+            currentCoroutineContext().ensureActive()
+            fun sanitized(text: String): String = walletErrorText(
+                if (raw.isNotEmpty()) text.replace(raw, "[connection redacted]") else text
+            )
+            val reason = if (failure is TimeoutCancellationException) "Wallet connection timed out"
+                else sanitized(failure.message?.takeIf { it.isNotBlank() } ?: failure.javaClass.simpleName)
+            val report = buildString {
+                appendLine("Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${BuildConfig.GIT_COMMIT}")
+                appendLine("Time: ${java.time.Instant.now()}")
+                appendLine("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+                appendLine("Operation: Connecting Nostr Wallet Connect")
+                appendLine("Step: $step")
+                connection?.relays?.forEach { appendLine("Wallet relay: ${walletErrorText(it)}") }
+                (failure as? WalletFailure)?.code?.let { appendLine("Wallet error code: ${sanitized(it)}") }
+                appendLine(reason)
+                appendLine()
+                val stack = failure.stackTraceToString().let {
+                    if (raw.isNotEmpty()) it.replace(raw, "[connection redacted]") else it
+                }
+                stack.take(24000).lineSequence().forEach { appendLine(sanitized(it)) }
+            }
+            throw WalletFailure("NWC: $step: $reason", (failure as? WalletFailure)?.code, report)
+        } finally { connection?.secret?.fill(0) }
     }
     /** True only when this call newly confirms payment; false for an already-paid journal entry. */
     suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long, comment: String = ""): Boolean = withContext(Dispatchers.IO) {
