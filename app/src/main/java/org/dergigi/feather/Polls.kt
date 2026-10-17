@@ -1,6 +1,14 @@
 package org.dergigi.feather
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +26,8 @@ import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal data class Poll(val options: List<Pair<String, String>>, val multiple: Boolean, val endsAt: Long?, val relays: List<String>)
-data class PollResults(val counts: Map<String, Int> = emptyMap(), val voters: Int = 0, val selected: Set<String> = emptySet(), val limited: Boolean = false)
+data class PollVoter(val author: String, val choices: Set<String>)
+data class PollResults(val counts: Map<String, Int> = emptyMap(), val voters: Int = 0, val selected: Set<String> = emptySet(), val limited: Boolean = false, val ballots: List<PollVoter> = emptyList())
 internal fun parsePoll(event: Event): Poll? {
     if (event.kind != 1068) return null
     val options = event.tags.filter { it.firstOrNull() == "option" }.mapNotNull {
@@ -50,10 +59,11 @@ internal fun tallyPoll(event: Event, responses: List<Event>, account: String?): 
         response.pubKey to relevant.mapNotNull { it.getOrNull(1)?.takeIf(ids::contains) }.toSet()
     }
     return PollResults(ids.associateWith { id -> votes.values.count { id in it } }, votes.values.count { it.isNotEmpty() },
-        votes[account].orEmpty(), responses.size >= 2000)
+        votes[account].orEmpty(), responses.size >= 2000,
+        votes.filterValues { it.isNotEmpty() }.map { (author, choices) -> PollVoter(author, choices) })
 }
 
-internal data class PollActions(val vote: (Event, Set<String>) -> Unit = { _, _ -> })
+internal data class PollActions(val votersVisible: (List<String>) -> Unit = {}, val vote: (Event, Set<String>) -> Unit = { _, _ -> })
 internal val LocalPollActions = staticCompositionLocalOf { PollActions() }
 
 @Composable
@@ -69,6 +79,8 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
     val poll = remember(event.id) { parsePoll(event) }
     val results = state.pollResults[event.id] ?: PollResults()
     val actions = LocalPollActions.current
+    var showVoters by remember(event.id) { mutableStateOf(false) }
+    if (showVoters && poll != null) PollVotersSheet(poll, results, state, actions, onReference) { showVoters = false }
     var selected by remember(event.id, state.publicKey, results.selected) { mutableStateOf(results.selected) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(event.id) {
@@ -111,11 +123,50 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(if (results.limited) R.string.ui_poll_votes_limited else R.string.ui_poll_votes, results.voters),
-                    Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Modifier.weight(1f).clickable(role = Role.Button, onClickLabel = stringResource(R.string.ui_poll_view_votes)) { showVoters = true }
+                        .padding(vertical = 14.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (closed) Text(stringResource(R.string.ui_poll_closed), style = MaterialTheme.typography.labelSmall)
                 else if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                 else FilledIconButton(onClick = { actions.vote(event, selected) }, enabled = selected.isNotEmpty() && selected != results.selected) {
                     Icon(Icons.Default.Check, stringResource(R.string.ui_poll_vote))
+                }
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PollVotersSheet(poll: Poll, results: PollResults, state: FeedState, actions: PollActions,
+    onReference: (NostrContent.Reference) -> Unit, onDismiss: () -> Unit) {
+    val list = rememberLazyListState()
+    val ballots = results.ballots
+    val labels = remember(poll) { poll.options.toMap() }
+    LaunchedEffect(list, ballots) {
+        snapshotFlow { list.layoutInfo.visibleItemsInfo.mapNotNull { item -> ballots.getOrNull(item.index)?.author }.distinct().take(24) }
+            .distinctUntilChanged().collect { actions.votersVisible(it) }
+    }
+    DisposableEffect(Unit) { onDispose { actions.votersVisible(emptyList()) } }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Text(stringResource(if (results.limited) R.string.ui_poll_votes_limited else R.string.ui_poll_votes, results.voters),
+            Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleMedium)
+        LazyColumn(state = list, modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            items(ballots, key = { it.author }) { ballot ->
+                val profile = state.profiles[ballot.author]
+                val name = profile?.name ?: FeatherRepository.shortKey(ballot.author)
+                Row(Modifier.fillMaxWidth().clickable {
+                    onDismiss()
+                    onReference(NostrContent.Reference(ballot.author, profile = true))
+                }.padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Avatar(name, size = 36, picture = profile?.picture)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                        Text(ballot.choices.mapNotNull(labels::get).joinToString(" · "), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }

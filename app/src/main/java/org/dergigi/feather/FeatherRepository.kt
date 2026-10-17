@@ -111,6 +111,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var publishingAuthor: String? = null
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
+    @Volatile private var pollVoterAuthors: List<String> = emptyList()
     @Volatile private var visiblePolls: List<Event> = emptyList()
     @Volatile private var engagementIds: List<String> = emptyList()
     @Volatile private var engagementApps: List<String> = emptyList()
@@ -1132,7 +1133,7 @@ class FeatherRepository(context: Context) {
             db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 6, 16, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
                 engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) }).distinctBy { it.id }
         }
-        val authors = (activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
+        val authors = (pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
         val profiles = cachedProfiles(authors)
@@ -1200,7 +1201,7 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(pollResults = (it.pollResults + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
@@ -1340,6 +1341,11 @@ class FeatherRepository(context: Context) {
             if (accepted) return true
         }
         return false
+    }
+
+    internal fun pollVotersVisible(authors: List<String>) {
+        val next = authors.distinct().take(24)
+        if (pollVoterAuthors != next) { pollVoterAuthors = next; changed.tryEmit(Unit) }
     }
 
     internal fun voting(id: String, busy: Boolean) {

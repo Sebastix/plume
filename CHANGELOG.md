@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Tap a poll’s vote count to see voters and their selected options, with avatars and profile links.
+
 ### Fixed
 - Show poll images and videos through the regular media renderer, hide rendered media URLs, and open images in the full-screen gallery. Poll questions use note-style selectable rich text, mentions, hashtags, links, and inline quoted notes.
 - Render Primal polls whose option IDs contain UUID hyphens; preserve the original IDs when voting.

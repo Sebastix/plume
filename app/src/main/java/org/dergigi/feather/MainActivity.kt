@@ -459,7 +459,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalPollActions provides PollActions { note, choices ->
+    CompositionLocalProvider(LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
         if (s.publicKey == null) showAccount = true else vm.vote(note, choices)
     }, LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)

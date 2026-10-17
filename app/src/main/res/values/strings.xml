@@ -144,4 +144,5 @@
     <string name="ui_poll_votes_limited">%1$d votes · partial results</string>
     <string name="ui_poll_closed">Closed</string>
     <string name="ui_poll_vote">Vote</string>
+    <string name="ui_poll_view_votes">View votes</string>
 </resources>
