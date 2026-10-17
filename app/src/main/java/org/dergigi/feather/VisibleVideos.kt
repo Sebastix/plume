@@ -17,14 +17,15 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.*
 
-/** Main-thread-only, process-local resume points shared across reader destinations. */
-private object VideoPositions {
-    private val positions = linkedMapOf<String, Long>()
-    fun get(url: String): Long? = positions[url]
-    fun put(url: String, position: Long) {
-        positions.remove(url)
-        positions[url] = position.coerceAtLeast(0L)
-        while (positions.size > 64) positions.remove(positions.keys.first())
+/** Main-thread-only, process-local playback state shared across reader destinations. */
+private object VideoResumeStates {
+    data class State(val position: Long?, val volume: Float)
+    private val states = linkedMapOf<String, State>()
+    fun get(url: String): State? = states[url]
+    fun put(url: String, position: Long?, volume: Float) {
+        states.remove(url)
+        states[url] = State(position?.coerceAtLeast(0L), volume.coerceIn(0f, 1f))
+        while (states.size > 64) states.remove(states.keys.first())
     }
 }
 
@@ -166,6 +167,7 @@ class VisibleVideoPlayer(
         private set
     private var active = true
     private var resume = false
+    private var pendingVolume = VideoResumeStates.get(url)?.volume
     private var inlineView: PlayerView? = null
     private var fullscreenView: PlayerView? = null
 
@@ -179,12 +181,15 @@ class VisibleVideoPlayer(
                     if (size.width > 0 && size.height > 0) VideoRatios.put(url, size.width * size.pixelWidthHeightRatio / size.height)
                 }
                 override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                    if (active && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) started = true
+                    if (active && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
+                        if (!started && playWhenReady) restoreVolume()
+                        started = true
+                    }
                 }
                 override fun onPlayerError(error: PlaybackException) { onError(url) }
             })
             setMediaItem(MediaItem.Builder().setUri(url).setMimeType(mime).build())
-            VideoPositions.get(url)?.let { seekTo(it) }
+            VideoResumeStates.get(url)?.position?.let { seekTo(it) }
             prepare() // Media3 renders the first frame even with playWhenReady=false.
         }
         } catch (error: Exception) {
@@ -195,29 +200,37 @@ class VisibleVideoPlayer(
     fun promote() {
         if (started || !active) return
         started = true
+        restoreVolume()
         player?.play()
     }
     fun setActive(value: Boolean) {
         if (active == value) return
-        if (!value) rememberPosition()
+        if (!value) rememberPlayback()
         active = value
         if (!value) {
             resume = player?.playWhenReady == true
             player?.pause()
             player?.stop() // Release decoder/loading while covered or backgrounded; retain position.
         } else {
-            VideoPositions.get(url)?.let { player?.seekTo(it) }
+            VideoResumeStates.get(url)?.let { state ->
+                state.position?.let { player?.seekTo(it) }
+                if (started) setVolume(state.volume) else pendingVolume = state.volume
+            }
             player?.prepare()
             if (resume) player?.play()
         }
     }
-    private fun rememberPosition() {
+    private fun rememberPlayback() {
         val engine = player ?: return
         // Prepared neighbors must not replace a watched clip's position with zero.
         // Live streams should keep their default live position instead of an old offset.
-        if (active && started && !engine.isCurrentMediaItemLive) {
-            VideoPositions.put(url, engine.currentPosition)
+        if (active && started) {
+            VideoResumeStates.put(url, engine.currentPosition.takeUnless { engine.isCurrentMediaItemLive }, engine.volume)
         }
+    }
+    private fun restoreVolume() {
+        // Only restore sound when playback starts, not when preparing adjacent previews.
+        pendingVolume?.let { setVolume(it) }
     }
     fun enterFullscreen() {
         if (player == null || fullscreen) return
@@ -252,6 +265,7 @@ class VisibleVideoPlayer(
         if (fullscreenView === view) fullscreenView = null
     }
     fun setVolume(value: Float) {
+        pendingVolume = null
         val nextMuted = value <= 0f
         if (!nextMuted) onAudible(this)
         if (muted != nextMuted) player?.setAudioAttributes(AudioAttributes.DEFAULT, !nextMuted)
@@ -260,7 +274,7 @@ class VisibleVideoPlayer(
     }
     fun toggleMute() { setVolume(if (muted) 1f else 0f) }
     fun close() {
-        rememberPosition()
+        rememberPlayback()
         inlineView?.player = null; fullscreenView?.player = null
         inlineView = null; fullscreenView = null
         player?.release(); player = null

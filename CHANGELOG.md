@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Preserve video mute state and volume alongside playback position when opening a note or returning to the feed; prepared neighboring videos remain silent.
+
 ## [0.77.2] - 2026-10-17
 
 ### Fixed
