@@ -88,7 +88,7 @@ internal class ReplyStore(context: Context) {
             (0 until minOf(array.length(), 32)).mapNotNull { index ->
                 runCatching {
                     val item = array.getJSONObject(index)
-                    UploadedAttachment(item.getString("url"), item.getLong("originalSize"), item.getLong("size"))
+                    UploadedAttachment(item.getString("url"), item.getLong("originalSize"), item.getLong("size"), item.optBoolean("compressed", false))
                         .takeIf { it.url.length <= 2048 && it.originalSize in 1..250L * 1024 * 1024 && it.size in 1..250L * 1024 * 1024 }
                 }.getOrNull()
             }
@@ -109,7 +109,7 @@ internal class ReplyStore(context: Context) {
         val uploadEdit = uploads.edit()
         if (sizes.isEmpty()) uploadEdit.remove(key)
         else uploadEdit.putString(key, JSONArray(sizes.map {
-            JSONObject().put("url", it.url).put("originalSize", it.originalSize).put("size", it.size)
+            JSONObject().put("url", it.url).put("originalSize", it.originalSize).put("size", it.size).put("compressed", it.compressed)
         }).toString())
         uploads.all.keys.filter { it != key }.drop(15).forEach(uploadEdit::remove)
         check(uploadEdit.commit()) { "Could not save attachment sizes" }
@@ -397,7 +397,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                                 openGallery(photos, photos.indexOf(url), expandAlbum = false)
                             }, "Attached image")
                         current.uploads.find { it.url == url }?.let { attachment ->
-                            Text(attachmentSizeLabel(LocalContext.current, attachment.size, attachment.originalSize),
+                            Text(attachmentSizeLabel(LocalContext.current, attachment.size, attachment.originalSize.takeIf { attachment.compressed }),
                                 modifier = Modifier.offset(x = (index * 96).dp, y = 116.dp).width(88.dp),
                                 fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,

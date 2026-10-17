@@ -20,7 +20,9 @@ internal object ImagePrivacy {
     private const val COMPRESS_ABOVE = 2L * 1024 * 1024
     private const val PHOTO_EDGE = 2560
 
-    fun clean(source: File, destination: File, mime: String, preferLossless: Boolean = false, onCompress: () -> Unit = {}): String {
+    data class Result(val mime: String, val compressed: Boolean = false)
+
+    fun clean(source: File, destination: File, mime: String, preferLossless: Boolean = false, onCompress: () -> Unit = {}): Result {
         require(source.length() in 1..250L * 1024 * 1024) { "Image exceeds 250 MB" }
         val orientation = if (mime in setOf("image/jpeg", "image/png", "image/webp"))
             ExifInterface(source).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) else 1
@@ -43,10 +45,10 @@ internal object ImagePrivacy {
         } else null
         if (container.animated) {
             require(originalMime != null) { "Animated image exceeds 20 MB" }
-            return originalMime
+            return Result(originalMime)
         }
         val optimize = source.length() > COMPRESS_ABOVE
-        if (originalMime != null && (!optimize || destination.length() <= COMPRESS_ABOVE)) return originalMime
+        if (originalMime != null && (!optimize || destination.length() <= COMPRESS_ABOVE)) return Result(originalMime)
         val candidate = File.createTempFile("blossom-", ".image", destination.parentFile)
         try {
             if (optimize) onCompress()
@@ -56,12 +58,12 @@ internal object ImagePrivacy {
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 // Optional optimization must not reject an already sanitized, uploadable image.
-                if (originalMime != null) return originalMime
+                if (originalMime != null) return Result(originalMime)
                 throw e
             }
-            if (originalMime != null && destination.length() <= candidate.length()) return originalMime
+            if (originalMime != null && destination.length() <= candidate.length()) return Result(originalMime)
             candidate.copyTo(destination, overwrite = true)
-            return encodedMime
+            return Result(encodedMime, compressed = optimize && candidate.length() < source.length())
         } finally { candidate.delete() }
     }
 

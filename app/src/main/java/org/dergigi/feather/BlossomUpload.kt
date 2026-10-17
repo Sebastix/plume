@@ -29,7 +29,7 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
 }?.toString()?.trimEnd('/')
 
 internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Opening attachment", val originalSize: Long? = null)
-internal data class UploadedAttachment(val url: String, val originalSize: Long, val size: Long)
+internal data class UploadedAttachment(val url: String, val originalSize: Long, val size: Long, val compressed: Boolean = false)
 
 /** One bounded attachment at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
@@ -96,15 +96,16 @@ internal class BlossomUpload(private val context: Context) {
             val maxBytes = (if (image) 20L else 250L) * 1024 * 1024
             val originalSize = size
             onProgress(ImageUploadProgress(size, stage = "Removing metadata"))
-            val mime = if (image) ImagePrivacy.clean(original, file, bounds.outMimeType!!, preferLossless = isScreenshot(uri)) {
+            val prepared = if (image) ImagePrivacy.clean(original, file, bounds.outMimeType!!, preferLossless = isScreenshot(uri)) {
                 onProgress(ImageUploadProgress(originalSize, stage = "Compressing image"))
             }
-                else VideoPrivacy.clean(original, file) // Rejects files without a real video track.
+                else ImagePrivacy.Result(VideoPrivacy.clean(original, file)) // Rejects files without a real video track.
+            val mime = prepared.mime
             original.delete()
             currentCoroutineContext().ensureActive()
             size = file.length()
             require(size in 1..maxBytes) { "Processed $label exceeds ${maxBytes / 1024 / 1024} MB" }
-            fun progress(stage: String, percent: Int? = null) = onProgress(ImageUploadProgress(size, percent, stage, originalSize))
+            fun progress(stage: String, percent: Int? = null) = onProgress(ImageUploadProgress(size, percent, stage, originalSize.takeIf { prepared.compressed }))
             progress("Hashing $label")
             val digest = MessageDigest.getInstance("SHA-256")
             file.inputStream().use { input ->
@@ -148,7 +149,7 @@ internal class BlossomUpload(private val context: Context) {
                     continue
                 }
                 progress("Uploaded", 100)
-                if (first == null) { first = url; onUploaded(UploadedAttachment(url, originalSize, size)) }
+                if (first == null) { first = url; onUploaded(UploadedAttachment(url, originalSize, size, prepared.compressed)) }
             }
             Result(first ?: error("Media upload failed: ${failures.joinToString("; ")}"), failures)
         } finally { original.delete(); file.delete() }
