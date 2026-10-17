@@ -583,7 +583,14 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val groupedRows by key(profileTab) { produceState(visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed) {
                     value = withContext(Dispatchers.Default) {
                         if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
-                        else visibleNotes.map { ConversationRow(it.id, it) }
+                        else if (profileTab == ProfileTab.REPOSTS && screen in listOf("feed", "profile")) {
+                            visibleNotes.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+                                .mapNotNull { repost -> repostTarget(repost)?.let { it.id to repost } }
+                                .groupBy({ it.first }, { it.second })
+                                .map { (target, reposts) ->
+                                    ConversationRow(target, reposts.first(), reposts = reposts.distinctBy { it.pubKey })
+                                }
+                        } else visibleNotes.map { ConversationRow(it.id, it) }
                     }
                 } }
                 val displayRows = if (screen == "thread") threadView?.rows ?: visibleNotes.firstOrNull { it.matchesThread(threadId) }
@@ -657,9 +664,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 SideEffect { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
                 val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
-                val mediaKeys = remember(photoRows, bookmarkRows, s.embedded) {
+                val repostKeys = remember(displayRows) { displayRows.filter { it.reposts.isNotEmpty() }.associate { it.key to listOf(it.event!!.id) } }
+                val currentRepostKeys by rememberUpdatedState(repostKeys)
+                val mediaKeys = remember(photoRows, bookmarkRows, s.embedded, repostKeys) {
                     photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
-                        bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) }
+                        bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) } + repostKeys
                 }
                 val mediaNotes = if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS)
                     bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else if (screen == "thread" || groupFeed) displayedEvents else visibleNotes
@@ -670,7 +679,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 LaunchedEffect(activeListState, screen, activePage) {
                     if (!activePage) return@LaunchedEffect
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
-                        .distinctUntilChanged().collect { keys ->
+                        .distinctUntilChanged().collect { visibleKeys ->
+                            val keys = visibleKeys.flatMap { currentRepostKeys[it] ?: listOf(it) }
                             val last = currentNotes.indexOfLast { it.id in keys }
                             val first = currentNotes.indexOfFirst { it.id in keys }
                             val nearby = if (last >= 0) currentNotes.drop(last + 1).take(6) + currentNotes.take(first).takeLast(2) else emptyList()
@@ -913,7 +923,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
                                     if (note.kind == 30617) ProjectCard(note)
                                     else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
-                                    else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile) { original ->
+                                    else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile, row.reposts) { original ->
                                         openNote(original)
                                     } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
                                         compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
@@ -1002,33 +1012,59 @@ internal fun Avatar(name: String, size: Int = 36, picture: String? = null, onOpe
 }
 
 @Composable
-private fun RepostAttribution(repost: Event, state: FeedState, onProfile: () -> Unit) {
-    Row(Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Compact visual row; Compose expands the touch target to 48 dp. The
-        // 12 dp gap below keeps that expansion clear of the author's avatar.
-        Box(Modifier.width(48.dp).height(24.dp).clickable(onClickLabel = "View reposting profile", onClick = onProfile),
-            contentAlignment = Alignment.CenterStart) {
-            Icon(painterResource(R.drawable.repost), stringResource(R.string.ui_repost), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(state.profiles[repost.pubKey]?.name ?: FeatherRepository.shortKey(repost.pubKey),
-            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun RepostAttribution(reposts: List<Event>, state: FeedState, onProfile: (String) -> Unit) {
+    var showPeople by remember { mutableStateOf(false) }
+    val names = reposts.take(2).map { state.profiles[it.pubKey]?.name ?: FeatherRepository.shortKey(it.pubKey) }
+    val label = when (reposts.size) {
+        1 -> stringResource(R.string.ui_reposted_by_one, names.first())
+        2 -> stringResource(R.string.ui_reposted_by_two, names[0], names[1])
+        else -> stringResource(R.string.ui_reposted_by_more, names[0], names[1], reposts.size - 2)
+    }
+    Row(Modifier.fillMaxWidth().clickable {
+        if (reposts.size == 1) onProfile(reposts.first().pubKey) else showPeople = true
+    }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(painterResource(R.drawable.repost), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+    if (showPeople) AlertDialog(onDismissRequest = { showPeople = false },
+        title = { Text(stringResource(R.string.ui_repost)) },
+        text = {
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                items(reposts.size, key = { reposts[it].pubKey }) { index ->
+                    val author = reposts[index].pubKey
+                    val profile = state.profiles[author]
+                    val name = profile?.name ?: FeatherRepository.shortKey(author)
+                    Row(Modifier.fillMaxWidth().clickable { showPeople = false; onProfile(author) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Avatar(name, picture = profile?.picture)
+                        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }, confirmButton = {})
 }
 
 @Composable
 private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit,
-    onProfile: (String) -> Unit, onOpen: (Event) -> Unit) {
-    if (LocalContentFilter.current.hides(repost)) return
+    onProfile: (String) -> Unit, groupedReposts: List<Event> = emptyList(), onOpen: (Event) -> Unit) {
+    val filter = LocalContentFilter.current
+    if (filter.hides(repost)) return
     val target = remember(repost.id) { repostTarget(repost) } ?: return
+    if (filter.hides(target)) return
+    val people = groupedReposts.ifEmpty { listOf(repost) }.filterNot(filter::hides)
+    if (people.isEmpty()) return
     val original = state.embedded[target.id]?.takeIf { it.kind in readableKinds }
-    if (original != null) {
-        NoteRow(original, state, onReference, { onProfile(original.pubKey) }, { onOpen(original) }, repost = repost)
-    } else {
-        Column(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation") { onReference(target) }.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            RepostAttribution(repost, state) { onProfile(repost.pubKey) }
-            EmbeddedNote(target, null, state.profiles, repost.id, onReference)
+    Column {
+        Box(Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp)) {
+            RepostAttribution(people, state, onProfile)
+        }
+        if (original != null) {
+            NoteRow(original, state, onReference, { onProfile(original.pubKey) }, { onOpen(original) }, repost = repost)
+        } else {
+            Box(Modifier.fillMaxWidth().clickable(onClickLabel = "Read conversation") { onReference(target) }.padding(24.dp)) {
+                EmbeddedNote(target, null, state.profiles, repost.id, onReference)
+            }
         }
     }
 }
@@ -1068,10 +1104,6 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Offset(x, size.height), strokeWidth = 2.dp.toPx())
     } else Modifier).semantics { if (threadRow?.focused == true) stateDescription = "Selected note" }
         .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
-        if (repost != null) {
-            RepostAttribution(repost, state) { onReference(NostrContent.Reference(repost.pubKey, profile = true)) }
-            Spacer(Modifier.height(12.dp))
-        }
         Row(Modifier.padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onProfile, modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" }) {

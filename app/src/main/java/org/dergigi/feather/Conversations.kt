@@ -106,6 +106,7 @@ data class ConversationRow(
     val deletedCopy: Event? = null,
     val mutedCopy: Event? = null,
     val mutedTailStart: Boolean = false,
+    val reposts: List<Event> = emptyList(),
 )
 
 data class Conversation(
