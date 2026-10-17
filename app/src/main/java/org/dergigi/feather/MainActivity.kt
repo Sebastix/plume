@@ -598,6 +598,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     if (screen == "feed" && profileTab == ProfileTab.POSTS) {
                         entry.homeRows = value
                         entry.homeOrder = value.map { it.key }.distinct().take(1800)
+                        if (!s.loading) entry.homeRefresh = 0
                     }
                 } }
                 val displayRows = if (screen == "thread") threadView?.rows ?: visibleNotes.firstOrNull { it.matchesThread(threadId) }
