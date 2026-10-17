@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Read-only followed-hashtag tab combining kind-1 posts from the account’s NIP-51 interests, including private hashtag follows read through the connected signer.
+
 ## [0.75.0] - 2026-10-17
 
 ### Changed

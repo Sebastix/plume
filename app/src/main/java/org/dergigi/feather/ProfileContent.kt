@@ -18,7 +18,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     VOICE(voiceKinds, "Voice"), PODCASTS(podcastKinds, "Podcasts"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
     ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs"),
-    ISSUES(listOf(1621), "Issues");
+    ISSUES(listOf(1621), "Issues"), HASHTAGS(listOf(1), "Hashtags");
     internal val orderPriority: Int
         get() = when (this) {
             SEARCH -> -2
@@ -33,6 +33,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
         }
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
+        HASHTAGS -> false // Account-scoped feed only, never a public profile category.
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
         PODCASTS -> isPodcastActivity(event)
@@ -162,7 +163,7 @@ internal fun NostrContent.Reference.addressFilter(): com.vitorpamplona.quartz.ni
 /** Home uses the same categories as profiles, with reposts included on the Posts page. */
 internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) listOf(1, 6, 16) else kinds
 internal fun ProfileTab.matchesFeed(event: Event): Boolean =
-    if (this == ProfileTab.POSTS && event.kind in listOf(6, 16)) repostTarget(event) != null else matches(event)
+    if (this == ProfileTab.HASHTAGS) event.kind == 1 else if (this == ProfileTab.POSTS && event.kind in listOf(6, 16)) repostTarget(event) != null else matches(event)
 
 /** Lightning receipts use p/P; nutzaps use the sender author and recipient p tag. */
 internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFilters(): List<com.vitorpamplona.quartz.nip01Core.relay.filters.Filter> {

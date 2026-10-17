@@ -160,6 +160,26 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     val reacting = MutableStateFlow<Set<String>>(emptySet())
     internal val optimisticReactions = MutableStateFlow<Map<String, List<PendingReaction>>>(emptyMap())
+    private var hashtagJob: Job? = null
+    private var attemptedHashtags: String? = null
+    fun loadHashtags(event: Event?) {
+        val connected = signer.value ?: return
+        if (event == null || event.pubKey != connected.pubKey || attemptedHashtags == event.id) return
+        hashtagJob?.cancel()
+        attemptedHashtags = event.id
+        hashtagJob = viewModelScope.launch {
+            try { signerRequests.run { repo.decryptHashtagList(event, connected) } }
+            catch (_: TimeoutCancellationException) { message.value = "Followed hashtags could not be read. Pull to refresh to retry." }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { message.value = "Followed hashtags could not be read. Pull to refresh to retry." }
+        }
+    }
+    fun retryHashtags() {
+        if (hashtagJob?.isActive == true) return
+        attemptedHashtags = null
+        loadHashtags(state.value.pendingHashtagList)
+    }
+
     val decryptingMutes = MutableStateFlow(false)
     private var muteJob: Job? = null
     private var attemptedMute: String? = null
@@ -219,6 +239,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             state.map { it.publicKey to it.signerPackage }.distinctUntilChanged().collect { next ->
                 if (next != identity) {
                     cancelActions()
+                    hashtagJob?.cancel(); attemptedHashtags = null
                     muteJob?.cancel(); attemptedMute = null; decryptingMutes.value = false
                     signer.value = null
                     walletJob?.cancelAndJoin()
@@ -236,7 +257,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             .onFailure { message.value = "Could not connect the signer. Please try again." }
     }
     fun logout() = viewModelScope.launch {
-        cancelActions(); muteJob?.cancel()
+        cancelActions(); muteJob?.cancel(); hashtagJob?.cancel(); attemptedHashtags = null
         signer.value = null
         walletJob?.cancelAndJoin()
         walletDetails.value = WalletDetails(); walletError.value = null

@@ -445,6 +445,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(showSettings) {
         if (showSettings && s.publicKey != null) vm.accountSettings.retry()
     }
+    LaunchedEffect(s.pendingHashtagList?.id, connectedSigner, activePage) {
+        if (activePage) vm.loadHashtags(s.pendingHashtagList)
+    }
     LaunchedEffect(s.pendingMuteList?.id, connectedSigner, reacting, activePage) {
         if (activePage) vm.loadMutes(s.pendingMuteList)
     }
@@ -550,7 +553,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         when (screen) {
             else -> {
                 // A new input token is pending immediately, before the background effect starts.
-                val preparation = remember(entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, contentFilter) { Any() }
+                val preparation = remember(entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, s.followedHashtags, contentFilter) { Any() }
                 val preparedNotes by key(profileTab) { produceState<Pair<Any?, List<Event>>>(null to entry.notes[profileTab].orEmpty(), preparation) {
                     val retained = entry.notes[profileTab].orEmpty().filterNot(contentFilter::hides)
                     value = preparation to withContext(Dispatchers.Default) {
@@ -559,7 +562,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
-                        .filter { profileTab.matchesFeed(it) && (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following))) }.take(600)
+                        .filter { profileTab.matchesFeed(it) && (if (profileTab == ProfileTab.HASHTAGS) s.publicKey != null && it.matchesHashtags(s.followedHashtags) else (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following)))) }.take(600)
                     }
                     // Returning to a paginated profile must not discard its already displayed pages.
                     if (screen == "hashtag" && filtered.size < retained.size)
@@ -575,7 +578,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 } else preparedNotes.second
                 // Re-check retained/handoff state synchronously when a list changes. These are
                 // bounded in-memory key checks; no parsing, disk, or network work on main.
-                val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
+                val visibleNotes = remember(notes, contentFilter, profileTab, s.followedHashtags, s.publicKey) {
+                    notes.filterNot(contentFilter::hides).filter {
+                        profileTab != ProfileTab.HASHTAGS || (s.publicKey != null && it.matchesHashtags(s.followedHashtags))
+                    }
+                }
                 SideEffect { entry.notes[profileTab] = visibleNotes }
                 val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
                 SideEffect { if (threadView != null) entry.conversation = threadView }
@@ -733,7 +740,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 var refreshing by remember(screen) { mutableStateOf(false) }
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
-                    if (activePage && !s.loading) { entry.homeOrder = emptyList(); entry.homeRefresh++; requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes() }
+                    if (activePage && !s.loading) { entry.homeOrder = emptyList(); entry.homeRefresh++; requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes(); vm.retryHashtags() }
                 }
                 val initialViewport = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.roundToPx() }
                 var profileViewport by remember(entry.key) { mutableIntStateOf(initialViewport) }

@@ -66,7 +66,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     var tabs by remember(home.key) {
         mutableStateOf((listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) +
             home.tabs.ifEmpty { listOf(ProfileTab.POSTS, ProfileTab.REPLIES) }).distinct()
-            .filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }.sortedBy { it.orderPriority })
+            .filter { (it != ProfileTab.NOTIFICATIONS || state.publicKey != null) && (it != ProfileTab.HASHTAGS || (state.publicKey != null && (state.followedHashtags.isNotEmpty() || state.pendingHashtagList != null))) }.sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
     val currentTabs by rememberUpdatedState(tabs)
@@ -90,11 +90,11 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     }
     // Keep discovered pages available for the visit. Reorder only at rest and keep the
     // selected category anchored, rather than changing content underneath the user.
-    LaunchedEffect(state.feedTabs, state.publicKey) {
+    LaunchedEffect(state.feedTabs, state.publicKey, state.followedHashtags, state.pendingHashtagList?.id) {
         snapshotFlow { !pager.isScrollInProgress && home.requestedFeedTab == null }.first { it }
         run {
             val next = (listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) + state.feedTabs + tabs)
-                .distinct().filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }.sortedBy { it.orderPriority }
+                .distinct().filter { (it != ProfileTab.NOTIFICATIONS || state.publicKey != null) && (it != ProfileTab.HASHTAGS || (state.publicKey != null && (state.followedHashtags.isNotEmpty() || state.pendingHashtagList != null))) }.sortedBy { it.orderPriority }
             if (next != tabs) {
                 // Stable page keys keep the visible category anchored during insertion.
                 // Never scroll to home.tab here: it can lag behind a just-finished swipe.
@@ -297,6 +297,7 @@ internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifie
         return
     }
     val resource = when (category) {
+        ProfileTab.HASHTAGS -> R.drawable.hashtag
         ProfileTab.VOICE -> R.drawable.voice
         ProfileTab.PODCASTS -> R.drawable.podcast
         ProfileTab.REPLIES -> R.drawable.conversation

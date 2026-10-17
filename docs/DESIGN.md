@@ -96,7 +96,7 @@ Avoid adding a media proxy or backend to this release. Direct loading keeps the 
 
 ## Identity belongs to the signer
 
-Account access uses an Android NIP-55 signer such as Amber, exclusively. Login requests only the public identity. An explicit heart tap or picker selection requests signing of a kind-7 emoji reaction; a bolt tap requests a kind-9734 zap request and a 21-sat NWC payment; decryption requests are limited to the connected account’s private mute list and its own NIP-78 Feather preferences, through its signer. The separate wallet connection key encrypts NWC requests; identity-key encryption is requested only for explicit Feather preference updates (NIP-44 to self). Account creation and private-key management belong in the signer. A disconnected public feed is browsing, not an alternative login method.
+Account access uses an Android NIP-55 signer such as Amber, exclusively. Login requests only the public identity. An explicit heart tap or picker selection requests signing of a kind-7 emoji reaction; a bolt tap requests a kind-9734 zap request and a 21-sat NWC payment; decryption requests are limited to the connected account’s private mute list, kind-10015 followed-hashtag list, and its own NIP-78 Feather preferences, through its signer. The separate wallet connection key encrypts NWC requests; identity-key encryption is requested only for explicit Feather preference updates (NIP-44 to self). Account creation and private-key management belong in the signer. A disconnected public feed is browsing, not an alternative login method.
 
 Existing follows come from the account’s public contact list. Feather never changes those follows. Publishing is limited to explicit emoji reactions and zap requests.
 
@@ -304,3 +304,7 @@ Ctrl+Tab and Ctrl+Shift+Tab cycle through the current main-feed or profile tabs,
 ### Home composition
 
 Home combines ordinary kind-1 posts from the current feed scope with kind-6 and kind-16 reposts from that scope. Other kinds enter Home through explicit reposts, not broad discovery. Collapse direct posts and reposts of the same event into one original-content card; attribute each distinct reposter once and allow opening their profiles. Preserve existing thread grouping. Rank groups by latest qualifying activity on initial load and explicit refresh, retaining existing group order while reading. Use original event IDs as stable row keys, including while cached content resolves; reuse shared cache-first lookups for missing originals. Dedicated kind tabs and profile Posts retain their existing scope.
+
+### Followed hashtags
+
+A signed-in account with followed hashtags gets a # tab. Read public t tags and signer-decrypted private t tags from the latest kind-10015 NIP-51 interests list, matching Amethyst's current format. Never write the list or request unrelated private fields. Keep only parsed hashtag names in an account/event-scoped private cache (at most 256 tags and eight accounts). An empty replacement clears old follows; do not merge deprecated kind-3 hashtags back in. Query kind-1 notes with a combined #t OR filter, without author restrictions, using existing discovery relays and cache-first paging. Deduplicate by event ID, apply standard content filters, and clear account-specific state on logout. No new relay editor or follow controls.
