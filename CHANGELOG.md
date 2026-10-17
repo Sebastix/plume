@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Author-filtered hashtag feeds show the author’s avatar and name in the top bar; tap the header to open their profile.
+
 ## [0.77.3] - 2026-10-17
 
 ### Fixed

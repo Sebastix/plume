@@ -481,7 +481,25 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         topBar = {
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             TopAppBar(title = {
-                if (screen == "hashtag") Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                if (screen == "hashtag") {
+                    val author = entry.hashtagAuthor
+                    if (author == null) {
+                        Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    } else {
+                        val profile = s.profiles[author]
+                        val name = profile?.name ?: FeatherRepository.shortKey(author)
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { openProfile(author) },
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Avatar(name, 32, profile?.picture)
+                            Column(Modifier.weight(1f)) {
+                                Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.titleMedium)
+                                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
                 if (screen == "feed") {
                     IconButton(onClick = {
                         scrollScope.launch {
