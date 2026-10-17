@@ -1440,3 +1440,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 21s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; compressed mapping archived.
 - APK SHA-256 `c58fb90581deaa05f682ba531988291ef37668a49bdc95f95fa4099ad2b57c2f`; 15,793,281 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `96cd5dea9a4bceeb9e0e0efbf9fe8bd1277f700d482b9d63a6b578f43dc9a8d6` and asset `1c6ec22963a57cb9a4c3a8ddbc4b0cce9d3b29a24d6bfd1ba4d67c4e88e710e0` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-17 — 0.74.0 release
+
+- Version 0.74.0 (143), source `65edc5cbc12245f6ed90c225da449ec3a3760a82`. Reposts group by original event, with distinct reposters and a profile list; attachment thumbnail size captions removed. Grouping runs on Default and keeps stable original-event keys mapped to source reposts for reading/media lookups.
+- Signed release build passed in 1m 24s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; compressed mapping archived.
+- APK SHA-256 `bc7860439fdd2ea77fd5fdbed66d7b5852cd7953061cbfd680d1210fb015014d`; 15,794,729 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `7934fe2ddc0f87675f079a2146e0d2ad980e8fc5f34c6b7e536dd646657485c4` and asset `82a36712148d0dc5981d8b308e6b008e78c990729aaf3c2a5923e6f383cf75ad` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
