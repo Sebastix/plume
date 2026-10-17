@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.77.4] - 2026-10-18
+
 ### Fixed
 - NWC pairing failures use the copyable error toast with the failed step, relay host, wallet error code, and sanitized stack trace.
 
