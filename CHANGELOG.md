@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Give the main home feed a birdhouse icon, with a round entrance and perch in Feather’s existing outline style.
+
 ## [0.74.0] - 2026-10-17
 
 ### Changed

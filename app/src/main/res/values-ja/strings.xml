@@ -135,4 +135,5 @@
     <string name="ui_reposted_by_one">%1$s がリポスト</string>
     <string name="ui_reposted_by_two">%1$s、%2$s がリポスト</string>
     <string name="ui_reposted_by_more">%1$s、%2$s、他%3$d人がリポスト</string>
+    <string name="ui_home_feed">ホームフィード</string>
 </resources>

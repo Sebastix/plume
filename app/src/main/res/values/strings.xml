@@ -135,4 +135,5 @@
     <string name="ui_reposted_by_one">Reposted by %1$s</string>
     <string name="ui_reposted_by_two">Reposted by %1$s and %2$s</string>
     <string name="ui_reposted_by_more">Reposted by %1$s, %2$s and %3$d others</string>
+    <string name="ui_home_feed">Home feed</string>
 </resources>

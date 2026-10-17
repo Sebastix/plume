@@ -143,6 +143,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                     // the pill near its edges instead of revealing nonexistent pages.
                     for ((index, category) in tabs.withIndex()) {
                         key(category) {
+                            val description = if (category == ProfileTab.POSTS) stringResource(R.string.ui_home_feed) else "${category.label} feed"
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.offset {
                                 val position = switcherPager.currentPage + switcherPager.currentPageOffsetFraction
                                 val start = (position - (slots - 1) / 2f).coerceIn(0f, maxStart)
@@ -167,7 +168,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                     } else switcherPager.animateScrollToPage(index)
                                 }
                             }).semantics {
-                                contentDescription = "${category.label} feed"
+                                contentDescription = description
                                 selected = index == switcherPager.currentPage
                             }) {
                                 FeedCategoryIcon(category, Modifier.size(24.dp).graphicsLayer {
@@ -180,7 +181,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                     val scale = 1f - distance.coerceIn(0f, 1f) / 6f
                                     scaleX = scale
                                     scaleY = scale
-                                })
+                                }, homeFeed = true)
                             }
                         }
                     }
@@ -290,7 +291,11 @@ internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modi
 
 /** Shared icon vocabulary for profile tabs and the quieter home-feed selector. */
 @Composable
-internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifier.size(24.dp)) {
+internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifier.size(24.dp), homeFeed: Boolean = false) {
+    if (homeFeed && category == ProfileTab.POSTS) {
+        Icon(painterResource(R.drawable.birdhouse), stringResource(R.string.ui_home_feed), modifier)
+        return
+    }
     val resource = when (category) {
         ProfileTab.VOICE -> R.drawable.voice
         ProfileTab.PODCASTS -> R.drawable.podcast
