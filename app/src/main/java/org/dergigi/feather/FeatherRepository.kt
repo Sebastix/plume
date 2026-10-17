@@ -59,6 +59,8 @@ data class FeedState(
     val hashtagNotes: List<Event> = emptyList(),
     val profiles: Map<String, Profile> = emptyMap(),
     val embedded: Map<String, Event> = emptyMap(),
+    val pendingVotes: Set<String> = emptySet(),
+    val pollResults: Map<String, PollResults> = emptyMap(),
     val engagement: Map<String, Engagement> = emptyMap(),
     val following: Set<String> = emptySet(),
     val sentReposts: Set<String> = emptySet(),
@@ -109,6 +111,7 @@ class FeatherRepository(context: Context) {
     @Volatile private var publishingAuthor: String? = null
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
+    @Volatile private var visiblePolls: List<Event> = emptyList()
     @Volatile private var engagementIds: List<String> = emptyList()
     @Volatile private var engagementApps: List<String> = emptyList()
     private val _state = MutableStateFlow(FeedState(
@@ -572,6 +575,18 @@ class FeatherRepository(context: Context) {
                 listOf(1, 1111, 1244, 6, 16, 7, 9735).map { kind -> Filter(kinds = listOf(kind), tags = mapOf("e" to ids), limit = 300) }
             } + engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) })
         }, listener)
+        val pollRoutes = linkedMapOf<String, MutableList<Filter>>()
+        visiblePolls.forEach { event ->
+            val poll = parsePoll(event) ?: return@forEach
+            val routes = (poll.relays + relayLists[event.pubKey]?.write.orEmpty() + routingPool)
+                .distinct().filter { it != "wss://purplepag.es" && healthy(it) }.take(8)
+            routes.forEach relay@{ relay ->
+                if (relay !in pollRoutes && pollRoutes.size >= 12) return@relay
+                pollRoutes.getOrPut(relay) { mutableListOf() }.add(
+                Filter(kinds = listOf(1018), tags = mapOf("e" to listOf(event.id)), since = event.createdAt, until = poll.endsAt, limit = 2000)) }
+        }
+        if (pollRoutes.isEmpty()) client.unsubscribe("poll-votes")
+        else client.subscribe("poll-votes", pollRoutes.mapKeys { it.key.normalizeRelayUrl() }, listener)
         val owner = state.value.publicKey
         if (owner == null || engagementIds.isEmpty()) client.unsubscribe("own-reactions")
         else {
@@ -694,7 +709,7 @@ class FeatherRepository(context: Context) {
     private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
         if (event.kind == 30078 && (event.pubKey != state.value.publicKey || event.tagValue("d") != SETTINGS_D || event.content.length > 8192)) return false
-        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 9735, 10015, 10000, 10002, 10030, 10063, 30030, 30078)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000, 10015) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
+        if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 1018, 9735, 10015, 10000, 10002, 10030, 10063, 30030, 30078)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000, 10015) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
         if (event.kind == 17 && !isPodcastActivity(event)) return false
         mutex.withLock {
             val cached = verified[event.id]
@@ -1061,11 +1076,13 @@ class FeatherRepository(context: Context) {
             timeline(Filter(kinds = listOf(1), authors = hashtagAuthor?.let(::listOf), tags = mapOf("t" to listOf(tag)), limit = hashtagCount, until = hashtagCeiling), state.value.hashtagNotes, hashtagCount)
         }.orEmpty()
         val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
-        val notifications = if (viewingNotifications && key != null) mutex.withLock {
-            db.query<Event>(notificationKinds.map { kind -> Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100) })
-        }.distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
+        val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
+        val notifications = if (viewingNotifications && key != null) (retainedNotifications + mutex.withLock {
+            // Independent per-kind windows must not replace previously discovered rows.
+            notificationKinds.flatMap { kind -> db.query<Event>(Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100)) }
+        }).distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
             .filter { event -> event.kind !in listOf(9735, 9321) || zapActivity(event)?.let { it.sender != key && it.sender !in mutedAuthors } == true }
-            .sortedByDescending { it.createdAt }.take(400)
+            .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(1000)
         else state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
         val readingPool = (threadNotes + hashtagNotes + profileEvents + (if (viewingNotifications) notifications else all)).filterNot(contentFilter::hides).distinctBy { it.id }
         val visible = (galleryNote?.let { listOf(it) } ?: visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
@@ -1104,6 +1121,11 @@ class FeatherRepository(context: Context) {
             byId + byAddress
         }
         val countTargets = (visible.filter { it.kind in readableKinds } + embedded.values.filterNot(contentFilter::hides)).distinctBy { it.id }.take(24)
+        visiblePolls = countTargets.filter { it.kind == 1068 }.take(8)
+        val pollResults = mutex.withLock {
+            visiblePolls.associate { poll -> poll.id to tallyPoll(poll,
+                db.query<Event>(Filter(kinds = listOf(1018), tags = mapOf("e" to listOf(poll.id)), since = poll.createdAt, until = parsePoll(poll)?.endsAt, limit = 2000)), key) }
+        }
         engagementIds = countTargets.map { it.id }
         engagementApps = countTargets.mapNotNull { it.appAddress() }
         val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
@@ -1178,7 +1200,7 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(pollResults = (it.pollResults + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
@@ -1218,8 +1240,9 @@ class FeatherRepository(context: Context) {
         val homeProfiles = if (homeAuthors.isEmpty()) emptyList() else
             db.query<Event>(Filter(kinds = listOf(0), authors = homeAuthors, limit = homeAuthors.size)).map { it.id }
         val protected = recentThreads.protectedIds() + accountRecords + homeNotes.map { it.id } +
-            homeNotes.mapNotNull(::repostTarget).map { it.id } + homeProfiles
-        for ((kind, max) in listOf(1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10015 to 8, 10030 to 8, 10063 to 8, 30078 to 32, 30030 to 64)) {
+            homeNotes.mapNotNull(::repostTarget).map { it.id } + homeProfiles +
+            cachedState.notifications.map { it.id } + cachedState.notifications.mapNotNull(::notificationTarget).map { it.id }
+        for ((kind, max) in listOf(1068 to 300, 1018 to 3000, 1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10015 to 8, 10030 to 8, 10063 to 8, 30078 to 32, 30030 to 64)) {
             var unprotected = 0
             val evict = mutableListOf<String>()
             // Raw rows avoid decoding every event's tags/content merely to evict it.
@@ -1317,6 +1340,48 @@ class FeatherRepository(context: Context) {
             if (accepted) return true
         }
         return false
+    }
+
+    internal fun voting(id: String, busy: Boolean) {
+        _state.update { it.copy(pendingVotes = if (busy) it.pendingVotes + id else it.pendingVotes - id) }
+    }
+
+    internal suspend fun vote(target: Event, choices: Set<String>, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
+        ready.await()
+        val author = state.value.publicKey ?: error("Connect an Android signer first")
+        val poll = parsePoll(target) ?: error("Invalid poll")
+        require(signer.pubKey == author && choices.isNotEmpty() && choices.all { id -> poll.options.any { it.first == id } })
+        require(poll.multiple || choices.size == 1)
+        val previousVote = mutex.withLock {
+            db.query<Event>(Filter(kinds = listOf(1018), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 1)).firstOrNull()
+        }
+        val now = maxOf(System.currentTimeMillis() / 1000, (previousVote?.createdAt ?: 0) + 1)
+        require(now <= System.currentTimeMillis() / 1000 + 600) { "Previous vote is dated in the future" }
+        require(poll.endsAt == null || now < poll.endsAt) { "Poll closed" }
+        val tags = (listOf(arrayOf("e", target.id)) + choices.sorted().map { arrayOf("response", it) }).toTypedArray()
+        val signed = signerRequests.run {
+            check(state.value.publicKey == author) { "Account changed" }
+            withTimeout(180_000) { signer.sign<Event>(now, 1018, tags, "") }
+        }
+        require(signed.pubKey == author && signed.kind == 1018 && signed.createdAt == now && signed.content.isEmpty() && signed.tags.contentDeepEquals(tags) && signed.verify()) { "Invalid signed vote" }
+        withTimeout(15_000) { foregroundActive.first { it } }
+        client.connect()
+        val routes = (poll.relays + relayLists[author]?.write.orEmpty() + relayLists[target.pubKey]?.write.orEmpty() + state.value.relays)
+            .distinct().filter(::healthy).take(12)
+        var confirmed = false
+        repeat(3) { attempt ->
+            if (!confirmed) {
+                if (attempt > 0) delay(1_000L * attempt)
+                check(state.value.publicKey == author) { "Account changed" }
+                require(poll.endsAt == null || System.currentTimeMillis() / 1000 < poll.endsAt) { "Poll closed" }
+                confirmed = try {
+                    client.publishAndConfirm(signed, routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)
+                } catch (_: TimeoutCancellationException) { false } catch (_: java.io.IOException) { false }
+            }
+        }
+        check(confirmed) { "No relay confirmed the vote. Try again." }
+        accept(signed)
+        changed.tryEmit(Unit)
     }
 
     internal suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
@@ -1577,7 +1642,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedHashtags = emptySet(), pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
+        _state.update { it.copy(pollResults = emptyMap(), publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedHashtags = emptySet(), pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
         ready.await(); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
@@ -1585,7 +1650,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), followedHashtags = emptySet(), pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
+        _state.update { it.copy(pollResults = emptyMap(), publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), followedHashtags = emptySet(), pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
         threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     fun feedTab(tab: ProfileTab) {

@@ -4,6 +4,16 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Native NIP-88 polls with their own feed/profile tab, single- and multiple-choice voting through the signer, closing times, and cached results from the poll’s advertised relays.
+
+### Fixed
+- Keep discovered notifications when bounded cache queries change, protect recent notification events and targets from cache eviction, and preserve loaded previews when the shared preview cache rotates.
+- Wallet connection errors distinguish expired/not-yet-valid TLS certificates and include the underlying certificate-chain failure.
+
+### Changed
+- Tap Home while already at the top to refresh using the same action as pull-to-refresh; tapping while scrolled still returns to the top.
+
 ## [0.77.4] - 2026-10-18
 
 ### Fixed

@@ -49,7 +49,15 @@ internal object NwcWallet {
                 .put("authors", JSONArray().put(connection.pubkey)).put("limit", 1)).toString()
             http.newWebSocket(Request.Builder().url(relay).build(), object : WebSocketListener() {
                 override fun onFailure(socket: WebSocket, error: Throwable, response: Response?) {
-                    val reason = response?.let { "HTTP ${it.code}" } ?: error.message ?: error.javaClass.simpleName
+                    val causes = generateSequence(error) { it.cause }.take(12).toList()
+                    val certificateReason = when {
+                        causes.any { it is java.security.cert.CertificateExpiredException } -> "TLS certificate expired; the wallet relay needs to renew its certificate"
+                        causes.any { it is java.security.cert.CertificateNotYetValidException } -> "TLS certificate is not valid yet; check the device date and time"
+                        causes.any { it is java.security.cert.CertPathValidatorException || it is java.security.cert.CertificateException } ->
+                            "TLS certificate chain rejected: " + causes.last().let { it.message ?: it.javaClass.simpleName }
+                        else -> null
+                    }
+                    val reason = response?.let { "HTTP ${it.code}" } ?: certificateReason ?: error.message ?: error.javaClass.simpleName
                     relayErrors[socket] = walletErrorText("Wallet relay $relay: $reason")
                 }
                 override fun onClosed(socket: WebSocket, code: Int, reason: String) {

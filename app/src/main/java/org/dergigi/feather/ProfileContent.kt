@@ -6,8 +6,8 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 // Tabs describe existing public activity, never actions that publish events.
 internal val videoKinds = listOf(21, 22, 34235, 34236)
-internal val readableKinds = listOf(1, 1111, 17, 1621, 32267, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
-internal val profileKinds = listOf(1, 1111, 17, 1621, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds + voiceKinds
+internal val readableKinds = listOf(1, 1111, 17, 1068, 1621, 32267, 20, 9802, 30023, 30030) + videoKinds + voiceKinds
+internal val profileKinds = listOf(1, 1111, 17, 1068, 1621, 6, 16, 7, 9802, 20, 10003, 30003, 32267, 30023, 3, 30000, 30617, 30030, 9735, 9321) + videoKinds + voiceKinds
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     SEARCH(emptyList(), "Search"), NOTIFICATIONS(emptyList(), "Notifications"),
@@ -15,7 +15,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
     REPOSTS(listOf(6, 16), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
-    VOICE(voiceKinds, "Voice"), PODCASTS(podcastKinds, "Podcasts"),
+    POLLS(listOf(1068), "Polls"), VOICE(voiceKinds, "Voice"), PODCASTS(podcastKinds, "Podcasts"),
     BOOKMARKS(listOf(10003, 30003), "Bookmarks"), APPS(listOf(32267), "Apps"),
     ARTICLES(listOf(30023), "Articles"), PEOPLE(listOf(3, 30000), "People"), PROJECTS(listOf(30617), "Projects"), EMOJI_PACKS(listOf(30030), "Emoji packs"),
     ISSUES(listOf(1621), "Issues"), HASHTAGS(listOf(1), "Hashtags");
@@ -32,15 +32,16 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
             REPOSTS -> 6
             PODCASTS -> 7
             VOICE -> 8
-            ZAPS -> 9
-            REACTIONS -> 10
-            HASHTAGS -> 11
-            BOOKMARKS -> 12
-            PEOPLE -> 13
-            APPS -> 14
-            PROJECTS -> 15
-            ISSUES -> 16
-            EMOJI_PACKS -> 17
+            POLLS -> 9
+            ZAPS -> 10
+            REACTIONS -> 11
+            HASHTAGS -> 12
+            BOOKMARKS -> 13
+            PEOPLE -> 14
+            APPS -> 15
+            PROJECTS -> 16
+            ISSUES -> 17
+            EMOJI_PACKS -> 18
         }
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {

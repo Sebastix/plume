@@ -459,7 +459,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalReply provides { note ->
+    CompositionLocalProvider(LocalPollActions provides PollActions { note, choices ->
+        if (s.publicKey == null) showAccount = true else vm.vote(note, choices)
+    }, LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
     }, LocalSelectionReply provides { note, text ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note, selectedText = text)
@@ -762,6 +764,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
                     if (activePage && !s.loading) { entry.homeOrder = emptyList(); entry.homeRefresh++; requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes(); vm.retryHashtags() }
+                }
+                var handledRefresh by remember(entry.key) { mutableIntStateOf(entry.refreshRequested) }
+                LaunchedEffect(entry.refreshRequested) {
+                    if (entry.refreshRequested != handledRefresh) {
+                        handledRefresh = entry.refreshRequested
+                        refresh()
+                    }
                 }
                 val initialViewport = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.roundToPx() }
                 var profileViewport by remember(entry.key) { mutableIntStateOf(initialViewport) }
@@ -1215,6 +1224,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         Spacer(Modifier.height(12.dp))
         when {
+            note.kind == 1068 -> PollContent(note, state)
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
             note.kind == 1621 -> IssueContent(note, compact, onReference)
             note.kind in voiceKinds -> AudioContent(note, compact, name)

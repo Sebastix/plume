@@ -512,6 +512,19 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         job.start()
     }
 
+    internal fun vote(note: Event, choices: Set<String>) {
+        val connected = signer.value ?: return
+        if (note.id in state.value.pendingVotes || state.value.pendingVotes.size >= 8 || !queueHasRoom()) return
+        repo.voting(note.id, true)
+        viewModelScope.launch {
+            try { repo.vote(note, choices, connected, signerRequests) }
+            catch (e: TimeoutCancellationException) { message.value = "Vote: confirmation timed out" }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { message.value = "Vote: ${e.message ?: e.javaClass.simpleName}" }
+            finally { repo.voting(note.id, false) }
+        }
+    }
+
     fun react(note: Event, choice: ReactionChoice, remove: Boolean = false) {
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         val queued = optimisticReactions.value[note.id].orEmpty()

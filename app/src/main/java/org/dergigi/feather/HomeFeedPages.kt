@@ -162,8 +162,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
                                 onClick = {
                                 scope.launch {
                                     if (!welcoming && index == switcherPager.settledPage && !switcherPager.isScrollInProgress) {
-                                        val list = home.feedPage(category).list
-                                        if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
+                                        val page = home.feedPage(category)
+                                        val list = page.list
+                                        if (category == ProfileTab.POSTS && !list.canScrollBackward && !list.isScrollInProgress) page.refreshRequested++
+                                        else if (list.firstVisibleItemIndex > 20) list.scrollToItem(0) else list.animateScrollToItem(0)
                                         home.toolbar = true
                                     } else switcherPager.animateScrollToPage(index)
                                 }
@@ -298,6 +300,7 @@ internal fun FeedCategoryIcon(category: ProfileTab, modifier: Modifier = Modifie
     }
     val resource = when (category) {
         ProfileTab.HASHTAGS -> R.drawable.hashtag
+        ProfileTab.POLLS -> R.drawable.poll
         ProfileTab.VOICE -> R.drawable.voice
         ProfileTab.PODCASTS -> R.drawable.podcast
         ProfileTab.REPLIES -> R.drawable.conversation

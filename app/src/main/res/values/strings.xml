@@ -138,4 +138,10 @@
     <string name="ui_reposted_by_more">Reposted by %1$s, %2$s and %3$d others</string>
     <string name="ui_home_feed">Home feed</string>
     <string name="ui_matching_followed_hashtags">Matching followed hashtags</string>
+    <string name="ui_poll_unavailable">Unsupported poll</string>
+    <string name="ui_poll_selected">Selected</string>
+    <string name="ui_poll_votes">%1$d votes</string>
+    <string name="ui_poll_votes_limited">%1$d votes · partial results</string>
+    <string name="ui_poll_closed">Closed</string>
+    <string name="ui_poll_vote">Vote</string>
 </resources>

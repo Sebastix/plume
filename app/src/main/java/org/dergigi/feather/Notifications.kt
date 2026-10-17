@@ -93,6 +93,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         entry.notifications?.takeIf { it.owner == owner && it.types == selectedTypes },
         owner, events, state.embedded, filter, selectedTypes,
     ) {
+        val previousRows = entry.notifications?.takeIf { it.owner == owner }?.previews.orEmpty().associateBy { it.event.id }
         val rows = withContext(Dispatchers.Default) {
             events.filter { event -> (includedTypes.isEmpty() || includedTypes.any { it.includes(event) }) && !filter.hides(event) }.mapNotNull { event ->
                 val target = notificationTarget(event)
@@ -102,7 +103,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 if (actor in state.mutedAuthors) return@mapNotNull null
                 val source = if (event.kind in listOf(1, 1111, 1244)) event else state.embedded[target?.id]
                 val text = payment?.comment?.takeIf { it.isNotBlank() }
-                    ?: source?.let { it.tagValue("title") ?: MediaContent.text(it, MediaContent.attachments(it, 32)) }.orEmpty()
+                    ?: source?.let { it.tagValue("title") ?: MediaContent.text(it, MediaContent.attachments(it, 32)) }
+                    ?: previousRows[event.id]?.text.orEmpty()
                 NotificationPreview(event, actor, text.withoutObjectMarkers().take(400), when(event.kind) {
                     6, 16 -> "Repost"; 7 -> "Reaction"; 9735 -> "Zap"; 9321 -> "Nutzap"
                     else -> if (Protocol.isReply(event)) "Reply" else "Mention"

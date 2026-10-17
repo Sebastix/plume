@@ -37,6 +37,7 @@ internal class ReaderEntry(
     var homeOrder: List<String> = emptyList()
     var homeRows: List<ConversationRow> = emptyList()
     var homeRefresh by mutableIntStateOf(0)
+    var refreshRequested by mutableIntStateOf(0)
     var notifications: NotificationSnapshot? = null
     var conversation: Conversation? = null
     val threadViewport = ThreadViewport()
