@@ -145,4 +145,5 @@
     <string name="ui_poll_closed">Closed</string>
     <string name="ui_poll_vote">Vote</string>
     <string name="ui_poll_view_votes">View votes</string>
+    <string name="ui_notifications_sign_in">Log in to see your notifications</string>
 </resources>

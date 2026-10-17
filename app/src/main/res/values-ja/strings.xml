@@ -145,4 +145,5 @@
     <string name="ui_poll_closed">終了</string>
     <string name="ui_poll_vote">投票</string>
     <string name="ui_poll_view_votes">投票した人を見る</string>
+    <string name="ui_notifications_sign_in">ログインして通知を見る</string>
 </resources>

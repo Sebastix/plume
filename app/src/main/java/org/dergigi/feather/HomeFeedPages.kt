@@ -1,6 +1,11 @@
 package org.dergigi.feather
 
 import androidx.compose.ui.res.stringResource
+import android.app.Activity.RESULT_OK
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.vitorpamplona.quartz.nip55AndroidSigner.api.SignerResult
+import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -62,11 +67,24 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     val mediaStore = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by mediaStore.resources.collectAsStateWithLifecycle()
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-    var accountRequested by remember { mutableStateOf(false) }
+    val loginLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { response ->
+        val data = response.data
+        if (response.resultCode == RESULT_OK && data != null) {
+            val result = ExternalSignerLogin.parseResult(data)
+            if (result is SignerResult.RequestAddressed.Successful) {
+                if (vm.onboarding.allowed.value && vm.onboarding.state.value?.welcome == false) vm.onboarding.step.value = 1
+                vm.login(result.result.pubkey, result.result.packageName)
+            } else AppMessages.show("Could not connect the signer. Please try again.")
+        }
+    }
+    val requestLogin: () -> Unit = {
+        try { loginLauncher.launch(ExternalSignerLogin.createIntent(emptyList())) }
+        catch (_: Exception) { AppMessages.show("Install an Android signer such as Amber first.") }
+    }
     var tabs by remember(home.key) {
-        mutableStateOf((listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) +
+        mutableStateOf((listOf(ProfileTab.SEARCH, ProfileTab.NOTIFICATIONS) +
             home.tabs.ifEmpty { listOf(ProfileTab.POSTS) }).distinct()
-            .filter { (it != ProfileTab.NOTIFICATIONS || state.publicKey != null) }.sortedBy { it.orderPriority })
+            .sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
     val currentTabs by rememberUpdatedState(tabs)
@@ -93,8 +111,8 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     LaunchedEffect(state.feedTabs, state.publicKey, state.followedHashtags, state.pendingHashtagList?.id) {
         snapshotFlow { !pager.isScrollInProgress && home.requestedFeedTab == null }.first { it }
         run {
-            val next = (listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) + state.feedTabs + tabs)
-                .distinct().filter { (it != ProfileTab.NOTIFICATIONS || state.publicKey != null) }.sortedBy { it.orderPriority }
+            val next = (listOf(ProfileTab.SEARCH, ProfileTab.NOTIFICATIONS) + state.feedTabs + tabs)
+                .distinct().sortedBy { it.orderPriority }
             if (next != tabs) {
                 // Stable page keys keep the visible category anchored during insertion.
                 // Never scroll to home.tab here: it can lag behind a just-finished swipe.
@@ -209,11 +227,9 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         val category = tabs.getOrNull(page) ?: return@HorizontalPager
         if (category == ProfileTab.SEARCH) ProfileSearchPage(vm, navigation, home, active = home.tab == category)
         else if (category == ProfileTab.NOTIFICATIONS) {
-            if (state.publicKey != null) key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
+            key(state.publicKey) { NotificationsPage(vm, navigation, home.feedPage(category), home, active = home.tab == category) }
         } else FeatherReader(vm, navigation, home.feedPage(category),
-            activePage = category == home.tab, homeToolbar = home,
-            accountRequested = accountRequested && category == home.tab,
-            onAccountHandled = { accountRequested = false })
+            activePage = category == home.tab, homeToolbar = home)
     }
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
     AnimatedVisibility(home.toolbar || pager.isScrollInProgress, modifier = Modifier.align(Alignment.BottomCenter),
@@ -227,8 +243,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     IconButton(onClick = {
         val key = state.publicKey
         if (key == null) {
-            if (home.tab == ProfileTab.SEARCH) scope.launch { pager.animateScrollToPage(tabs.indexOf(ProfileTab.POSTS)) }
-            accountRequested = true
+            requestLogin()
         }
         else navigation.push(ReaderEntry("profile", key))
     }, modifier = Modifier.size(RoundControlSize).semantics {
@@ -254,8 +269,8 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         targetValue = if (scrolling) 0.4f else 1f,
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
-    if (state.publicKey != null) FeatherComposeButton(onClick = {
-        vm.openReply()
+    FeatherComposeButton(onClick = {
+        if (state.publicKey == null) requestLogin() else vm.openReply()
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
         .graphicsLayer { alpha = featherAlpha.value; compositingStrategy = CompositingStrategy.ModulateAlpha },
         showShadow = !scrolling && featherAlpha.value == 1f)
@@ -271,7 +286,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     if (welcoming) {
         if (firstUse == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
         else WelcomeFlight(vm.onboarding, pages = tabs, initialPage = tabs.indexOf(ProfileTab.POSTS).coerceAtLeast(0),
-            signedIn = state.publicKey != null, onLogin = { accountRequested = true },
+            signedIn = state.publicKey != null, onLogin = requestLogin,
             onReveal = { category -> scope.launch {
                 val index = currentTabs.indexOf(category)
                 if (index >= 0) pager.scrollToPage(index)

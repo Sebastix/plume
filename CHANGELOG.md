@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Keep Notifications visible when logged out, with a sign-in empty state.
+- Show the compose feather when logged out; tapping it opens signer login directly, including on Search and Notifications.
+
 ## [0.79.0] - 2026-10-18
 
 ### Added

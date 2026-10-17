@@ -71,7 +71,18 @@ internal data class NotificationSnapshot(
 @Composable
 internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, home: ReaderEntry, active: Boolean) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val owner = state.publicKey ?: return
+    val owner = state.publicKey
+    if (owner == null) {
+        LaunchedEffect(active) { if (active) home.toolbar = true }
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(32.dp),
+            verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.NotificationsNone, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.ui_notifications_sign_in), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        return
+    }
     // Zero means all; each category otherwise toggles independently.
     val savedFilters by vm.notificationFilters.collectAsStateWithLifecycle()
     val selection = savedFilters

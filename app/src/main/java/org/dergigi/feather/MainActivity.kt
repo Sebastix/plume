@@ -269,7 +269,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         } else {
             val state = vm.state.value
             val tabs = when (current.screen) {
-                "feed" -> current.tabs.filter { it != ProfileTab.NOTIFICATIONS || state.publicKey != null }
+                "feed" -> current.tabs
                 "profile" -> if (state.profileTabsFor == current.target) state.profileTabs.toList() else current.tabs
                 else -> return@handler
             }
@@ -553,7 +553,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }
         },
         floatingActionButton = {
-            if (screen == "profile" && profileKey != null && s.publicKey != null) {
+            if (screen == "profile" && profileKey != null) {
                 val opacity by androidx.compose.animation.core.animateFloatAsState(
                     if (activeListState.isScrollInProgress) 0.4f else 1f, tween(180), label = "Profile feather scroll opacity")
                 FeatherComposeButton(onClick = {
