@@ -488,16 +488,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     } else {
                         val profile = s.profiles[author]
                         val name = profile?.name ?: FeatherRepository.shortKey(author)
-                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { openProfile(author) },
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Avatar(name, 32, profile?.picture)
-                            Column(Modifier.weight(1f)) {
-                                Text("#${hashtag.orEmpty()}", maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.titleMedium)
-                                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                        Text(stringResource(R.string.ui_hashtag_by_author, hashtag.orEmpty(), name),
+                            modifier = Modifier.clickable { openProfile(author) },
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium)
                     }
                 }
                 if (screen == "feed") {
