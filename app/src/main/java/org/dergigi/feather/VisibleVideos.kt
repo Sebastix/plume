@@ -17,6 +17,17 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.*
 
+/** Main-thread-only, process-local resume points shared across reader destinations. */
+private object VideoPositions {
+    private val positions = linkedMapOf<String, Long>()
+    fun get(url: String): Long? = positions[url]
+    fun put(url: String, position: Long) {
+        positions.remove(url)
+        positions[url] = position.coerceAtLeast(0L)
+        while (positions.size > 64) positions.remove(positions.keys.first())
+    }
+}
+
 /** A bounded window of visible clips: prepare neighbors, start the center, retain playing edges. */
 class VisibleVideos(private val context: Context, private val resources: MediaStore.Resources) {
     private data class Candidate(val url: String, val bounds: Rect, val height: Float, val mime: String?)
@@ -173,6 +184,7 @@ class VisibleVideoPlayer(
                 override fun onPlayerError(error: PlaybackException) { onError(url) }
             })
             setMediaItem(MediaItem.Builder().setUri(url).setMimeType(mime).build())
+            VideoPositions.get(url)?.let { seekTo(it) }
             prepare() // Media3 renders the first frame even with playWhenReady=false.
         }
         } catch (error: Exception) {
@@ -187,14 +199,24 @@ class VisibleVideoPlayer(
     }
     fun setActive(value: Boolean) {
         if (active == value) return
+        if (!value) rememberPosition()
         active = value
         if (!value) {
             resume = player?.playWhenReady == true
             player?.pause()
             player?.stop() // Release decoder/loading while covered or backgrounded; retain position.
         } else {
+            VideoPositions.get(url)?.let { player?.seekTo(it) }
             player?.prepare()
             if (resume) player?.play()
+        }
+    }
+    private fun rememberPosition() {
+        val engine = player ?: return
+        // Prepared neighbors must not replace a watched clip's position with zero.
+        // Live streams should keep their default live position instead of an old offset.
+        if (active && started && !engine.isCurrentMediaItemLive) {
+            VideoPositions.put(url, engine.currentPosition)
         }
     }
     fun enterFullscreen() {
@@ -238,6 +260,7 @@ class VisibleVideoPlayer(
     }
     fun toggleMute() { setVolume(if (muted) 1f else 0f) }
     fun close() {
+        rememberPosition()
         inlineView?.player = null; fullscreenView?.player = null
         inlineView = null; fullscreenView = null
         player?.release(); player = null

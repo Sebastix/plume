@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Resume videos at their previous playback position when opening a note from the feed or navigating back, using a bounded in-memory history.
+
 ### Changed
 - Move Hashtags directly before Bookmarks in the main feed and profile tab order.
 
