@@ -1454,3 +1454,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Final signed release build passed in 57s after the refresh-cycle follow-up. No tests or emulators run. Packaged version, embedded source and signing certificate verified; compressed mapping archived.
 - APK SHA-256 `c67f603c77aeb7c034621442ce00633ff7cd71b381e557673c94b1d797e5d74f`; 15,795,841 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `78e415aef42ff9daf18332686ae40cc9600d41debbe262e608835efde5c879b8` and asset `82b15cf85e10af27a2810256712707d135283c66ffe5214d9183b1805a679e11` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-17 — 0.76.0 release
+
+- Version 0.76.0 (145), source `cf432c4f5f1c088f6e78b7a23ccc27862e19af9e`. Read-only followed-hashtag feed from public/private kind-10015 t tags, with account-scoped signer decryption, bounded cached tags, combined kind-1 queries, paging and standard content filters. No follow edits or deprecated kind-3 merging.
+- Reviewed Amethyst InterestListEvent/InterestListState and [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md). Amethyst follows hashtags privately by default; this feature narrowly adds own kind-10015 decryption to the documented signer scope. Linked interest sets are not expanded in this first version.
+- Signed release build passed in 1m 16s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; compressed mapping archived.
+- APK SHA-256 `e16eeabf55c031216f5b80cf9082ad707f4881a7094f4e7b86bb105b6f68d5a2`; 15,796,409 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `20726aca7f2a845411bc0acd0409ae968791b3d375f26b616423142c6db0572e` and asset `9375a9af76818d1d75c2c6427ecae97c0d3ac78ed621966c4a87198b7f6dacd0` retrieved and signatures verified. Hash, size, versionCode and certificate match; CDN HTTP 200 with matching size. No website deployment.
