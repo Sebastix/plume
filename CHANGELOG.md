@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Hashtag-feed posts show a compact matching followed hashtag beside the timestamp, with +N for additional matches; tap to open the hashtag or choose from all matches. Author names truncate to leave room.
+
 ### Changed
 - Main and profile tabs now use a fixed relative order instead of ranking categories by content count. Undiscovered categories stay hidden; Replies appears when available.
 

@@ -947,6 +947,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile, row.reposts) { original ->
                                         openNote(original)
                                     } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
+                                        showHashtagMatch = screen == "feed" && profileTab == ProfileTab.HASHTAGS,
                                         compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
                                         showParent = if (screen == "thread") row.focused && !parentRendered else !row.above,
                                         parentLoading = screen == "thread" && row.focused && s.threadId == threadId && s.threadContextLoading,
@@ -1033,6 +1034,38 @@ internal fun Avatar(name: String, size: Int = 36, picture: String? = null, onOpe
 }
 
 @Composable
+private fun MatchedHashtagBadge(note: Event, followed: Set<String>, onReference: (NostrContent.Reference) -> Unit) {
+    val matches = remember(note.id, followed) {
+        note.tags.asSequence().filter { it.size >= 2 && it[0] == "t" }
+            .mapNotNull { normalizeFollowedTag(it[1]) }.filter { it in followed }.distinct().sorted().toList()
+    }
+    if (matches.isEmpty()) return
+    var expanded by remember(note.id) { mutableStateOf(false) }
+    fun open(tag: String) { expanded = false; onReference(NostrContent.Reference(tag, hashtag = tag)) }
+    Row(Modifier.widthIn(max = 112.dp).clip(RoundedCornerShape(6.dp))
+        .background(MaterialTheme.colorScheme.primary.copy(alpha = .10f))
+        .clickable { if (matches.size == 1) open(matches.first()) else expanded = true }
+        .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("#${matches.first()}", Modifier.weight(1f, fill = false),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (matches.size > 1) Text("+${matches.size - 1}", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary, maxLines = 1)
+    }
+    if (expanded) AlertDialog(onDismissRequest = { expanded = false },
+        title = { Text(stringResource(R.string.ui_matching_followed_hashtags)) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(matches, key = { it }) { tag ->
+                    Text("#$tag", Modifier.fillMaxWidth().clickable { open(tag) }.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }, confirmButton = {})
+}
+
+@Composable
 private fun RepostAttribution(reposts: List<Event>, state: FeedState, onProfile: (String) -> Unit) {
     var showPeople by remember { mutableStateOf(false) }
     val names = reposts.take(2).map { state.profiles[it.pubKey]?.name ?: FeatherRepository.shortKey(it.pubKey) }
@@ -1093,7 +1126,8 @@ private fun RepostRow(repost: Event, state: FeedState, onReference: (NostrConten
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, onProfile: () -> Unit, onOpen: () -> Unit, compact: Boolean = true, repost: Event? = null,
-    threadRow: ConversationRow? = null, showParent: Boolean = true, parentLoading: Boolean = false, onMore: (() -> Unit)? = null) {
+    threadRow: ConversationRow? = null, showParent: Boolean = true, parentLoading: Boolean = false, onMore: (() -> Unit)? = null,
+    showHashtagMatch: Boolean = false) {
     if (LocalContentFilter.current.hides(note)) return
     if (note.kind in listOf(9735, 9321)) {
         ZapActivityCard(note, state, onReference)
@@ -1132,7 +1166,12 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                         Avatar(name, picture = profile?.picture)
                     }
                 }
-                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp), maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+            }
+            if (showHashtagMatch) {
+                MatchedHashtagBadge(note, state.followedHashtags, onReference)
+                Spacer(Modifier.width(8.dp))
             }
             NoteTimestamp(note)
         }
