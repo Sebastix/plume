@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Main and profile tabs now use a fixed relative order instead of ranking categories by content count. Undiscovered categories stay hidden; Replies appears when available.
+
 ## [0.76.0] - 2026-10-17
 
 ### Added

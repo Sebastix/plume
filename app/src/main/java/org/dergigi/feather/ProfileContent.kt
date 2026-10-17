@@ -29,7 +29,18 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
             HIGHLIGHTS -> 3
             ARTICLES -> 4
             REPLIES -> 5
-            else -> 6
+            REPOSTS -> 6
+            HASHTAGS -> 7
+            PODCASTS -> 8
+            VOICE -> 9
+            ZAPS -> 10
+            REACTIONS -> 11
+            BOOKMARKS -> 12
+            PEOPLE -> 13
+            APPS -> 14
+            PROJECTS -> 15
+            ISSUES -> 16
+            EMOJI_PACKS -> 17
         }
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {

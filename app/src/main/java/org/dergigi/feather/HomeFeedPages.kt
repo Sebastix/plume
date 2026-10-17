@@ -65,7 +65,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
     var accountRequested by remember { mutableStateOf(false) }
     var tabs by remember(home.key) {
         mutableStateOf((listOf(ProfileTab.SEARCH) + listOfNotNull(ProfileTab.NOTIFICATIONS.takeIf { state.publicKey != null }) +
-            home.tabs.ifEmpty { listOf(ProfileTab.POSTS, ProfileTab.REPLIES) }).distinct()
+            home.tabs.ifEmpty { listOf(ProfileTab.POSTS) }).distinct()
             .filter { (it != ProfileTab.NOTIFICATIONS || state.publicKey != null) && (it != ProfileTab.HASHTAGS || (state.publicKey != null && (state.followedHashtags.isNotEmpty() || state.pendingHashtagList != null))) }.sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
@@ -88,7 +88,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             if (home.requestedFeedTab === request) home.requestedFeedTab = null
         }
     }
-    // Keep discovered pages available for the visit. Reorder only at rest and keep the
+    // Keep discovered pages available for the visit in fixed order. Insert only at rest and keep the
     // selected category anchored, rather than changing content underneath the user.
     LaunchedEffect(state.feedTabs, state.publicKey, state.followedHashtags, state.pendingHashtagList?.id) {
         snapshotFlow { !pager.isScrollInProgress && home.requestedFeedTab == null }.first { it }
