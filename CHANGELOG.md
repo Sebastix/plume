@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Move Zap activity directly before Highlights in main and profile tab order.
+
 ## [0.78.0] - 2026-10-18
 
 ### Added

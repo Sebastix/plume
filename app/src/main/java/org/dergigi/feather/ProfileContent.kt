@@ -26,14 +26,14 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
             POSTS -> 0
             PHOTOS -> 1
             VIDEOS -> 2
-            HIGHLIGHTS -> 3
-            ARTICLES -> 4
-            REPLIES -> 5
-            REPOSTS -> 6
-            PODCASTS -> 7
-            VOICE -> 8
-            POLLS -> 9
-            ZAPS -> 10
+            ZAPS -> 3
+            HIGHLIGHTS -> 4
+            ARTICLES -> 5
+            REPLIES -> 6
+            REPOSTS -> 7
+            PODCASTS -> 8
+            VOICE -> 9
+            POLLS -> 10
             REACTIONS -> 11
             HASHTAGS -> 12
             BOOKMARKS -> 13
