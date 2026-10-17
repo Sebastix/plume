@@ -58,8 +58,14 @@ private enum class NotificationType(val label: String) {
     }
 }
 
-private data class NotificationPreview(val event: Event, val actor: String?, val text: String,
+internal data class NotificationPreview(val event: Event, val actor: String?, val text: String,
     val action: String, val reaction: ReactionChoice? = null, val amount: String? = null)
+
+internal data class NotificationSnapshot(
+    val owner: String,
+    val types: Int,
+    val previews: List<NotificationPreview>,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,8 +87,13 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions, state.deletedNotes) {
         ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes)
     }
-    val previews by produceState<List<NotificationPreview>>(emptyList(), events, state.embedded, filter, selectedTypes) {
-        value = withContext(Dispatchers.Default) {
+    // Keep rows alongside the retained LazyListState. Mounting a temporary empty list
+    // on Back would clamp its saved index before the background previews are ready.
+    val snapshot by produceState<NotificationSnapshot?>(
+        entry.notifications?.takeIf { it.owner == owner && it.types == selectedTypes },
+        owner, events, state.embedded, filter, selectedTypes,
+    ) {
+        val rows = withContext(Dispatchers.Default) {
             events.filter { event -> (includedTypes.isEmpty() || includedTypes.any { it.includes(event) }) && !filter.hides(event) }.mapNotNull { event ->
                 val target = notificationTarget(event)
                 if (target != null && filter.hides(target)) return@mapNotNull null
@@ -99,7 +110,12 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                     payment?.amount?.let { "$it ${payment.unit}" })
             }
         }
+        val updated = NotificationSnapshot(owner, selectedTypes, rows)
+        entry.notifications = updated
+        value = updated
     }
+    val readySnapshot = snapshot?.takeIf { it.owner == owner && it.types == selectedTypes }
+    val previews = readySnapshot?.previews.orEmpty()
     var previousTypes by remember { mutableIntStateOf(selectedTypes) }
     LaunchedEffect(selectedTypes) {
         if (previousTypes != selectedTypes) entry.list.scrollToItem(0)
@@ -156,6 +172,13 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     LaunchedEffect(active, entry.list) {
         if (active) snapshotFlow { entry.list.firstVisibleItemIndex to entry.list.firstVisibleItemScrollOffset }
             .distinctUntilChanged().collect { (index, offset) -> if (index == 0 && offset == 0) home.toolbar = true }
+    }
+    // Also protect the saved offset when recreating a screen without a retained snapshot.
+    if (readySnapshot == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+        }
+        return
     }
     CompositionLocalProvider(
         LocalContentColor provides MaterialTheme.colorScheme.onSurface,

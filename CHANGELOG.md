@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep notification rows and scroll position when opening a notification or profile and returning with Back.
+
 ## [0.73.0] - 2026-10-17
 
 ### Added
