@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Render Primal polls whose option IDs contain UUID hyphens; preserve the original IDs when voting.
+
 ### Changed
 - Move Zap activity directly before Highlights in main and profile tab order.
 

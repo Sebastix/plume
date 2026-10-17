@@ -21,7 +21,9 @@ internal fun parsePoll(event: Event): Poll? {
     val options = event.tags.filter { it.firstOrNull() == "option" }.mapNotNull {
         val id = it.getOrNull(1) ?: return@mapNotNull null
         val label = it.getOrNull(2)?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-        if (id.isEmpty() || !id.all { c -> c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' }) return@mapNotNull null
+        // Option IDs are opaque references: Primal uses UUIDs with hyphens.
+        // Preserve the exact ID in response tags rather than normalizing it.
+        if (id.isBlank() || id.length > 256 || id.any(Char::isISOControl)) return@mapNotNull null
         id to label
     }.distinctBy { it.first }
     if (options.size !in 2..64) return null
