@@ -1224,7 +1224,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         Spacer(Modifier.height(12.dp))
         when {
-            note.kind == 1068 -> PollContent(note, state)
+            note.kind == 1068 -> PollContent(note, state, onReference, repost?.id ?: note.id)
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
             note.kind == 1621 -> IssueContent(note, compact, onReference)
             note.kind in voiceKinds -> AudioContent(note, compact, name)
@@ -1435,7 +1435,7 @@ private fun ReplyContext(note: Event, embedded: Map<String, Event>, profiles: Ma
 
 /** Text and links stay selectable; mention labels update when metadata arrives. */
 @Composable
-private fun richNoteText(body: String, note: Event, profiles: Map<String, Profile>, onReference: (NostrContent.Reference) -> Unit,
+internal fun richNoteText(body: String, note: Event, profiles: Map<String, Profile>, onReference: (NostrContent.Reference) -> Unit,
     embeddedIds: Set<String> = emptySet()): androidx.compose.ui.text.AnnotatedString {
     val tokens = remember(body, note.id) { NostrContent.tokens(body, note) }
     return richText(body, tokens, profiles, onReference, embeddedIds)

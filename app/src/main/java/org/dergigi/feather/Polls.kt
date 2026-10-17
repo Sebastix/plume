@@ -13,6 +13,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal data class Poll(val options: List<Pair<String, String>>, val multiple: Boolean, val endsAt: Long?, val relays: List<String>)
 data class PollResults(val counts: Map<String, Int> = emptyMap(), val voters: Int = 0, val selected: Set<String> = emptySet(), val limited: Boolean = false)
@@ -54,7 +57,13 @@ internal data class PollActions(val vote: (Event, Set<String>) -> Unit = { _, _ 
 internal val LocalPollActions = staticCompositionLocalOf { PollActions() }
 
 @Composable
-internal fun PollContent(event: Event, state: FeedState) {
+internal fun PollContent(event: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit, mediaKey: String = event.id) {
+    val detectedTypes by DetectedMedia.types.collectAsStateWithLifecycle()
+    val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), event.id, detectedTypes) {
+        value = withContext(Dispatchers.Default) { MediaContent.attachments(event, 32) }
+    }
+    val body = remember(event.id, attachments) { MediaContent.text(event, attachments) }
+    val content = richNoteText(body, event, state.profiles, onReference)
     val poll = remember(event.id) { parsePoll(event) }
     val results = state.pollResults[event.id] ?: PollResults()
     val actions = LocalPollActions.current
@@ -67,7 +76,11 @@ internal fun PollContent(event: Event, state: FeedState) {
     val closed = poll?.endsAt?.let { now >= it } == true
     val busy = event.id in state.pendingVotes
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(event.content, style = MaterialTheme.typography.bodyLarge)
+        if (content.isNotBlank()) NoteSelection(event) {
+            LinkText(content, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (attachments.isNotEmpty()) NoteMedia(event, attachments, mediaKey)
+        LinkPreviews(body, event = event)
         if (poll == null) {
             Text(stringResource(R.string.ui_poll_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
