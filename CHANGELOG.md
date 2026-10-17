@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Move Hashtags directly before Bookmarks in the main feed and profile tab order.
+
 ## [0.77.1] - 2026-10-17
 
 ### Fixed
