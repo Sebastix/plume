@@ -63,7 +63,9 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
         value = withContext(Dispatchers.Default) { MediaContent.attachments(event, 32) }
     }
     val body = remember(event.id, attachments) { MediaContent.text(event, attachments) }
-    val content = richNoteText(body, event, state.profiles, onReference)
+    val quotes = remember(event.id) { NostrContent.quotes(event) }
+    val richContent = richNoteText(body, event, state.profiles, onReference, quotes.map { it.id }.toSet())
+    val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
     val poll = remember(event.id) { parsePoll(event) }
     val results = state.pollResults[event.id] ?: PollResults()
     val actions = LocalPollActions.current
@@ -78,6 +80,9 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (content.isNotBlank()) NoteSelection(event) {
             LinkText(content, style = MaterialTheme.typography.bodyLarge)
+        }
+        quotes.forEach { reference ->
+            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "$mediaKey:${reference.id}", onReference)
         }
         if (attachments.isNotEmpty()) NoteMedia(event, attachments, mediaKey)
         LinkPreviews(body, event = event)

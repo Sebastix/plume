@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
-- Show poll images and videos through the regular media renderer, hide rendered media URLs, and open images in the full-screen gallery. Poll questions also support selectable text, mentions, hashtags, and links.
+- Show poll images and videos through the regular media renderer, hide rendered media URLs, and open images in the full-screen gallery. Poll questions use note-style selectable rich text, mentions, hashtags, links, and inline quoted notes.
 - Render Primal polls whose option IDs contain UUID hyphens; preserve the original IDs when voting.
 
 ### Changed
