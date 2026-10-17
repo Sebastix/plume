@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.77.3] - 2026-10-17
+
 ### Fixed
 - Profile hashtag links show only that author’s posts, including cached results and older pages.
 - Preserve video mute state and volume alongside playback position when opening a note or returning to the feed; prepared neighboring videos remain silent.
