@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-10-17
+
 ### Changed
 - Group the Reposts tab by original post, ordered by its latest repost, with a compact attribution and a tappable list of distinct reposters.
 - Removed file size captions below composer attachment thumbnails and their extra spacing; upload progress still shows size.
