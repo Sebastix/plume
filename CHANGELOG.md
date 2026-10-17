@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-10-18
+
 ### Added
 - Tap a poll’s vote count to see voters and their selected options, with avatars and profile links.
 
