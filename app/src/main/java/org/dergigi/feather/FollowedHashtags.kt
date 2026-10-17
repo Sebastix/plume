@@ -39,3 +39,19 @@ internal class HashtagCache(context: Context) {
         check(edit.commit())
     }
 }
+
+/** Distinct posts per tag, ranked locally; never present these samples as network-wide counts. */
+internal fun rankedHashtags(events: List<Event>, since: Long? = null): List<String> {
+    val counts = mutableMapOf<String, Int>()
+    val newest = mutableMapOf<String, Long>()
+    events.distinctBy { it.id }.filter { it.kind == 1 && (since == null || it.createdAt >= since) }.forEach { event ->
+        event.tags.asSequence().filter { it.size >= 2 && it[0] == "t" }
+            .mapNotNull { normalizeFollowedTag(it[1]) }.distinct().take(64).forEach tag@{ tag ->
+                if (tag !in counts && counts.size >= 8192) return@tag
+                counts[tag] = (counts[tag] ?: 0) + 1
+                newest[tag] = maxOf(newest[tag] ?: 0, event.createdAt)
+            }
+    }
+    return counts.keys.sortedWith(compareByDescending<String> { counts[it] ?: 0 }
+        .thenByDescending { newest[it] ?: 0 }.thenBy { it }).take(300)
+}

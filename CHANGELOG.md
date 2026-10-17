@@ -4,10 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-10-17
+
 ### Added
-- Hashtag-feed posts show a compact matching followed hashtag beside the timestamp, with +N for additional matches; tap to open the hashtag or choose from all matches. Author names truncate to leave room.
+- Hashtag discovery lists recent tags ranked by frequency over the last 24 hours, without counts. Profiles show tags used in their posts; tap a tag to open its feed.
+- Home posts show a compact matching followed hashtag beside the timestamp, with +N for additional matches; tap to open the hashtag or choose from all matches. Author names truncate to leave room.
 
 ### Changed
+- Followed-hashtag posts now appear in Home, deduplicated with followed authors and reposts.
 - Main and profile tabs now use a fixed relative order instead of ranking categories by content count. Undiscovered categories stay hidden; Replies appears when available.
 
 ## [0.76.0] - 2026-10-17

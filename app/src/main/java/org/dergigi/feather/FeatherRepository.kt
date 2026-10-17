@@ -481,16 +481,23 @@ class FeatherRepository(context: Context) {
         }
             ?: run { client.unsubscribe("account"); client.unsubscribe("contacts"); client.unsubscribe("account-settings") }
         val authors = s.publicKey?.let { (listOf(it) + s.following).take(1000) }
-        if (selectedFeed == ProfileTab.HASHTAGS) {
-            if (s.followedHashtags.isEmpty() || s.publicKey == null) client.unsubscribe("feed")
-            else client.subscribe("feed", followedHashtagFilters(s.followedHashtags), listener)
-        } else client.subscribe("feed", authorFilters(authors, selectedFeed.feedKinds(), 80), listener)
+        val feedRoutes = when (selectedFeed) {
+            ProfileTab.HASHTAGS -> topicFilters()
+            ProfileTab.POSTS -> homeFilters(authors, s.followedHashtags)
+            else -> authorFilters(authors, selectedFeed.feedKinds(), 80)
+        }
+        client.subscribe("feed", feedRoutes, listener)
         val discovery = authorFilters(authors, profileKinds, 8).mapValues { (_, filters) ->
             filters.flatMap { filter -> filter.kinds.orEmpty().map { kind ->
                 Filter(authors = filter.authors, kinds = listOf(kind), tags = filter.tags, limit = 8)
             } }
         }
-        client.subscribe("feed-discovery", discovery, listener)
+        val topicDiscovery = topicFilters().mapValues { (_, filters) -> filters.map {
+            Filter(kinds = it.kinds, since = it.since, limit = 80)
+        } }
+        client.subscribe("feed-discovery", (discovery.keys + topicDiscovery.keys).associateWith {
+            discovery[it].orEmpty() + topicDiscovery[it].orEmpty()
+        }, listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
         viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it), listener) }
@@ -975,11 +982,18 @@ class FeatherRepository(context: Context) {
         val feedAuthors = key?.let { (listOf(it) + following).take(1000) }
         val previousFeed = state.value.notes.takeIf { state.value.feedTab == feed }.orEmpty()
         val feedLimit = if (initialFeedOnly) 120 else 600
-        val all = if (feed == ProfileTab.HASHTAGS) {
-            if (hashtagFollows.isEmpty()) emptyList() else timeline(
-                Filter(kinds = listOf(1), tags = mapOf("t" to hashtagFollows.toList()), limit = feedLimit, until = feedCeiling),
-                previousFeed.filter { it.matchesHashtags(hashtagFollows) }, feedLimit)
-        } else latestProfileEvents(timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = feedLimit, until = feedCeiling), previousFeed, feedLimit))
+        val all = when (feed) {
+            ProfileTab.HASHTAGS -> timeline(Filter(kinds = listOf(1), since = topicSince(), limit = 600), emptyList(), 600)
+            ProfileTab.POSTS -> {
+                val authored = timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = feedLimit, until = feedCeiling),
+                    previousFeed.filter { feedAuthors == null || it.pubKey in feedAuthors }, feedLimit)
+                val tagged = if (key == null || hashtagFollows.isEmpty()) emptyList() else timeline(
+                    Filter(kinds = listOf(1), tags = mapOf("t" to hashtagFollows.toList()), limit = feedLimit, until = feedCeiling),
+                    previousFeed.filter { it.matchesHashtags(hashtagFollows) }, feedLimit)
+                latestProfileEvents(authored + tagged).take(feedLimit)
+            }
+            else -> latestProfileEvents(timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = feedLimit, until = feedCeiling), previousFeed, feedLimit))
+        }
         if (initialFeedOnly) {
             // Same account/filter rules as the complete snapshot, with no relay work.
             // Metadata is bounded to the initial viewport; the rest fills in independently.
@@ -1002,12 +1016,17 @@ class FeatherRepository(context: Context) {
             }
             val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
             val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(noteDeletions::hides).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
-            feedDiscoveryPages = ProfileTab.entries.associateWith { candidate -> if (candidate == ProfileTab.HASHTAGS) emptyList() else discoveryEvents.filter(candidate::matchesFeed) }
+            val recentTopics = timeline(Filter(kinds = listOf(1), since = topicSince(), limit = 600), emptyList(), 600)
+                .filterNot(feedFilter::hides)
+            feedDiscoveryPages = ProfileTab.entries.associateWith { candidate ->
+                if (candidate == ProfileTab.HASHTAGS) recentTopics.filter(candidate::matches)
+                else discoveryEvents.filter(candidate::matchesFeed)
+            }
             feedDiscoveryKey = discoveryKey
             feedDiscoveryAt = discoveryNow
         }
         val previews = feedDiscoveryPages
-        val feedTabs = (listOf(ProfileTab.POSTS) + listOfNotNull(ProfileTab.HASHTAGS.takeIf { key != null && (hashtagFollows.isNotEmpty() || pendingHashtags != null) }) + ProfileTab.entries.filter {
+        val feedTabs = (listOf(ProfileTab.POSTS) + ProfileTab.entries.filter {
             it != ProfileTab.POSTS && previews[it].orEmpty().isNotEmpty()
         }).sortedBy { it.orderPriority }
         val feedPreviews = previews.mapValues { it.value.take(40) }
@@ -1028,8 +1047,9 @@ class FeatherRepository(context: Context) {
                 } + Filter(kinds = listOf(1, 1111), authors = listOf(author), limit = 80).podcastTagFilters())
             }
             val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.involves(author) })
+                .filterNot(ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)::hides)
             val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }
-            (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
+            (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty().filter { it != ProfileTab.HASHTAGS })
                 .distinct().sortedBy { it.orderPriority }
         }.orEmpty()
         val hashtag = viewedHashtag
@@ -1742,6 +1762,15 @@ class FeatherRepository(context: Context) {
             if (active) subscribeFeed()
         }
     }
+    private fun topicSince() = System.currentTimeMillis() / 1000 - 24 * 60 * 60
+    private fun topicFilters() = state.value.relays.associate {
+        it.normalizeRelayUrl() to listOf(Filter(kinds = listOf(1), since = topicSince(), limit = 200))
+    }
+    private fun homeFilters(authors: List<String>?, tags: Set<String>, until: Long? = null): Map<NormalizedRelayUrl, List<Filter>> {
+        val base = authorFilters(authors, ProfileTab.POSTS.feedKinds(), 80, until)
+        val extra = if (authors == null || tags.isEmpty()) emptyMap() else followedHashtagFilters(tags, until)
+        return (base.keys + extra.keys).associateWith { base[it].orEmpty() + extra[it].orEmpty() }
+    }
     private fun followedHashtagFilters(tags: Set<String>, until: Long? = null) = state.value.relays.associate {
         it.normalizeRelayUrl() to listOf(Filter(kinds = listOf(1), tags = mapOf("t" to tags.take(256)), limit = 80, until = until))
     }
@@ -1750,7 +1779,7 @@ class FeatherRepository(context: Context) {
     }
     @Synchronized
     fun older(author: String? = null): Boolean {
-        if (!active || viewedThread != null || state.value.loadingOlder) return false
+        if (!active || viewedThread != null || state.value.loadingOlder || (author == null && viewedHashtag == null && selectedFeed == ProfileTab.HASHTAGS)) return false
         val sequence = historySequence.incrementAndGet()
         val subscription = "older-$sequence"
         val profile = viewedProfile
@@ -1759,23 +1788,24 @@ class FeatherRepository(context: Context) {
         val tag = viewedHashtag
         val account = state.value.publicKey
         val followedTagsAtStart = state.value.followedHashtags
-        fun sameScreen() = active && profile == viewedProfile && tab == profileTab && feed == selectedFeed && tag == viewedHashtag && viewedThread == null && account == state.value.publicKey && (feed != ProfileTab.HASHTAGS || followedTagsAtStart == state.value.followedHashtags)
+        fun sameScreen() = active && profile == viewedProfile && tab == profileTab && feed == selectedFeed && tag == viewedHashtag && viewedThread == null && account == state.value.publicKey && (feed != ProfileTab.POSTS || followedTagsAtStart == state.value.followedHashtags)
         _state.update { it.copy(loadingOlder = true) }
         historyJob = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 ready.await()
                 if (!sameScreen()) return@launch
                 val current = state.value
-                val hashtagFeed = author == null && tag == null && feed == ProfileTab.HASHTAGS
-                if (hashtagFeed && current.followedHashtags.isEmpty()) return@launch
-                val authors = if (tag != null || hashtagFeed) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
+                val homeFeed = author == null && tag == null && feed == ProfileTab.POSTS
+                val authors = if (tag != null) null else author?.let(::listOf) ?: account?.let { (listOf(it) + current.following).take(1000) }
                 val kinds = if (author != null) tab.kinds else if (tag != null) listOf(1) else feed.feedKinds()
                 val events = (if (tag != null) current.hashtagNotes else if (author != null) current.profileEvents else current.notes)
-                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (it.kind == 9321 && it.tagValue("p") in authors) || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
+                    .filter { it.kind in kinds && (authors == null || it.pubKey in authors || (homeFeed && it.matchesHashtags(current.followedHashtags)) || (it.kind == 9321 && it.tagValue("p") in authors) || (it.kind == 9735 && (it.tagValue("p") in authors || it.tagValue("P") in authors))) }
                 val oldest = events.minOfOrNull { it.createdAt } ?: return@launch
                 if (oldest <= 0) return@launch
-                val filter = Filter(kinds = kinds, authors = authors, tags = if (hashtagFeed) mapOf("t" to current.followedHashtags.toList()) else tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
-                val cached = mutex.withLock { db.query<Event>(filter.activityFilters()) }
+                val filter = Filter(kinds = kinds, authors = authors, tags = tag?.let { mapOf("t" to listOf(it)) }, limit = 80, until = oldest - 1)
+                val filters = filter.activityFilters() + if (homeFeed && authors != null && current.followedHashtags.isNotEmpty())
+                    listOf(Filter(kinds = listOf(1), tags = mapOf("t" to current.followedHashtags.toList()), limit = 80, until = oldest - 1)) else emptyList()
+                val cached = mutex.withLock { db.query<Event>(filters) }
                 var found = cached.isNotEmpty()
                 if (author != null) {
                     // Local history is not evidence that every write relay was queried.
@@ -1786,7 +1816,7 @@ class FeatherRepository(context: Context) {
                     }
                     found = found || received
                 } else if (!found) {
-                    val routes = if (hashtagFeed) followedHashtagFilters(current.followedHashtags, oldest - 1) else if (tag != null) hashtagFilters(tag, oldest - 1) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
+                    val routes = if (homeFeed) homeFilters(authors, current.followedHashtags, oldest - 1) else if (tag != null) hashtagFilters(tag, oldest - 1) else if (author != null) profileFilters(author, kinds, 80, oldest - 1) else authorFilters(authors, kinds, 80, oldest - 1)
                     if (routes.isEmpty()) return@launch
                     val complete = CompletableDeferred<Unit>()
                     val ended = java.util.concurrent.ConcurrentHashMap.newKeySet<NormalizedRelayUrl>()

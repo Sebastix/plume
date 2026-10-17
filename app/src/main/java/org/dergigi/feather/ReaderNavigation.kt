@@ -32,6 +32,7 @@ internal class ReaderEntry(
     var reference: NostrContent.Reference? = null
     // Event objects are shared with the repository, never serialized into saved instance state.
     val notes = mutableMapOf<ProfileTab, List<Event>>()
+    var topics: List<String> = emptyList()
     var homeOrder: List<String> = emptyList()
     var homeRows: List<ConversationRow> = emptyList()
     var homeRefresh by mutableIntStateOf(0)
@@ -55,7 +56,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
         if (entry.screen == current.screen && entry.target == current.target) return
         entries.add(entry)
         // Bound retained event references; older destinations still restore from the repository.
-        entries.dropLast(8).forEach { it.notes.clear(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
+        entries.dropLast(8).forEach { it.notes.clear(); it.topics = emptyList(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
     }
     fun back() { if (entries.size > 1) entries.removeAt(entries.lastIndex) }
     fun home() { entries.clear(); entries.add(ReaderEntry("feed")) }

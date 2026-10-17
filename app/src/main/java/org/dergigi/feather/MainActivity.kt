@@ -562,7 +562,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
-                        .filter { profileTab.matchesFeed(it) && (if (profileTab == ProfileTab.HASHTAGS) s.publicKey != null && it.matchesHashtags(s.followedHashtags) else (s.publicKey == null || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following)))) }.take(600)
+                        .filter { profileTab.matchesFeed(it) && (if (profileTab == ProfileTab.HASHTAGS) true else (s.publicKey == null || (profileTab == ProfileTab.POSTS && it.matchesHashtags(s.followedHashtags)) || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following)))) }.take(600)
                     }
                     // Returning to a paginated profile must not discard its already displayed pages.
                     if (screen == "hashtag" && filtered.size < retained.size)
@@ -578,12 +578,16 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 } else preparedNotes.second
                 // Re-check retained/handoff state synchronously when a list changes. These are
                 // bounded in-memory key checks; no parsing, disk, or network work on main.
-                val visibleNotes = remember(notes, contentFilter, profileTab, s.followedHashtags, s.publicKey) {
-                    notes.filterNot(contentFilter::hides).filter {
-                        profileTab != ProfileTab.HASHTAGS || (s.publicKey != null && it.matchesHashtags(s.followedHashtags))
+                val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
+                SideEffect { entry.notes[profileTab] = visibleNotes }
+                val topicPage = screen in listOf("feed", "profile") && profileTab == ProfileTab.HASHTAGS
+                val topics by produceState<List<String>>(entry.topics, topicPage, visibleNotes, screen) {
+                    if (!topicPage) return@produceState
+                    value = withContext(Dispatchers.Default) {
+                        rankedHashtags(visibleNotes, if (screen == "feed") System.currentTimeMillis() / 1000 - 24 * 60 * 60 else null)
                     }
                 }
-                SideEffect { entry.notes[profileTab] = visibleNotes }
+                SideEffect { if (topicPage) entry.topics = topics }
                 val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
                 SideEffect { if (threadView != null) entry.conversation = threadView }
                 val groupFeed = screen in listOf("feed", "profile") && profileTab == ProfileTab.POSTS
@@ -688,11 +692,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val mediaNotes = if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS)
                     bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else if (screen == "thread" || groupFeed) displayedEvents else visibleNotes
                 val mediaEmbeds = remember(s.embedded, contentFilter) { s.embedded.filterValues { !contentFilter.hides(it) } }
-                PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, mediaEmbeds, mediaKeys)
+                if (!topicPage) PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, mediaEmbeds, mediaKeys)
                 val currentBookmarks by rememberUpdatedState(bookmarkRows)
                 val currentNotes by rememberUpdatedState(if (screen == "thread" || groupFeed) displayedEvents else visibleNotes)
-                LaunchedEffect(activeListState, screen, activePage) {
+                LaunchedEffect(activeListState, screen, activePage, topicPage) {
                     if (!activePage) return@LaunchedEffect
+                    if (topicPage) { vm.repo.readingNotes(emptyList()); return@LaunchedEffect }
                     snapshotFlow { activeListState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
                         .distinctUntilChanged().collect { visibleKeys ->
                             val keys = visibleKeys.flatMap { currentRepostKeys[it] ?: listOf(it) }
@@ -868,7 +873,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) {
+                        if (topicPage) {
+                            items(topics, key = { "topic:$it" }) { tag ->
+                                ProfileTabRow(tabSpace, "topic:$tag", profileViewport) {
+                                    Text("#$tag", Modifier.fillMaxWidth()
+                                        .clickable { openReference(NostrContent.Reference(tag, hashtag = tag)) }
+                                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) {
                             itemsIndexed(photoRows, key = { _, row -> "photo:${row.first().first.id}:${row.first().second.url}" }) { rowIndex, row ->
                                 val openGallery = LocalOpenGallery.current
                                 ProfileTabRow(tabSpace, "photo:${row.first().first.id}:${row.first().second.url}", profileViewport) {
@@ -947,7 +963,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile, row.reposts) { original ->
                                         openNote(original)
                                     } else NoteRow(note, s, onReference = ::openReference, onProfile = { openProfile(note.pubKey) }, onOpen = { if (note.kind == 7) reactionTarget(note)?.let(::openReference) else { openNote(note) } },
-                                        showHashtagMatch = screen == "feed" && profileTab == ProfileTab.HASHTAGS,
+                                        showHashtagMatch = screen == "feed" && profileTab == ProfileTab.POSTS && note.matchesHashtags(s.followedHashtags),
                                         compact = !row.focused, threadRow = row.takeIf { screen == "thread" || row.above || row.below },
                                         showParent = if (screen == "thread") row.focused && !parentRendered else !row.above,
                                         parentLoading = screen == "thread" && row.focused && s.threadId == threadId && s.threadContextLoading,

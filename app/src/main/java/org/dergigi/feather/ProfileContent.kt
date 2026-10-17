@@ -44,7 +44,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
         }
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
-        HASHTAGS -> false // Account-scoped feed only, never a public profile category.
+        HASHTAGS -> event.tags.any { it.size >= 2 && it[0] == "t" && normalizeFollowedTag(it[1]) != null }
         POSTS -> !Protocol.isReply(event)
         REPLIES -> Protocol.isReply(event)
         PODCASTS -> isPodcastActivity(event)
