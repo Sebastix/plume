@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.73.1] - 2026-10-17
+
 ### Fixed
 - Show attachment size reductions only when image compression produced the upload; metadata-only cleanup shows the final size.
 - Keep notification rows and scroll position when opening a notification or profile and returning with Back.
