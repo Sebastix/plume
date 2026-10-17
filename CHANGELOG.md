@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.77.2] - 2026-10-17
+
 ### Fixed
 - Resume videos at their previous playback position when opening a note from the feed or navigating back, using a bounded in-memory history.
 
