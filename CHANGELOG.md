@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep discovered profile hashtag tabs visible across refreshes, tab changes, and return navigation instead of hiding them when the current bounded sample contains no hashtags.
+
 ## [0.77.0] - 2026-10-17
 
 ### Added

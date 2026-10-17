@@ -1049,7 +1049,7 @@ class FeatherRepository(context: Context) {
             val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.involves(author) })
                 .filterNot(ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)::hides)
             val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }
-            (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty().filter { it != ProfileTab.HASHTAGS })
+            (found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
                 .distinct().sortedBy { it.orderPriority }
         }.orEmpty()
         val hashtag = viewedHashtag

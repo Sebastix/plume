@@ -355,7 +355,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     var statusTitle by rememberSaveable { mutableStateOf("") }
     var profileTab by entry::tab
     val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
-        s.profileTabs.sortedBy { it.orderPriority }.also { entry.tabs = it }
+        // Discovery samples are bounded, not evidence that a previously found category is empty.
+        // Keep this visit's tabs when returning after another profile replaced repository state.
+        (s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
     } else entry.tabs.sortedBy { it.orderPriority }
     LaunchedEffect(entry.key, visibleProfileTabs) {
         if (screen == "profile" && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
