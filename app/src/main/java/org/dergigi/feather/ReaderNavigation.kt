@@ -32,6 +32,9 @@ internal class ReaderEntry(
     var reference: NostrContent.Reference? = null
     // Event objects are shared with the repository, never serialized into saved instance state.
     val notes = mutableMapOf<ProfileTab, List<Event>>()
+    var homeOrder: List<String> = emptyList()
+    var homeRows: List<ConversationRow> = emptyList()
+    var homeRefresh by mutableIntStateOf(0)
     var notifications: NotificationSnapshot? = null
     var conversation: Conversation? = null
     val threadViewport = ThreadViewport()

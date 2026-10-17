@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Home combines kind-1 posts with kind-6/kind-16 reposts, deduplicating direct and shared copies with grouped attribution. Existing cards keep their order until refresh; reposted content retains its original kind.
 - Give the main home feed a birdhouse icon, with a round entrance and perch in Feather’s existing outline style.
 
 ## [0.74.0] - 2026-10-17

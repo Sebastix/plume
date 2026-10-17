@@ -86,7 +86,7 @@ internal fun repostTarget(event: Event): NostrContent.Reference? {
     val tag = event.tags.firstOrNull { it.size >= 2 && it[0] == "e" } ?: return null
     val id = Protocol.publicKey(tag[1]) ?: return null
     return NostrContent.Reference(id, relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)),
-        author = event.tagValue("p")?.let(Protocol::publicKey), kind = if (event.kind in listOf(6, 16)) 1 else event.tagValue("k")?.toIntOrNull())
+        author = event.tagValue("p")?.let(Protocol::publicKey), kind = if (event.kind == 6) 1 else event.tagValue("k")?.toIntOrNull())
 }
 
 internal fun reactionTarget(event: Event): NostrContent.Reference? {

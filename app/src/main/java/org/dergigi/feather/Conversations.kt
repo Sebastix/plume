@@ -279,3 +279,31 @@ internal fun feedConversations(notes: List<Event>, candidates: List<Event>, filt
         }
     }
 }
+
+/** Home ranks original posts by qualifying activity, then holds existing positions until refresh. */
+internal fun homeConversations(
+    activity: List<Event>, candidates: List<Event>, filter: ContentFilter, previousOrder: List<String>,
+): List<ConversationRow> {
+    val originals = (activity + candidates).filterNot(filter::hides).associateBy { it.id }
+    val groups = activity.filterNot(filter::hides)
+        .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+        .mapNotNull { event ->
+            if (event.kind == 1) event.id to event
+            else repostTarget(event)?.takeUnless(filter::hides)?.let { it.id to event }
+        }.groupBy({ it.first }, { it.second })
+    val order = previousOrder.filter { it in groups }.toMutableList()
+    // Insert genuinely new groups at their chronological position without moving existing groups.
+    val chronological = groups.keys.toList()
+    chronological.forEachIndexed { index, id ->
+        if (id !in order) {
+            val next = chronological.drop(index + 1).firstOrNull { it in order }
+            order.add(next?.let(order::indexOf) ?: order.size, id)
+        }
+    }
+    val reposters = groups.mapValues { (_, events) -> events.filter { it.kind in listOf(6, 16) }.distinctBy { it.pubKey } }
+    val targets = order.map { id -> originals[id] ?: groups.getValue(id).first() }
+    return feedConversations(targets, candidates + targets, filter).map { row ->
+        val originalId = row.event?.let { repostTarget(it)?.id ?: it.id } ?: row.key
+        row.copy(key = originalId, reposts = reposters[originalId].orEmpty())
+    }
+}

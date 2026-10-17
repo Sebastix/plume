@@ -580,9 +580,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
                 SideEffect { if (threadView != null) entry.conversation = threadView }
                 val groupFeed = screen in listOf("feed", "profile") && profileTab == ProfileTab.POSTS
-                val groupedRows by key(profileTab) { produceState(visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed) {
+                val groupedRows by key(profileTab) { produceState(if (screen == "feed" && profileTab == ProfileTab.POSTS) entry.homeRows else visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed, entry.homeRefresh, s.loading) {
                     value = withContext(Dispatchers.Default) {
-                        if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
+                        if (screen == "feed" && profileTab == ProfileTab.POSTS)
+                            homeConversations(visibleNotes, s.notes + s.embedded.values, contentFilter,
+                                if (entry.homeRefresh > 0 && s.loading) emptyList() else entry.homeOrder)
+                        else if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
                         else if (profileTab == ProfileTab.REPOSTS && screen in listOf("feed", "profile")) {
                             visibleNotes.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
                                 .mapNotNull { repost -> repostTarget(repost)?.let { it.id to repost } }
@@ -591,6 +594,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     ConversationRow(target, reposts.first(), reposts = reposts.distinctBy { it.pubKey })
                                 }
                         } else visibleNotes.map { ConversationRow(it.id, it) }
+                    }
+                    if (screen == "feed" && profileTab == ProfileTab.POSTS) {
+                        entry.homeRows = value
+                        entry.homeOrder = value.map { it.key }.distinct().take(1800)
                     }
                 } }
                 val displayRows = if (screen == "thread") threadView?.rows ?: visibleNotes.firstOrNull { it.matchesThread(threadId) }
@@ -664,7 +671,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 SideEffect { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
                 val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
-                val repostKeys = remember(displayRows) { displayRows.filter { it.reposts.isNotEmpty() }.associate { it.key to listOf(it.event!!.id) } }
+                val repostKeys = remember(displayRows) { displayRows.filter { it.reposts.isNotEmpty() }.associate { it.key to (listOfNotNull(it.event?.id) + it.reposts.map { repost -> repost.id }).distinct() } }
                 val currentRepostKeys by rememberUpdatedState(repostKeys)
                 val mediaKeys = remember(photoRows, bookmarkRows, s.embedded, repostKeys) {
                     photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
@@ -725,7 +732,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 var refreshing by remember(screen) { mutableStateOf(false) }
                 LaunchedEffect(s.loading) { if (!s.loading) refreshing = false }
                 val refresh = {
-                    if (activePage && !s.loading) { requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes() }
+                    if (activePage && !s.loading) { entry.homeOrder = emptyList(); entry.homeRefresh++; requestedBoundary = null; emptyPages = 0; refreshing = true; vm.repo.refresh(); vm.retryMutes() }
                 }
                 val initialViewport = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.roundToPx() }
                 var profileViewport by remember(entry.key) { mutableIntStateOf(initialViewport) }
@@ -921,6 +928,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                 } else vm.repo.loadThreadParent(row)?.let { entry.threadAncestorLimit = it }
                                             }) else null)
                                     } else if (!contentFilter.hides(note) && note.id !in threadView?.deleted.orEmpty()) {
+                                    if (note.kind !in listOf(6, 16) && row.reposts.isNotEmpty()) {
+                                        val reposters = row.reposts.filterNot(contentFilter::hides)
+                                        if (reposters.isNotEmpty()) Box(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
+                                            RepostAttribution(reposters, s, ::openProfile)
+                                        }
+                                    }
                                     if (note.kind == 30617) ProjectCard(note)
                                     else if (note.kind == 32267 && screen != "thread") SoftwareAppCard(note) { openNote(note) }
                                     else if (note.kind in listOf(6, 16)) RepostRow(note, s, ::openReference, ::openProfile, row.reposts) { original ->
