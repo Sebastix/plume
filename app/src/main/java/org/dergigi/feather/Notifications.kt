@@ -76,7 +76,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         LaunchedEffect(active) { if (active) home.toolbar = true }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(32.dp),
             verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.NotificationsNone, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.Notifications, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.ui_notifications_sign_in), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
