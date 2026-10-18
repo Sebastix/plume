@@ -41,7 +41,7 @@ private val nonPages = setOf("jpg", "jpeg", "png", "gif", "webp", "avif", "svg",
 
 private data class PreviewPart(val text: String, val link: PreviewLink? = null)
 private data class PreviewLayout(val parts: List<PreviewPart>, val podcasts: List<PodcastReference> = emptyList())
-private val standaloneWebLink = Regex("^[ \t]*(https?://[^\\s<>]+)[ \t\r]*$", setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE))
+private val paragraphBreak = Regex("\\r?\\n[ \\t\\r]*\\n")
 
 private fun previewLink(raw: String, podcasts: List<PodcastReference>): PreviewLink? {
     val url = (FountainLinks.canonical(raw) ?: raw).trimEnd('.', ',', ')', ']', '!', '?').toHttpUrlOrNull() ?: return null
@@ -50,18 +50,28 @@ private fun previewLink(raw: String, podcasts: List<PodcastReference>): PreviewL
     return PreviewLink(url.toString(), url.host, YouTubeLinks.parse(url.toString(), 1).firstOrNull(), podcasts.firstOrNull { it.url == url.toString() })
 }
 
-/** Standalone URL lines are replaced in place; prose links never spawn a card. */
+/** Replace standalone links and trailing link groups without splitting flowing prose. */
 private fun previewLayout(content: String, limit: Int, event: Event?): PreviewLayout {
     val podcasts = event?.let(::podcastReferences).orEmpty()
     val budget = limit.coerceIn(1, 2)
     val parts = mutableListOf<PreviewPart>()
     val shown = mutableSetOf<String>()
     var offset = 0
-    for (match in standaloneWebLink.findAll(content)) {
+    for (match in webLinks.findAll(content)) {
         if (shown.size >= budget) break
-        val link = previewLink(match.groupValues[1], podcasts) ?: continue
+        val end = match.range.last + 1
+        val lineStart = content.lastIndexOf('\n', match.range.first - 1) + 1
+        val lineEnd = content.indexOf('\n', end).let { if (it < 0) content.length else it }
+        val standalone = content.substring(lineStart, match.range.first).isBlank() &&
+            content.substring(end, lineEnd).isBlank()
+        val paragraphEnd = paragraphBreak.find(content, end)?.range?.first ?: content.length
+        // A suffix containing only URLs and whitespace is a trailing link group.
+        // Any following prose keeps this link inline, including on the next line.
+        val trailingLinks = webLinks.replace(content.substring(end, paragraphEnd), "").isBlank()
+        if (!standalone && !trailingLinks) continue
+        val link = previewLink(match.value, podcasts) ?: continue
         if (!shown.add(link.url.substringBefore('#'))) continue
-        val before = content.substring(offset, match.range.first).trim('\r', '\n')
+        val before = content.substring(offset, match.range.first).trim('\r', '\n').trimEnd()
         if (before.isNotBlank()) parts += PreviewPart(before)
         parts += PreviewPart(match.value.trim(), link)
         offset = match.range.last + 1

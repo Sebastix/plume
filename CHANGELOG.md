@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Render links and space-separated link groups at the end of a paragraph as rich previews, keeping the introductory text above them. Links followed by prose remain inline.
+
 ## [0.79.2] - 2026-10-18
 
 ### Changed
