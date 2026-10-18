@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep reaction and repost counts stable while scrolling: query activity per note, retain bounded cached evidence, and refresh recently viewed count entries instead of evicting them as old entries.
+
 ### Changed
 - Keep Notifications visible when logged out, with a sign-in empty state.
 - Show the compose feather when logged out; tapping it opens signer login directly, including on Search and Notifications.

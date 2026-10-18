@@ -92,6 +92,9 @@ class FeatherRepository(context: Context) {
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
     private val mutex = Mutex()
     private val snapshotMutex = Mutex()
+    // Accessed under mutex: protect the evidence behind recently displayed counts.
+    private val recentEngagement = LinkedHashMap<String, Set<String>>()
+    private var retainedEngagementEvents = 0
     private val threadMutex = Mutex()
     private val recentThreads = RecentThreads(context, scope)
     private val threadChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
@@ -1133,6 +1136,27 @@ class FeatherRepository(context: Context) {
             db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 6, 16, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
                 engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) }).distinctBy { it.id }
         }
+        val countedActivity = mutex.withLock {
+            countTargets.associate { target ->
+                val retained = recentEngagement.remove(target.id).orEmpty()
+                retainedEngagementEvents -= retained.size
+                val discovered = db.query<Event>(Filter(kinds = listOf(7), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
+                    db.query<Event>(Filter(kinds = listOf(6, 16), tags = mapOf("e" to listOf(target.id)), limit = 2000))
+                val missingFromWindow = retained - discovered.map { it.id }.toSet()
+                val events = (cachedEventsLocked(missingFromWindow.toList()).values + discovered).distinctBy { it.id }
+                    .filter { (it.kind == 7 && reactionTarget(it)?.id == target.id) || (it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id) }
+                    .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(4000)
+                val ids = events.map { it.id }.toSet()
+                recentEngagement[target.id] = ids
+                retainedEngagementEvents += ids.size
+                while (recentEngagement.size > 800 || retainedEngagementEvents > 16_000) {
+                    val oldest = recentEngagement.entries.first()
+                    retainedEngagementEvents -= oldest.value.size
+                    recentEngagement.remove(oldest.key)
+                }
+                target.id to events
+            }
+        }
         val authors = (pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
@@ -1140,8 +1164,9 @@ class FeatherRepository(context: Context) {
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
             val replies = activity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
-            val reactions = activity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
-            val repostAuthors = activity.asSequence().filter {
+            val stableActivity = countedActivity[target.id].orEmpty()
+            val reactions = stableActivity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
+            val repostAuthors = stableActivity.asSequence().filter {
                 it.kind in listOf(6, 16) && !engagementDeleted(it) && it.pubKey !in mutedAuthors && repostTarget(it)?.id == target.id
             }.map { it.pubKey }.toSet()
             val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
@@ -1201,7 +1226,7 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
+        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
@@ -1242,7 +1267,8 @@ class FeatherRepository(context: Context) {
             db.query<Event>(Filter(kinds = listOf(0), authors = homeAuthors, limit = homeAuthors.size)).map { it.id }
         val protected = recentThreads.protectedIds() + accountRecords + homeNotes.map { it.id } +
             homeNotes.mapNotNull(::repostTarget).map { it.id } + homeProfiles +
-            cachedState.notifications.map { it.id } + cachedState.notifications.mapNotNull(::notificationTarget).map { it.id }
+            cachedState.notifications.map { it.id } + cachedState.notifications.mapNotNull(::notificationTarget).map { it.id } +
+            recentEngagement.values.flatten()
         for ((kind, max) in listOf(1068 to 300, 1018 to 3000, 1621 to 300, 1222 to 300, 1244 to 300, 30023 to 300, 30000 to 300, 30617 to 300, 32267 to 300, 20 to 600, 21 to 300, 22 to 300, 34235 to 300, 34236 to 300, 10003 to 200, 30003 to 300, 1 to 2000, 1111 to 2000, 6 to 1000, 16 to 1000, 7 to 2000, 17 to 300, 5 to 1000, 9735 to 2000, 9321 to 1000, 9802 to 600, 0 to 1000, 3 to 300, 10000 to 300, 10002 to 1100, 10015 to 8, 10030 to 8, 10063 to 8, 30078 to 32, 30030 to 64)) {
             var unprotected = 0
             val evict = mutableListOf<String>()

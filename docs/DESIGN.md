@@ -322,3 +322,6 @@ Notification discovery merges into retained recent history rather than replacing
 
 
 Notifications remain in the main tab strip for guests, showing a minimal sign-in empty state with no account subscription. The compose feather remains visible on the main screens and profiles when logged out; tapping it launches the Android signer directly. Sign-in from Search or Notifications does not navigate away from the selected page.
+
+
+Reaction and repost counts are derived from per-target cached activity, not a shared newest-event window across the viewport. Retain the verified event IDs behind recently displayed counts and protect those database rows from ordinary pruning (maximum 800 targets / 16,000 engagement events, at most 4,000 per target). Refresh recency for displayed count entries. Deletions and mute filtering still apply to the retained evidence; do not clamp counts with a historical maximum that would conceal legitimate decreases.
