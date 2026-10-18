@@ -26,6 +26,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.Buffer
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -91,7 +93,7 @@ internal fun LinkPreviewContent(content: String, limit: Int = 2, event: Event? =
     val layout by produceState(PreviewLayout(listOf(PreviewPart(content))), content, limit, event?.id) {
         value = withContext(Dispatchers.Default) { previewLayout(content, limit, event) }
     }
-    layout.parts.forEachIndexed { index, part -> key(index, part.link?.url) {
+    layout.parts.forEachIndexed { index, part -> key(index, part.link?.url, part.link?.podcast) {
         val link = part.link
         if (link == null) text(part.text)
         else {
@@ -100,10 +102,11 @@ internal fun LinkPreviewContent(content: String, limit: Int = 2, event: Event? =
             if (index < layout.parts.lastIndex) Spacer(Modifier.height(8.dp))
         }
     } }
-    layout.podcasts.forEach { reference ->
+    layout.podcasts.forEach { reference -> key(reference) {
         val link = reference.url?.let { previewLink(it, listOf(reference)) }
-        if (link != null) OpenGraphCard(link, event) else PodcastIdentifierCard(reference)
-    }
+        OpenGraphCard(link ?: PreviewLink("https://fountain.fm", "Fountain", null, reference), event,
+            fallback = { PodcastIdentifierCard(reference) })
+    } }
 }
 
 @Composable
@@ -131,9 +134,9 @@ private fun PodcastIdentifierCard(reference: PodcastReference) {
 }
 
 private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?,
-    val mediaType: String? = null, val audio: String? = null, val duration: Long = 0) {
+    val mediaType: String? = null, val audio: String? = null, val duration: Long = 0, val source: String? = null) {
     fun json() = JSONObject().put("title", title).put("description", description).put("image", image).put("site", site)
-        .put("mediaType", mediaType).put("audio", audio).put("duration", duration).toString()
+        .put("mediaType", mediaType).put("audio", audio).put("duration", duration).put("source", source).toString()
 }
 
 /** Preview requests never run scripts, store cookies, or share the visible-image dispatcher. */
@@ -162,7 +165,9 @@ private object OpenGraph {
 
     suspend fun get(raw: String, disk: DiskCache, podcast: PodcastReference? = null): LinkMetadata? = withContext(Dispatchers.IO) {
         val url = (FountainLinks.canonical(raw) ?: raw).toHttpUrlOrNull()?.newBuilder()?.scheme("https")?.fragment(null)?.build() ?: return@withContext null
-        val key = "opengraph-v3:$url:${podcast?.id.orEmpty()}"
+        val identity = podcast?.takeIf { it.id.startsWith("podcast:") }
+        val key = if (identity != null) "podcast-v1:${identity.id}:${identity.parentId.orEmpty()}"
+            else "opengraph-v3:$url:${podcast?.id.orEmpty()}"
         synchronized(cache) { cache[key]?.takeIf { it.expires > System.currentTimeMillis() } }?.let { return@withContext it.metadata }
         locks[(key.hashCode() and Int.MAX_VALUE) % locks.size].withLock {
             val now = System.currentTimeMillis()
@@ -173,13 +178,17 @@ private object OpenGraph {
                     if (expires <= now || snapshot.data.toFile().length() > 16_384) null else {
                         val json = JSONObject(snapshot.data.toFile().readText())
                         fun field(name: String) = json.optString(name).takeIf { it.isNotBlank() && it != "null" }
-                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site"), field("mediaType"), field("audio"), json.optLong("duration")), expires)
+                        Entry(LinkMetadata(field("title"), field("description"), field("image"), field("site"), field("mediaType"), field("audio"), json.optLong("duration"), field("source")), expires)
                     }
                 }
             }.getOrNull()
             if (cached != null) { synchronized(cache) { cache[key] = cached }; return@withLock cached.metadata }
             val metadata = try {
-                requests.withPermit { withTimeoutOrNull(12_000) { fetch(url, podcast) } }
+                requests.withPermit {
+                    withTimeoutOrNull(if (identity != null) 24_000L else 12_000L) {
+                        if (identity != null) fetchPodcast(identity) else fetch(url, podcast)
+                    }
+                }
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { null }
             val expires = now + if (metadata == null) 5 * 60_000L else 7 * 86_400_000L
@@ -193,6 +202,74 @@ private object OpenGraph {
                 } catch (_: Exception) { runCatching { editor.abort() } }
             }
             metadata
+        }
+    }
+
+    /** Each optional source can fail independently; cancellation always propagates. */
+    private suspend fun <T> optional(block: suspend () -> T?): T? = try { block() }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { null }
+
+    private suspend fun fetchPodcast(reference: PodcastReference): LinkMetadata? {
+        val hinted = reference.url?.toHttpUrlOrNull()?.let { url ->
+            optional { fetch(url, reference)?.copy(source = url.toString()) }
+        }
+        if (hinted != null && (!reference.episode || hinted.audio != null)) return hinted
+        // Fountain's public directory requires a parent feed GUID for episode lookups.
+        if (!reference.episode || reference.parentId != null) {
+            optional { directoryPodcast(reference) }?.let { return it }
+        }
+        val feed = reference.feedUrl?.takeUnless { FountainLinks.canonical(it) != null }
+            ?: optional {
+                val guid = (if (reference.episode) reference.parentId else reference.id)
+                    ?.removePrefix("podcast:guid:") ?: return@optional null
+                if (!Regex("[0-9a-fA-F-]{36}").matches(guid)) return@optional null
+                val lookup = "https://lookup.wherever.audio/feed-url-for-guid/".toHttpUrlOrNull()!!
+                    .newBuilder().addPathSegment(guid.lowercase()).build()
+                val request = Request.Builder().url(lookup).build()
+                http.newCall(request).awaitPreview().use { response ->
+                    if (!response.isSuccessful) null
+                    else MediaContent.secureUrl(response.peekBody(4097).string().takeIf { it.length <= 4096 }?.trim())
+                }
+            }
+        val rss = feed?.toHttpUrlOrNull()?.let { url ->
+            optional { fetch(url, reference)?.copy(source = url.toString()) }
+        }
+        return rss?.takeIf { !reference.episode || it.audio != null } ?: hinted
+    }
+
+    private suspend fun directoryPodcast(reference: PodcastReference): LinkMetadata? {
+        val body = JSONObject().put("id", reference.id).apply {
+            reference.parentId?.let { put("parent", it) }
+        }.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder().url("https://api.fountain.fm/v1/search/lookup")
+            .header("User-Agent", "Feather/${BuildConfig.VERSION_NAME} (podcast lookup)").post(body).build()
+        return http.newCall(request).awaitPreview().use { response ->
+            if (!response.isSuccessful) return@use null
+            val bytes = response.peekBody(1_048_577).bytes()
+            if (bytes.size > 1_048_576) return@use null
+            val hits = JSONObject(String(bytes, Charsets.UTF_8)).optJSONArray("hits") ?: return@use null
+            val guid = reference.id.removePrefix(if (reference.episode) "podcast:item:guid:" else "podcast:guid:")
+            val matches = (0 until minOf(hits.length(), 32)).mapNotNull { hits.optJSONObject(it) }.filter { hit ->
+                hit.optString("_guid") == guid &&
+                    hit.optString("_type") == (if (reference.episode) "EPISODE" else "SHOW") &&
+                    (!reference.episode || hit.optJSONArray("links")?.let { links ->
+                        (0 until links.length()).any { links.optString(it) == reference.parentId?.replaceFirst("podcast:", "show:") }
+                    } == true)
+            }
+            // Never choose an arbitrary episode when a directory response is ambiguous.
+            val hit = matches.singleOrNull() ?: return@use null
+            val info = hit.optJSONObject("info") ?: return@use null
+            fun field(name: String, max: Int) = info.optString(name).takeIf { it.isNotBlank() && it != "null" }?.take(max)
+            val audio = MediaContent.secureUrl(field("audio", 4096))
+            if (reference.episode && audio == null) return@use null
+            val id = hit.optString("_id").removePrefix(if (reference.episode) "episode:id:" else "show:id:")
+            if (!Regex("[A-Za-z0-9_-]{1,128}").matches(id)) return@use null
+            val source = "https://fountain.fm/${if (reference.episode) "episode" else "show"}/$id"
+            val seconds = info.optDouble("duration", 0.0).takeIf { it.isFinite() && it in 0.0..604800.0 } ?: 0.0
+            LinkMetadata(field("title", 300), null, MediaContent.secureUrl(field("image", 4096)),
+                field("subtitle", 300) ?: field("publisher", 300), audio = audio,
+                duration = (seconds * 1000).toLong(), source = source)
         }
     }
 
@@ -298,7 +375,7 @@ private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composab
     val view = LocalView.current
     val media = LocalMedia.current
     var visible by remember(link.url) { mutableStateOf(false) }
-    val metadata by produceState<LinkMetadata?>(null, link.url, media.resources, media.active, visible) {
+    val metadata by produceState<LinkMetadata?>(null, link.url, link.podcast, media.resources, media.active, visible) {
         val resources = media.resources
         if (resources != null && media.active && visible) {
             value = OpenGraph.get(link.url, resources.imageDisk, link.podcast)
@@ -324,7 +401,7 @@ private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composab
                 AudioPlayerContent("podcast:${event?.id}:${episode.audio}",
                     AudioInfo(episode.audio, null, episode.title, "", episode.image, episode.duration, emptyList()),
                     compact = true, author = episode.site ?: link.host, smallArtwork = true,
-                    onOpenSource = { context.openWebLink(link.url) }, sourceNote = event)
+                    onOpenSource = { context.openWebLink(episode.source ?: link.url) }, sourceNote = event)
             }
         }
         return
@@ -335,7 +412,7 @@ private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composab
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).combinedClickable(
             onClickLabel = "Open link", onLongClickLabel = "Copy link",
-            onClick = { context.openWebLink(link.url) }, onLongClick = { context.copyLink(link.url) }
+            onClick = { context.openWebLink(metadata?.source ?: link.url) }, onLongClick = { context.copyLink(metadata?.source ?: link.url) }
         ).onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height

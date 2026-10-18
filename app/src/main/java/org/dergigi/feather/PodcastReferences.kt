@@ -5,7 +5,10 @@ import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 
 internal val podcastTypes = listOf("podcast:item:guid", "podcast:guid")
 internal val podcastKinds = listOf(1, 1111, 17)
-internal data class PodcastReference(val id: String, val episode: Boolean, val url: String?)
+internal data class PodcastReference(
+    val id: String, val episode: Boolean, val url: String?,
+    val parentId: String? = null, val feedUrl: String? = null,
+)
 
 /** NIP-73 external identities, including NIP-22's uppercase root scope. */
 internal fun podcastReferences(event: Event): List<PodcastReference> {
@@ -19,7 +22,11 @@ internal fun podcastReferences(event: Event): List<PodcastReference> {
         PodcastReference(id, type == podcastTypes.first(), hint?.let { FountainLinks.canonical(it) ?: it })
     }.distinctBy { it.id }.take(8).toList()
     // An episode often carries its parent show's ID too; render the episode once.
+    // Retain the parent context even though its separate card is suppressed.
+    // A bare episode GUID is not sufficient to identify its feed unambiguously.
+    val parent = tagged.filterNot { it.episode }.singleOrNull()
     val primary = tagged.filter { reference -> reference.episode || tagged.none { it.episode } }
+        .map { reference -> if (reference.episode) reference.copy(parentId = parent?.id, feedUrl = parent?.url) else reference }
     val links = FountainLinks.parse(event.content).map { PodcastReference(it, "/episode/" in it, it) }
     return (primary + links).distinctBy { it.url ?: it.id }.take(2)
 }

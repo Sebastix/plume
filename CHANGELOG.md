@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Resolve podcast identifiers into full players using supplied URL hints, Fountain’s public GUID directory, and RSS fallback. Preserve parent podcast IDs, cache successful lookups, and retain compact cards when resolution is unavailable.
+
 ### Fixed
 - Keep Posts visible on profiles and combine that profile’s posts and reposts using the same deduplicated rendering as Home, with the distinct Posts icon.
 
