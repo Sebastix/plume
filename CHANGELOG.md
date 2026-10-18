@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-10-18
+
 ### Added
 - Resolve podcast identifiers into full players using supplied URL hints, Fountain’s public GUID directory, and RSS fallback. Preserve parent podcast IDs, cache successful lookups, and retain compact cards when resolution is unavailable.
 
