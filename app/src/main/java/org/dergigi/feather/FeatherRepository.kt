@@ -1136,27 +1136,7 @@ class FeatherRepository(context: Context) {
             db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 6, 16, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
                 engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) }).distinctBy { it.id }
         }
-        val countedActivity = mutex.withLock {
-            countTargets.associate { target ->
-                val retained = recentEngagement.remove(target.id).orEmpty()
-                retainedEngagementEvents -= retained.size
-                val discovered = db.query<Event>(Filter(kinds = listOf(7), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
-                    db.query<Event>(Filter(kinds = listOf(6, 16), tags = mapOf("e" to listOf(target.id)), limit = 2000))
-                val missingFromWindow = retained - discovered.map { it.id }.toSet()
-                val events = (cachedEventsLocked(missingFromWindow.toList()).values + discovered).distinctBy { it.id }
-                    .filter { (it.kind == 7 && reactionTarget(it)?.id == target.id) || (it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id) }
-                    .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(4000)
-                val ids = events.map { it.id }.toSet()
-                recentEngagement[target.id] = ids
-                retainedEngagementEvents += ids.size
-                while (recentEngagement.size > 800 || retainedEngagementEvents > 16_000) {
-                    val oldest = recentEngagement.entries.first()
-                    retainedEngagementEvents -= oldest.value.size
-                    recentEngagement.remove(oldest.key)
-                }
-                target.id to events
-            }
-        }
+        val countedActivity = cachedCountActivity(countTargets)
         val authors = (pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
@@ -1231,6 +1211,28 @@ class FeatherRepository(context: Context) {
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
     }
+
+    private suspend fun cachedCountActivity(countTargets: List<Event>): Map<String, List<Event>> = mutex.withLock {
+            countTargets.associate { target ->
+                val retained = recentEngagement.remove(target.id).orEmpty()
+                retainedEngagementEvents -= retained.size
+                val discovered = db.query<Event>(Filter(kinds = listOf(7), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
+                    db.query<Event>(Filter(kinds = listOf(6, 16), tags = mapOf("e" to listOf(target.id)), limit = 2000))
+                val missingFromWindow = retained - discovered.map { it.id }.toSet()
+                val events = (cachedEventsLocked(missingFromWindow.toList()).values + discovered).distinctBy { it.id }
+                    .filter { (it.kind == 7 && reactionTarget(it)?.id == target.id) || (it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id) }
+                    .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(4000)
+                val ids = events.map { it.id }.toSet()
+                recentEngagement[target.id] = ids
+                retainedEngagementEvents += ids.size
+                while (recentEngagement.size > 800 || retainedEngagementEvents > 16_000) {
+                    val oldest = recentEngagement.entries.first()
+                    retainedEngagementEvents -= oldest.value.size
+                    recentEngagement.remove(oldest.key)
+                }
+                target.id to events
+            }
+        }
 
     private suspend fun cachedProfiles(authors: List<String>): Map<String, Profile> = if (authors.isEmpty()) emptyMap() else mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
