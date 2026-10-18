@@ -11,7 +11,7 @@ internal val profileKinds = listOf(1, 1111, 17, 1068, 1621, 6, 16, 7, 9802, 20, 
 
 enum class ProfileTab(val kinds: List<Int>, val label: String) {
     SEARCH(emptyList(), "Search"), NOTIFICATIONS(emptyList(), "Notifications"),
-    POSTS(listOf(1), "Posts"), REPLIES(listOf(1, 1111, 1244), "Replies"),
+    POSTS(listOf(1, 6, 16), "Posts"), REPLIES(listOf(1, 1111, 1244), "Replies"),
     REPOSTS(listOf(6, 16), "Reposts"), ZAPS(listOf(9735, 9321), "Zap activity"),
     REACTIONS(listOf(7), "Reactions"), HIGHLIGHTS(listOf(9802), "Highlights"),
     PHOTOS(listOf(1, 20), "Photos"), VIDEOS(listOf(1, 21, 22, 34235, 34236), "Videos"),
@@ -46,7 +46,7 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
 
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         HASHTAGS -> event.tags.any { it.size >= 2 && it[0] == "t" && normalizeFollowedTag(it[1]) != null }
-        POSTS -> !Protocol.isReply(event)
+        POSTS -> if (event.kind == 1) !Protocol.isReply(event) else repostTarget(event) != null
         REPLIES -> Protocol.isReply(event)
         PODCASTS -> isPodcastActivity(event)
         ZAPS -> zapActivity(event) != null
@@ -173,9 +173,9 @@ internal fun NostrContent.Reference.addressFilter(): com.vitorpamplona.quartz.ni
 }
 
 /** Home uses the same categories as profiles, with reposts included on the Posts page. */
-internal fun ProfileTab.feedKinds(): List<Int> = if (this == ProfileTab.POSTS) listOf(1, 6, 16) else kinds
+internal fun ProfileTab.feedKinds(): List<Int> = kinds
 internal fun ProfileTab.matchesFeed(event: Event): Boolean =
-    if (this == ProfileTab.HASHTAGS) event.kind == 1 else if (this == ProfileTab.POSTS && event.kind in listOf(6, 16)) repostTarget(event) != null else matches(event)
+    if (this == ProfileTab.HASHTAGS) event.kind == 1 else matches(event)
 
 /** Lightning receipts use p/P; nutzaps use the sender author and recipient p tag. */
 internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFilters(): List<com.vitorpamplona.quartz.nip01Core.relay.filters.Filter> {

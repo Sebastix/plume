@@ -357,8 +357,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
         // Discovery samples are bounded, not evidence that a previously found category is empty.
         // Keep this visit's tabs when returning after another profile replaced repository state.
-        (s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
-    } else entry.tabs.sortedBy { it.orderPriority }
+        (listOf(ProfileTab.POSTS) + s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
+    } else (listOf(ProfileTab.POSTS) + entry.tabs).distinct().sortedBy { it.orderPriority }
     LaunchedEffect(entry.key, visibleProfileTabs) {
         if (screen == "profile" && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
     }
@@ -609,12 +609,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val threadView = if (screen == "thread") (s.conversation?.takeIf { it.target == threadId } ?: entry.conversation) else null
                 SideEffect { if (threadView != null) entry.conversation = threadView }
                 val groupFeed = screen in listOf("feed", "profile") && profileTab == ProfileTab.POSTS
-                val groupedRows by key(profileTab) { produceState(if (screen == "feed" && profileTab == ProfileTab.POSTS) entry.homeRows else visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed, entry.homeRefresh, s.loading) {
+                val groupedRows by key(profileTab) { produceState(if (groupFeed) entry.homeRows else visibleNotes.map { ConversationRow(it.id, it) }, visibleNotes, s.notes, s.profileEvents, s.embedded, contentFilter, groupFeed, entry.homeRefresh, s.loading) {
                     value = withContext(Dispatchers.Default) {
-                        if (screen == "feed" && profileTab == ProfileTab.POSTS)
-                            homeConversations(visibleNotes, s.notes + s.embedded.values, contentFilter,
+                        if (groupFeed)
+                            homeConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter,
                                 if (entry.homeRefresh > 0 && s.loading) emptyList() else entry.homeOrder)
-                        else if (groupFeed) feedConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter)
                         else if (profileTab == ProfileTab.REPOSTS && screen in listOf("feed", "profile")) {
                             visibleNotes.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
                                 .mapNotNull { repost -> repostTarget(repost)?.let { it.id to repost } }
@@ -624,7 +623,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                         } else visibleNotes.map { ConversationRow(it.id, it) }
                     }
-                    if (screen == "feed" && profileTab == ProfileTab.POSTS) {
+                    if (groupFeed) {
                         entry.homeRows = value
                         entry.homeOrder = value.map { it.key }.distinct().take(1800)
                         if (!s.loading) entry.homeRefresh = 0

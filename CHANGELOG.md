@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep Posts visible on profiles and combine that profile’s posts and reposts using the same deduplicated rendering as Home, with the distinct Posts icon.
+
 ## [0.79.3] - 2026-10-18
 
 ### Changed

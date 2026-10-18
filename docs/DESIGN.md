@@ -328,3 +328,5 @@ Reaction and repost counts are derived from per-target cached activity, not a sh
 
 
 Web previews replace standalone URL lines and trailing paragraph links (including groups separated only by spaces) at their position in the text; they do not duplicate the URL or reorder the surrounding paragraphs. Keep introductory text above the cards. URLs followed by flowing prose in the same paragraph stay inline and do not trigger preview requests. Leave the original clickable URL visible while Open Graph metadata is unavailable or fails. Keep the existing bounded card limits; links beyond that budget remain text. Use the same rendering rules in notes, embedded notes, and poll descriptions. Podcast identities that exist only in tags can still produce their dedicated player/card.
+
+Profile Posts is always available, including while its cache is empty. Query kinds 1, 6 and 16 scoped to that profile’s author, and use the same stable, deduplicated posts/reposts rows as Home. Keep the profile Posts icon distinct from Home’s birdhouse.
