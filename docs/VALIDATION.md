@@ -1536,3 +1536,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256 `548cecf068bd6ff3c3d689e1a171170dbd3d94e286d257f54dab8e3c2c57ffd7`; 15,834,341 bytes. GitHub asset digest matches.
 - Signed Zapstore release `cbd8998f38d8794d42ca8ac6339f1ede47575dfc0315f40b132baf629f150f50` and asset `58384cffd55b329c6a7cd15900be473460b5d7c728a7e82c81a4f0b774285f68` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
 - GitHub source and release tag initially published directly while the old ngit signer was unavailable. After pairing the dedicated ngit-feather connection, the release tag and latest master were verified on GitHub and both GRASP mirrors.
+
+## 2026-10-18 — 0.80.0 release
+
+- Version 0.80.0 (156), source `c40aa296958e75e9fc819878f37816108934695a`. Automatic podcast identifier resolution with preserved parent context, supplied hints, public Fountain GUID lookup, RSS fallback and cached metadata. Profile Posts remains visible and combines the profile’s posts/reposts using Home’s deduplication.
+- Signed release build passed in 1m 21s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; mapping archived.
+- APK SHA-256 `78fe971e117c8a76da7c119b11f2c5be49ccfeb2c6e0d706bd4f495b86751121`; 15,850,721 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `c02ebd713ee536d3b8b77868586e3248d5f426b7cb5f38bb3f0ac168dabdb4ef` and asset `b678a974c9e52302196463da331e3f89f81d1d9e4b3629de98a9d390e70305fa` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
+- Provider research: Fountain’s documented public /v1/search/lookup returned the example episode GUID with its exact parent show and an audio URL. Episode-only identifiers without sufficient feed context retain the fallback card. Feed GUID lookup uses the documented lookup.wherever.audio endpoint.
