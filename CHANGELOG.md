@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.79.1] - 2026-10-18
+
 ### Fixed
 - Keep reaction and repost counts stable while scrolling: query activity per note, retain bounded cached evidence, and refresh recently viewed count entries instead of evicting them as old entries.
 
