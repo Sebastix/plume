@@ -1535,4 +1535,4 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 18s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; mapping archived.
 - APK SHA-256 `548cecf068bd6ff3c3d689e1a171170dbd3d94e286d257f54dab8e3c2c57ffd7`; 15,834,341 bytes. GitHub asset digest matches.
 - Signed Zapstore release `cbd8998f38d8794d42ca8ac6339f1ede47575dfc0315f40b132baf629f150f50` and asset `58384cffd55b329c6a7cd15900be473460b5d7c728a7e82c81a4f0b774285f68` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
-- GitHub source and release tag published directly while the ngit Git-state signature remains pending; GRASP mirror synchronization is pending.
+- GitHub source and release tag initially published directly while the old ngit signer was unavailable. After pairing the dedicated ngit-feather connection, the release tag and latest master were verified on GitHub and both GRASP mirrors.
