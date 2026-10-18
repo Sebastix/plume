@@ -43,6 +43,6 @@ Reports and crash details posted as issues are public. Review the contents befor
 
 ## Maintainer identity
 
-The maintainer uses the same Amber identity as Zapstore publishing, with a dedicated ngit connection. The connection is stored in the local OS credential store, with the repository selecting the `feather-ngit` alias. This connection can be revoked independently of Zapstore. Credentials must never be added to tracked files.
+The maintainer uses the same Amber identity as Zapstore publishing, with a dedicated ngit connection. The connection is stored in the local OS credential store, with the repository selecting the `ngit-feather` alias. This connection can be revoked independently of Zapstore. Credentials must never be added to tracked files.
 
 See the upstream [mirroring guide](https://ngit.dev/repositories/mirroring) and [issue workflow](https://ngit.dev/issues).
