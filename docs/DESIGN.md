@@ -325,3 +325,6 @@ Notifications remain in the main tab strip for guests, showing a minimal sign-in
 
 
 Reaction and repost counts are derived from per-target cached activity, not a shared newest-event window across the viewport. Retain the verified event IDs behind recently displayed counts and protect those database rows from ordinary pruning (maximum 800 targets / 16,000 engagement events, at most 4,000 per target). Refresh recency for displayed count entries. Deletions and mute filtering still apply to the retained evidence; do not clamp counts with a historical maximum that would conceal legitimate decreases.
+
+
+Web previews replace standalone URL lines at their position in the text; they do not duplicate the URL or reorder the surrounding paragraphs. URLs embedded in prose stay inline and do not trigger preview requests. Leave the original clickable URL visible while Open Graph metadata is unavailable or fails. Keep the existing bounded card limits; links beyond that budget remain text. Use the same rendering rules in notes, embedded notes, and poll descriptions. Podcast identities that exist only in tags can still produce their dedicated player/card.

@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Replace standalone URL lines with rich previews in place, without repeating the link. Links within prose stay inline without a preview; failed preview requests retain the original clickable URL. Applies to notes, quoted notes, and polls, including YouTube and Fountain links.
+
 ## [0.79.1] - 2026-10-18
 
 ### Fixed

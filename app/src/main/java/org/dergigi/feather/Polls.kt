@@ -74,8 +74,6 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
     }
     val body = remember(event.id, attachments) { MediaContent.text(event, attachments) }
     val quotes = remember(event.id) { NostrContent.quotes(event) }
-    val richContent = richNoteText(body, event, state.profiles, onReference, quotes.map { it.id }.toSet())
-    val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
     val poll = remember(event.id) { parsePoll(event) }
     val results = state.pollResults[event.id] ?: PollResults()
     val actions = LocalPollActions.current
@@ -90,14 +88,15 @@ internal fun PollContent(event: Event, state: FeedState, onReference: (NostrCont
     val closed = poll?.endsAt?.let { now >= it } == true
     val busy = event.id in state.pendingVotes
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (content.isNotBlank()) NoteSelection(event) {
-            LinkText(content, style = MaterialTheme.typography.bodyLarge)
+        LinkPreviewContent(body, event = event) { part ->
+            val richContent = richNoteText(part, event, state.profiles, onReference, quotes.map { it.id }.toSet())
+            val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
+            if (content.isNotBlank()) NoteSelection(event) { LinkText(content, style = MaterialTheme.typography.bodyLarge) }
         }
         quotes.forEach { reference ->
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "$mediaKey:${reference.id}", onReference)
         }
         if (attachments.isNotEmpty()) NoteMedia(event, attachments, mediaKey)
-        LinkPreviews(body, event = event)
         if (poll == null) {
             Text(stringResource(R.string.ui_poll_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {

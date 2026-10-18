@@ -1253,15 +1253,20 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
-        val richContent = richNoteText(body, note, state.profiles, onReference, quotes.map { it.id }.toSet())
-        val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
-        if (content.isNotBlank()) NoteSelection(note) { LinkText(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow }) }
+        val overflowingParts = remember(note.id, body) { mutableStateMapOf<String, Boolean>() }
+        LinkPreviewContent(body, event = note) { part ->
+            DisposableEffect(part) {
+                onDispose { overflowingParts.remove(part); if (!expanded) truncated = overflowingParts.values.any { it } }
+            }
+            val richContent = richNoteText(part, note, state.profiles, onReference, quotes.map { it.id }.toSet())
+            val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
+            if (content.isNotBlank()) NoteSelection(note) { LinkText(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) { overflowingParts[part] = it.hasVisualOverflow; truncated = overflowingParts.values.any { overflow -> overflow } } }) }
+        }
         quotes.forEachIndexed { index, reference ->
-            if (content.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
+            if (body.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
             EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
         }
         if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
-        LinkPreviews(body, event = note)
             }
         }
         } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
@@ -1529,13 +1534,14 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                     value = withContext(Dispatchers.Default) { MediaContent.attachments(note, limit = if (compact) 1 else 32) }
                 }
                 val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
-                val text = richNoteText(body, note, profiles, onReference)
-                if (text.isNotBlank()) NoteSelection(note) {
-                    LinkText(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                LinkPreviewContent(body, limit = 1, event = note) { part ->
+                    val text = richNoteText(part, note, profiles, onReference)
+                    if (text.isNotBlank()) NoteSelection(note) {
+                        LinkText(text, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp), maxLines = if (compact) 8 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                    }
                 }
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
-                LinkPreviews(body, limit = 1, event = note)
                 }
             }
         }

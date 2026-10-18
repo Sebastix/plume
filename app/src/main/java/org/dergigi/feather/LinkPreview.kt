@@ -39,43 +39,85 @@ private data class PreviewLink(val url: String, val host: String, val youtube: Y
 private val webLinks = Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE)
 private val nonPages = setOf("jpg", "jpeg", "png", "gif", "webp", "avif", "svg", "mp4", "m4v", "mov", "webm", "mp3", "wav", "ogg", "pdf", "zip", "apk")
 
-/** Parse once off-main; share the same card limit with the existing YouTube previews. */
+private data class PreviewPart(val text: String, val link: PreviewLink? = null)
+private data class PreviewLayout(val parts: List<PreviewPart>, val podcasts: List<PodcastReference> = emptyList())
+private val standaloneWebLink = Regex("^[ \t]*(https?://[^\\s<>]+)[ \t\r]*$", setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE))
+
+private fun previewLink(raw: String, podcasts: List<PodcastReference>): PreviewLink? {
+    val url = (FountainLinks.canonical(raw) ?: raw).trimEnd('.', ',', ')', ']', '!', '?').toHttpUrlOrNull() ?: return null
+    if (url.username.isNotEmpty() || url.password.isNotEmpty() || url.port !in setOf(80, 443)) return null
+    if (podcasts.none { it.url == url.toString() } && url.pathSegments.lastOrNull()?.substringAfterLast('.')?.lowercase() in nonPages) return null
+    return PreviewLink(url.toString(), url.host, YouTubeLinks.parse(url.toString(), 1).firstOrNull(), podcasts.firstOrNull { it.url == url.toString() })
+}
+
+/** Standalone URL lines are replaced in place; prose links never spawn a card. */
+private fun previewLayout(content: String, limit: Int, event: Event?): PreviewLayout {
+    val podcasts = event?.let(::podcastReferences).orEmpty()
+    val budget = limit.coerceIn(1, 2)
+    val parts = mutableListOf<PreviewPart>()
+    val shown = mutableSetOf<String>()
+    var offset = 0
+    for (match in standaloneWebLink.findAll(content)) {
+        if (shown.size >= budget) break
+        val link = previewLink(match.groupValues[1], podcasts) ?: continue
+        if (!shown.add(link.url.substringBefore('#'))) continue
+        val before = content.substring(offset, match.range.first).trim('\r', '\n')
+        if (before.isNotBlank()) parts += PreviewPart(before)
+        parts += PreviewPart(match.value.trim(), link)
+        offset = match.range.last + 1
+    }
+    val after = content.substring(offset).trim('\r', '\n')
+    if (after.isNotBlank()) parts += PreviewPart(after)
+    // Tag-only podcast shares still need a player. Never bypass the inline-link
+    // rule using a podcast reference discovered from that same prose URL.
+    val proseUrls = webLinks.findAll(content).mapNotNull { previewLink(it.value, podcasts)?.url?.substringBefore('#') }.toSet()
+    val extra = podcasts.filter { ref -> ref.url == null || previewLink(ref.url, podcasts)?.url?.substringBefore('#') !in proseUrls }
+        .take((budget - shown.size).coerceAtLeast(0))
+    return PreviewLayout(parts, extra)
+}
+
+@Composable
+internal fun LinkPreviewContent(content: String, limit: Int = 2, event: Event? = null, text: @Composable (String) -> Unit) {
+    val layout by produceState(PreviewLayout(listOf(PreviewPart(content))), content, limit, event?.id) {
+        value = withContext(Dispatchers.Default) { previewLayout(content, limit, event) }
+    }
+    layout.parts.forEachIndexed { index, part -> key(index, part.link?.url) {
+        val link = part.link
+        if (link == null) text(part.text)
+        else {
+            if (link.youtube != null) YouTubePreview(link.youtube)
+            else OpenGraphCard(link, event, fallback = { text(part.text) })
+            if (index < layout.parts.lastIndex) Spacer(Modifier.height(8.dp))
+        }
+    } }
+    layout.podcasts.forEach { reference ->
+        val link = reference.url?.let { previewLink(it, listOf(reference)) }
+        if (link != null) OpenGraphCard(link, event) else PodcastIdentifierCard(reference)
+    }
+}
+
 @Composable
 internal fun LinkPreviews(content: String, limit: Int = 2, event: Event? = null) {
-    val podcasts by produceState(emptyList<PodcastReference>(), event?.id) {
-        value = withContext(Dispatchers.Default) { event?.let(::podcastReferences).orEmpty() }
-    }
-    val links by produceState(emptyList<PreviewLink>(), content, limit, podcasts) {
-        value = withContext(Dispatchers.Default) {
-            (podcasts.mapNotNull { it.url }.asSequence() + webLinks.findAll(content).map { it.value }).mapNotNull { raw ->
-                val url = (FountainLinks.canonical(raw) ?: raw).trimEnd('.', ',', ')', ']', '!', '?').toHttpUrlOrNull() ?: return@mapNotNull null
-                if (url.username.isNotEmpty() || url.password.isNotEmpty() || url.port !in setOf(80, 443)) return@mapNotNull null
-                if (podcasts.none { it.url == url.toString() } && url.pathSegments.lastOrNull()?.substringAfterLast('.')?.lowercase() in nonPages) return@mapNotNull null
-                PreviewLink(url.toString(), url.host, YouTubeLinks.parse(url.toString(), 1).firstOrNull(),
-                    podcasts.firstOrNull { it.url == url.toString() })
-            }.distinctBy { it.url.substringBefore('#') }.take((limit.coerceIn(1, 2) - podcasts.count { it.url == null }).coerceAtLeast(0)).toList()
-        }
-    }
-    podcasts.filter { it.url == null }.take(limit).forEach { reference ->
-        val context = LocalContext.current
-        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.podcast), null, tint = MaterialTheme.colorScheme.primary)
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(if (reference.episode) "Podcast episode" else "Podcast", style = MaterialTheme.typography.titleSmall)
-                    Text(reference.id.substringAfter("guid:"), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                IconButton(onClick = { context.copyLink(reference.id) }) {
-                    Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_podcast_identifier))
-                }
+    LinkPreviewContent(content, limit, event) { }
+}
+
+@Composable
+private fun PodcastIdentifierCard(reference: PodcastReference) {
+    val context = LocalContext.current
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.podcast), null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(if (reference.episode) "Podcast episode" else "Podcast", style = MaterialTheme.typography.titleSmall)
+                Text(reference.id.substringAfter("guid:"), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = { context.copyLink(reference.id) }) {
+                Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_podcast_identifier))
             }
         }
     }
-    links.forEach { link -> key(link.url) {
-        if (link.youtube != null) YouTubePreview(link.youtube) else OpenGraphCard(link, event)
-    } }
 }
 
 private data class LinkMetadata(val title: String?, val description: String?, val image: String?, val site: String?,
@@ -241,7 +283,7 @@ private suspend fun Call.awaitPreview(): Response = suspendCancellableCoroutine 
 }
 
 @Composable
-private fun OpenGraphCard(link: PreviewLink, event: Event?) {
+private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composable () -> Unit)? = null) {
     val context = LocalContext.current
     val view = LocalView.current
     val media = LocalMedia.current
@@ -252,6 +294,13 @@ private fun OpenGraphCard(link: PreviewLink, event: Event?) {
             value = OpenGraph.get(link.url, resources.imageDisk, link.podcast)
             value?.mediaType?.let { DetectedMedia.put(link.url, it) }
         }
+    }
+    if (metadata == null && fallback != null) {
+        Box(Modifier.fillMaxWidth().onGloballyPositioned {
+            val bounds = it.boundsInWindow()
+            visible = bounds.bottom > 0 && bounds.top < view.height
+        }) { fallback() }
+        return
     }
     val episode = metadata?.takeIf { it.audio != null }
     if (episode != null) {
