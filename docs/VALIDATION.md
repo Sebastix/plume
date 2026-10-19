@@ -1614,3 +1614,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Final signed release build passed in 1m 17s after extracting hashtag discovery from the feed snapshot to stay below Kotlin's method-size limit. No tests or emulators run. APK package/version and signing certificate verified; mapping archived.
 - APK SHA-256 `77fda889f3d9398bde468563639a5e3637f48583c031ea6337ccc27ca59c3c43`; 15,872,165 bytes. GitHub asset digest matches. Source and tag refs match on GitHub and both GRASP mirrors.
 - Zapstore release `a6d5227d5527769d450c397e2009bc78138f427814ce4e844c211963a6dd238d` and asset `474d3f1a9331e3a32a5208dc6a66c5a07e92628dc50b3fbe2b4cef9d3e78b7b2` retrieved; hash, size, versionCode and certificate match. No website deployment.
+
+## 2026-10-19 — 0.85.0 release
+
+- Version 0.85.0 (167), source `766459f8cdfea4c7263c7ac1967bd69a610a84c8`. Hashtag follow/unfollow with fresh NIP-51 interests discovery and private-entry preservation; profile/hashtag tabs attached to the toolbar; profile title shown only after the header name scrolls away; posts/replies at 21-bit PoW and reactions at 12 bits.
+- Signed release build passed in 1m 24s after correcting a stale startup-state reference. No tests or emulators run. APK package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `96b22bae073aae358a6defaf014b706f223ff0457a2580ada78812980910f5c7`; 15,874,553 bytes. GitHub asset digest matches. Source and tag refs match on GitHub and both GRASP mirrors.
+- Zapstore release `d151c88ad70793c8a3ea277fcc393f2e92c3303d7d4d078a3abc19b6a77900a3` and asset `6be316ef1cf834bfd70a9bea893c00b5cfa1656c442b505806bdd0a7e33fa2d1` retrieved; hash, size, versionCode and certificate match. CDN HTTP 200 and matching content length. No website deployment.
