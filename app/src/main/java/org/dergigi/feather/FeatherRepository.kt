@@ -1125,20 +1125,7 @@ class FeatherRepository(context: Context) {
             hashtagTimeline(tag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount)
         }.orEmpty()
         val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
-        val hashtagCategories = hashtag?.let { tag ->
-            val discovered = mutex.withLock {
-                db.query<Event>(hashtagDiscoveryKinds.map { kind ->
-                    Filter(kinds = listOf(kind), authors = hashtagAuthor?.let(::listOf),
-                        tags = mapOf("t" to listOf(tag)), limit = 24)
-                })
-            }
-            val events = latestProfileEvents(discovered + hashtagNotes).filterNot(contentFilter::hides)
-                .filterNot(::engagementDeleted)
-            val found = hashtagTabs.filter { candidate -> events.any { it.matchesHashtagFeed(tag, hashtagAuthor, candidate) } }
-            (found + state.value.hashtagCategories.takeIf {
-                state.value.hashtagFor == tag && state.value.hashtagAuthor == hashtagAuthor
-            }.orEmpty()).distinct().sortedBy { it.orderPriority }
-        }.orEmpty()
+        val hashtagCategories = discoverHashtagCategories(hashtag, hashtagAuthor, hashtagNotes, contentFilter)
         val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
         val notifications = if (viewingNotifications && key != null) (retainedNotifications + mutex.withLock {
             // Independent per-kind windows must not replace previously discovered rows.
@@ -2004,6 +1991,25 @@ class FeatherRepository(context: Context) {
             ensureActive()
             if (current()) _state.update { if (current()) it.copy(profiles = it.profiles + profiles) else it }
         }
+    }
+
+    private suspend fun discoverHashtagCategories(
+        tag: String?, author: String?, notes: List<Event>, contentFilter: ContentFilter,
+    ): List<ProfileTab> {
+        if (tag == null) return emptyList()
+        val discovered = mutex.withLock {
+            db.query<Event>(hashtagDiscoveryKinds.map { kind ->
+                Filter(kinds = listOf(kind), authors = author?.let(::listOf),
+                    tags = mapOf("t" to listOf(tag)), limit = 24)
+            })
+        }
+        val events = latestProfileEvents(discovered + notes).filterNot(contentFilter::hides)
+            .filterNot(::engagementDeleted)
+        val found = hashtagTabs.filter { candidate -> events.any { it.matchesHashtagFeed(tag, author, candidate) } }
+        val previous = state.value
+        return (found + previous.hashtagCategories.takeIf {
+            previous.hashtagFor == tag && previous.hashtagAuthor == author
+        }.orEmpty()).distinct().sortedBy { it.orderPriority }
     }
 
     private suspend fun hashtagTimeline(tag: String, author: String?, tab: ProfileTab, until: Long?, limit: Int): List<Event> {
