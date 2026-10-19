@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- A static Feather blog at `/blog/`, beginning with an edited creator interview about why Feather exists.
+
 ## [0.83.4] - 2026-10-19
 
 ### Changed
