@@ -28,12 +28,16 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import okhttp3.*
 import org.json.JSONObject
+import org.json.JSONException
 import java.io.IOException
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resumeWithException
+
+private class OversizedIdentityRecord : IllegalArgumentException()
+private class HtmlIdentityRecord : IllegalArgumentException()
 
 private enum class IdentityStatus { PENDING, VALID, INVALID, UNAVAILABLE }
 private data class IdentityResult(val status: IdentityStatus, val detail: String)
@@ -92,8 +96,10 @@ private object IdentityLookup {
                             else -> {
                                 val source = response.body.source()
                                 source.request(262_145)
-                                require(source.buffer.size <= 262_144) { "Identity response exceeds 256 KiB." }
-                                val names = JSONObject(source.readUtf8()).optJSONObject("names")
+                                if (source.buffer.size > 262_144) throw OversizedIdentityRecord()
+                                val body = source.readUtf8().trimStart('﻿', ' ', '\t', '\r', '\n')
+                                if (body.startsWith("<")) throw HtmlIdentityRecord()
+                                val names = JSONObject(body).optJSONObject("names")
                                 val mapped = names?.opt(identity.name) as? String
                                 if (mapped == pubkey && mapped.matches(Regex("[0-9a-f]{64}")))
                                     IdentityResult(IdentityStatus.VALID, if (identity.root) "The root domain identity matches this profile's public key." else "The domain record matches this profile's public key.")
@@ -103,7 +109,10 @@ private object IdentityLookup {
                     }
                 } catch (e: CancellationException) { throw e }
                 catch (_: IOException) { IdentityResult(IdentityStatus.UNAVAILABLE, "Could not reach the identity endpoint. Verification is unavailable.") }
-                catch (_: Exception) { IdentityResult(IdentityStatus.INVALID, "The identity endpoint returned an invalid or oversized record.") }
+                catch (_: OversizedIdentityRecord) { IdentityResult(IdentityStatus.INVALID, "Identity response exceeds Feather's 256 KiB limit.") }
+                catch (_: HtmlIdentityRecord) { IdentityResult(IdentityStatus.INVALID, "The identity endpoint returned HTML instead of NIP-05 JSON. Web-page and JavaScript redirects cannot verify this identity.") }
+                catch (_: JSONException) { IdentityResult(IdentityStatus.INVALID, "The identity endpoint returned malformed JSON or a non-object JSON record.") }
+                catch (_: Exception) { IdentityResult(IdentityStatus.INVALID, "The identity endpoint returned an invalid NIP-05 record.") }
             }
             val ttl = when (result.status) { IdentityStatus.VALID -> 21_600_000L; IdentityStatus.INVALID -> 900_000L; else -> 60_000L }
             synchronized(cache) { cache[key] = Cached(result, System.currentTimeMillis() + ttl) }
