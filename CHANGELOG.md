@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Increase spacing between zap-feed entries while keeping each zap header, comment and referenced note grouped closely together.
+
 ### Fixed
 - Align the account avatar picture and center with zap-feed avatars, with its border extending around the matching 36dp picture.
 
