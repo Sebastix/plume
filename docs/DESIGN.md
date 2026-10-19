@@ -346,3 +346,5 @@ Profile opens and tab switches restore the selected author/kind page directly fr
 Follow-list refresh uses four rolling relay slots with a five-second per-relay deadline; all candidates are attempted before evaluating evidence. After caching a discovered or confirmed contact event, publish the database winner to follow indicators immediately. Version indicators by timestamp and event ID so an older feed snapshot cannot revert them; reset that version on account changes. Feed subscriptions continue updating through the normal snapshot path.
 
 Follow controls track pending state per profile. Accept up to 16 distinct profile intents while another edit is running; serialize execution and refresh the contact list separately for each intent. Never queue prebuilt lists or signatures. Cancel active and queued edits on account changes, and prevent an older job from clearing a newer job’s pending state.
+
+Enabled NIP-13 proof of work targets 21 bits for posts, replies and emoji reactions before signing. Mining stays on one background CPU worker, with no cancellation UI; the account-scoped PoW toggle remains enabled by default.
