@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Increase enabled proof-of-work difficulty to 21 bits for posts, replies and emoji reactions (previously 16 bits for posts/replies and 12 for reactions).
+- Increase enabled proof-of-work difficulty from 16 to 21 bits for posts and replies; emoji reactions remain at 12 bits.
 - Show hashtag and profile tabs together with the top bar, revealing both when scrolling upward instead of requiring a return to the start of the feed. Show the profile name in the toolbar only after its header name scrolls out of view, with its banner and biography below the combined header.
 
 ### Fixed

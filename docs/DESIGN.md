@@ -347,4 +347,4 @@ Follow-list refresh uses four rolling relay slots with a five-second per-relay d
 
 Follow controls track pending state per profile. Accept up to 16 distinct profile intents while another edit is running; serialize execution and refresh the contact list separately for each intent. Never queue prebuilt lists or signatures. Cancel active and queued edits on account changes, and prevent an older job from clearing a newer job’s pending state.
 
-Enabled NIP-13 proof of work targets 21 bits for posts, replies and emoji reactions before signing. Mining stays on one background CPU worker, with no cancellation UI; the account-scoped PoW toggle remains enabled by default.
+Enabled NIP-13 proof of work targets 21 bits for posts and replies, and 12 bits for emoji reactions, before signing. Mining stays on one background CPU worker, with no cancellation UI; the account-scoped PoW toggle remains enabled by default.

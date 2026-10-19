@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 /** NIP-13 work, before signing. One CPU worker; no mining controls or cancellation UI. */
 internal object ProofOfWork {
     const val POST_BITS = 21
-    const val REACTION_BITS = 21
+    const val REACTION_BITS = 12
     private val dispatcher = Dispatchers.Default.limitedParallelism(1)
 
     suspend fun prepare(author: String, createdAt: Long, kind: Int, tags: Array<Array<String>>, content: String, bits: Int, enabled: Boolean, onMining: (Boolean) -> Unit = {}): EventTemplate<Event> =
