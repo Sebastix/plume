@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Long-press the top-right account avatar to open Notifications; a normal tap still opens your profile.
+
 ### Changed
 - Place the profile biography expand chevron inline at the end of its three-line preview, removing the separate expand row while preserving links and expanded embedded cards.
 

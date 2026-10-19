@@ -240,16 +240,20 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
         enter = scaleIn(tween(220), initialScale = 0.1f) + fadeIn(tween(220)),
         exit = scaleOut(tween(180), targetScale = 0.1f) + fadeOut(tween(180))) {
-    IconButton(onClick = {
-        val key = state.publicKey
-        if (key == null) {
-            requestLogin()
-        }
-        else navigation.push(ReaderEntry("profile", key))
-    }, modifier = Modifier.size(RoundControlSize).semantics {
+    Box(modifier = Modifier.size(RoundControlSize).clip(CircleShape).combinedClickable(
+        role = Role.Button,
+        onClick = {
+            val key = state.publicKey
+            if (key == null) requestLogin() else navigation.push(ReaderEntry("profile", key))
+        },
+        onLongClickLabel = stringResource(R.string.ui_open_notifications),
+        onLongClick = if (state.publicKey == null) null else ({
+            home.requestedFeedTab = FeedTabRequest(ProfileTab.NOTIFICATIONS)
+        }),
+    ).semantics {
             contentDescription = "Account"
             stateDescription = if (state.publicKey != null && walletConnected) "Wallet connected" else "Wallet not connected"
-        }) {
+        }, contentAlignment = Alignment.Center) {
         Box(Modifier.size(40.dp).clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
             .border(2.dp, if (state.publicKey != null && walletConnected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {

@@ -155,4 +155,5 @@
     <string name="ui_first_follow_body">リレーに既存のフォローリストが見つかりませんでした。このプロフィールを含む新しいリストを作成しますか？別のアプリですでにフォローしている場合は、キャンセルしてリレー接続を確認してください。</string>
     <string name="ui_first_follow_create">リストを作成</string>
     <string name="ui_follow_cancel">キャンセル</string>
+    <string name="ui_open_notifications">通知を開く</string>
 </resources>

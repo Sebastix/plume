@@ -155,4 +155,5 @@
     <string name="ui_first_follow_body">No existing follow list was found on your relays. Create a new list with this profile? If you already follow people in another app, cancel and check your relay connections first.</string>
     <string name="ui_first_follow_create">Create list</string>
     <string name="ui_follow_cancel">Cancel</string>
+    <string name="ui_open_notifications">Open notifications</string>
 </resources>
