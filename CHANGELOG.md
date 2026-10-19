@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-10-19
+
 ### Changed
 - Add Replies to the shared website/blog swipe widget and remove the separate homepage screenshot grid.
 - Remove the duplicate full-screen screenshot beside the website video demo so the flower player uses the full available width on mobile.
