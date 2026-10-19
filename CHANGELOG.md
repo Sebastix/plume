@@ -7,6 +7,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [0.83.4] - 2026-10-19
 
 ### Changed
+- Show zap-feed profile names beside their avatars, keeping the amount centered between the two avatars.
 - Increase spacing between zap-feed entries while keeping each zap header, comment and referenced note grouped closely together.
 
 ### Fixed

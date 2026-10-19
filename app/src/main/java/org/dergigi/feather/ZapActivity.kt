@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vitorpamplona.quartz.nip01Core.core.Event
@@ -96,9 +97,10 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
     // Separate complete entries more than the header/comment/note within each entry.
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Equal profile widths keep the amount centered between the two outer avatars.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ZapParty(zap.sender, state.profiles, Modifier.weight(1f), Alignment.Start, onReference)
-            Column(Modifier.weight(1.25f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
                     Icon(painterResource(R.drawable.zap), if (nutzap) stringResource(R.string.ui_nutzap_from_sender_to_recipient) else stringResource(R.string.ui_zap_from_sender_to_recipient), modifier = Modifier.size(24.dp), tint = paymentColor)
                     zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -126,11 +128,16 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
 private fun ZapParty(key: String?, profiles: Map<String, Profile>, modifier: Modifier, alignment: Alignment.Horizontal, onReference: (NostrContent.Reference) -> Unit) {
     val profile = profiles[key]
     val name = profile?.name ?: key?.let(FeatherRepository::shortKey) ?: "Anonymous"
-    Column(modifier.clickable(enabled = key != null, onClickLabel = "Open $name's profile") {
+    val recipient = alignment == Alignment.End
+    Row(modifier.clickable(enabled = key != null, onClickLabel = "Open $name's profile") {
         key?.let { onReference(NostrContent.Reference(it, profile = true)) }
-    }.padding(vertical = 4.dp), horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Avatar(name, 36, profile?.picture)
-        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (!recipient) Avatar(name, 36, profile?.picture)
+        Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
+            textAlign = if (recipient) TextAlign.End else TextAlign.Start,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (recipient) Avatar(name, 36, profile?.picture)
     }
 }
 
