@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Render image URLs used as poll options as selectable images, with selection indicators, vote percentages, and thumbnails in voter lists.
 - Show the posting account’s avatar in the reply composer’s top-right corner, matching the full-screen new-note composer.
 
 ## [0.80.0] - 2026-10-18
