@@ -175,21 +175,13 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             } }
             LazyColumn(state = home.feedPage(ProfileTab.SEARCH).list, contentPadding = PaddingValues(top = 8.dp, bottom = 144.dp)) {
                 items(results.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }, key = { it.event.pubKey }) { profile ->
-                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Open ${profile.name}'s profile") {
+                    ProfileListRow(profile.event.pubKey, profile.name, profile.picture, profile.identity,
+                        profile.event.pubKey in state.followedAccounts) {
                         focus.clearFocus()
                         scope.launch {
                             vm.repo.cacheSearchProfile(profile.event)
                             navigation.push(ReaderEntry("profile", profile.event.pubKey))
                         }
-                    }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Avatar(profile.name, 40, profile.picture)
-                        Column(Modifier.weight(1f)) {
-                            Text(profile.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            profile.identity?.let { Text(it, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        }
-                        ProfileStatusIcons(profile, profile.event.pubKey in state.followedAccounts)
                     }
                 }
             }
@@ -200,9 +192,13 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
 
 /** Shared identity and follow indicators for search and composer suggestions. */
 @Composable
-internal fun ProfileStatusIcons(profile: SearchProfile, following: Boolean) {
-    if (!profile.identity.isNullOrBlank()) {
-        Nip05Identity(profile.identity, profile.event.pubKey, iconOnly = true)
+internal fun ProfileStatusIcons(profile: SearchProfile, following: Boolean) =
+    ProfileStatusIcons(profile.event.pubKey, profile.identity, following)
+
+@Composable
+private fun ProfileStatusIcons(pubkey: String, identity: String?, following: Boolean) {
+    if (!identity.isNullOrBlank()) {
+        Nip05Identity(identity, pubkey, iconOnly = true)
     } else Spacer(Modifier.size(40.dp).semantics { contentDescription = "No NIP-05 identity" })
     Box(Modifier.size(28.dp).semantics(mergeDescendants = true) {
         contentDescription = if (following) "Following" else "Not following"
@@ -211,5 +207,24 @@ internal fun ProfileStatusIcons(profile: SearchProfile, following: Boolean) {
             tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         if (following) Icon(Icons.Default.Check, null, Modifier.size(12.dp).align(Alignment.BottomEnd),
             tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** One profile row for search results and public people lists. */
+@Composable
+internal fun ProfileListRow(pubkey: String, name: String, picture: String?, identity: String?, following: Boolean,
+    onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Open $name's profile", onClick = onClick)
+        .padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Avatar(name, 40, picture)
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            identity?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        ProfileStatusIcons(pubkey, identity, following)
     }
 }

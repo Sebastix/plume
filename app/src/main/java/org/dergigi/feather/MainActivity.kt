@@ -931,14 +931,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     }
                                     val person = s.profiles[reference.id]
                                     val name = person?.name ?: FeatherRepository.shortKey(reference.id)
-                                    Row(Modifier.fillMaxWidth().clickable { openReference(reference) }.padding(horizontal = 24.dp, vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        Avatar(name, 44, person?.picture)
-                                        Column(Modifier.weight(1f)) {
-                                            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            person?.about?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                        }
-                                    }
+                                    ProfileListRow(reference.id, name, person?.picture, person?.nip05,
+                                        reference.id in s.followedAccounts) { openReference(reference) }
                                 }
                             }
                         } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS) {
