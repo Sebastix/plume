@@ -486,9 +486,37 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         onOpenProfile = ::openProfile, onLogin = { showAccount = true }, onWallet = { showWallet = true }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount && composingReply == null) {
     savedScreens.SaveableStateProvider(entry.key) {
+    val categoryTabs: @Composable () -> Unit = {
+        if (visibleProfileTabs.isEmpty()) Spacer(Modifier.fillMaxWidth().height(48.dp))
+        else {
+            key(visibleProfileTabs) {
+                val selectedIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0)
+                ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = selectedIndex,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    indicator = { positions ->
+                        positions.getOrNull(selectedIndex)?.let { position ->
+                            TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(position))
+                        }
+                    }) {
+                    visibleProfileTabs.forEach { tab ->
+                        Tab(selected = profileTab == tab, onClick = {
+                            if (profileTab == tab) scrollScope.launch {
+                                if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
+                                else activeListState.animateScrollToItem(0)
+                                topBarVisible = true
+                            } else selectProfileTab(tab)
+                        }, icon = {
+                            FeedCategoryIcon(tab)
+                        })
+                    }
+                }
+            }
+        }
+    }
     Scaffold(
         topBar = {
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+            Column {
             TopAppBar(title = {
                 if (screen == "hashtag") {
                     val author = entry.hashtagAuthor
@@ -557,6 +585,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
+            if (screen == "hashtag") categoryTabs()
+            }
             }
         },
         floatingActionButton = {
@@ -858,36 +888,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (screen == "hashtag" || (screen == "profile" && visibleProfileTabs.isNotEmpty())) item("profile-tabs") {
-                            // Reserve the first item's identity before hashtag discovery finishes.
-                            // Otherwise lazy-list anchoring keeps a note visible and the new tabs offscreen.
-                            if (visibleProfileTabs.isEmpty()) Spacer(Modifier.fillMaxWidth().height(48.dp))
-                            else
-                            // Tab discovery can change the measured positions between frames.
-                            // Recreate only the tab row when its membership changes, and never
-                            // index a previous layout's positions without checking its bounds.
-                            key(visibleProfileTabs) {
-                                val selectedIndex = visibleProfileTabs.indexOf(profileTab).coerceAtLeast(0)
-                                ScrollableTabRow(edgePadding = 0.dp, selectedTabIndex = selectedIndex,
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    indicator = { positions ->
-                                        positions.getOrNull(selectedIndex)?.let { position ->
-                                            TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(position))
-                                        }
-                                    }) {
-                                    visibleProfileTabs.forEach { tab ->
-                                        Tab(selected = profileTab == tab, onClick = {
-                                            if (profileTab == tab) scrollScope.launch {
-                                                if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
-                                                else activeListState.animateScrollToItem(0)
-                                                topBarVisible = true
-                                            } else selectProfileTab(tab)
-                                        }, icon = {
-                                            FeedCategoryIcon(tab)
-                                        })
-                                    }
-                                }
-                            }
+                        if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
+                            categoryTabs()
                         }
                         if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (visibleNotes.isEmpty() && activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
