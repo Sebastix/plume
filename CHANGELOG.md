@@ -7,6 +7,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Added
 - Follow and unfollow profiles from the profile header, with Undo, first-list confirmation, and fresh relay checks before signing and publishing. Preserve unrelated follow-list data and stop when a newer list appears.
 
+### Changed
+- Publish follow-list changes to advertised write relays and three discovery relays; use read relays only for freshness checks unless they also serve as discovery relays.
+
 ## [0.80.1] - 2026-10-19
 
 ### Changed
