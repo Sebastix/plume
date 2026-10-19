@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -370,6 +371,14 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
     val activeListState = if (screen == "hashtag") entry.hashtagList(profileTab) else entry.list
     val savedScreens = rememberSaveableStateHolder()
+    var profileNameBottom by remember(entry.key) { mutableStateOf<Float?>(null) }
+    var profileViewportTop by remember(entry.key) { mutableStateOf<Float?>(null) }
+    val showProfileToolbarName by remember(entry.key, activeListState) {
+        derivedStateOf {
+            activeListState.firstVisibleItemIndex > 0 ||
+                (profileNameBottom?.let { bottom -> profileViewportTop?.let { bottom <= it } } == true)
+        }
+    }
     val transparentToolbar = screen == "feed"
     val toolbarButtonSurface = Modifier.size(RoundControlSize).then(if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier)
     fun selectProfileTab(tab: ProfileTab) {
@@ -510,7 +519,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             Column {
             TopAppBar(title = {
-                if (screen == "profile" && profileKey != null) {
+                if (screen == "profile" && profileKey != null && showProfileToolbarName) {
                     Text(s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium)
@@ -829,7 +838,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         )
                     },
                 ) {
-                    LazyColumn(Modifier.fillMaxSize().then(threadViewport?.viewportModifier() ?: Modifier).onSizeChanged { profileViewport = it.height }.onGloballyPositioned { playback?.viewport = it.boundsInWindow() }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed" && homeToolbar == null) 64.dp else 0.dp, bottom = 24.dp + if (homeToolbar != null) 136.dp else 0.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().then(threadViewport?.viewportModifier() ?: Modifier).onSizeChanged { profileViewport = it.height }.onGloballyPositioned {
+                        playback?.viewport = it.boundsInWindow()
+                        if (screen == "profile") profileViewportTop = it.positionInWindow().y
+                    }, state = activeListState, contentPadding = PaddingValues(top = if (screen == "feed" && homeToolbar == null) 64.dp else 0.dp, bottom = 24.dp + if (homeToolbar != null) 136.dp else 0.dp)) {
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
@@ -854,7 +866,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         Avatar(p?.name ?: key, 56, p?.picture, onOpenImage = { openGallery(profileImages, 0, expandAlbum = false) })
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Text(p?.name ?: FeatherRepository.shortKey(key), style = MaterialTheme.typography.titleLarge,
+                                            Text(p?.name ?: FeatherRepository.shortKey(key),
+                                                modifier = Modifier.onGloballyPositioned {
+                                                    profileNameBottom = it.positionInWindow().y + it.size.height
+                                                }, style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                             if (!p?.nip05.isNullOrBlank()) Nip05Identity(p!!.nip05!!, key)
                                             else p?.username?.takeIf { it != p.name }?.let {
