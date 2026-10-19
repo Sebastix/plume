@@ -237,7 +237,7 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         feedSwitcher(pager, true)
     }
     AnimatedVisibility(home.toolbar,
-        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
+        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = AccountControlEndPadding),
         enter = scaleIn(tween(220), initialScale = 0.1f) + fadeIn(tween(220)),
         exit = scaleOut(tween(180), targetScale = 0.1f) + fadeOut(tween(180))) {
     Box(modifier = Modifier.size(RoundControlSize).clip(CircleShape).combinedClickable(

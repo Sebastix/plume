@@ -210,7 +210,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
         }
         // Identical placement to the real home account control, so it stays put as the veil fades.
         IconButton(onClick = { if (!signedIn) { onboarding.step.value = 1; latestLogin() } },
-            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp)
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = AccountControlEndPadding)
                 .size(RoundControlSize).graphicsLayer {
                     alpha = login.value
                     scaleX = .85f + .15f * login.value
@@ -223,7 +223,7 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
             }
         }
         AnimatedVisibility(login.value == 1f && !signerHintDismissed,
-            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, start = 24.dp, end = 12.dp),
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 68.dp, start = 24.dp, end = AccountControlEndPadding),
             enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
             FirstUseHint(stringResource(R.string.ui_hint_signer), onDismiss = { onboarding.step.value = 1 }, pointer = HintPointer.LOGIN)
         }
