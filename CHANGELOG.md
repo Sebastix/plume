@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.82.1] - 2026-10-19
+
 ### Fixed
 - Distinguish HTML pages, malformed JSON, and oversized responses in NIP-05 verification errors instead of reporting all three as an invalid or oversized record.
 - Speed up follow-list checks with four continuously occupied relay slots and a five-second per-relay deadline. Update follow indicators directly from the cached contact-list winner before clearing the spinner, without waiting for feed enrichment or allowing older snapshots to revert them.
