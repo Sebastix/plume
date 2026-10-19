@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Avoid blocking follow changes when one advertised relay is unavailable: require two completed relay responses and fresh evidence of the exact follow-list version, retaining conflict checks and strict first-list safeguards. Include relay completion details in errors.
 - Restore profile feeds directly from disk on profile opens and tab switches, before the full home-feed discovery and engagement refresh.
 
 ### Added

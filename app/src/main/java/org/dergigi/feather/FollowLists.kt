@@ -14,6 +14,10 @@ internal class MissingFollowList : IllegalStateException("No existing follow lis
 internal class FollowLists(private val repo: FeatherRepository, private val requests: SignerRequests) {
     private val edits = Mutex()
     private val queries = ProfileRelayQuery()
+    private data class Discovery(val event: Event?, val completed: Set<String>, val witnessed: Boolean)
+    private fun diagnostic(routes: List<String>, completed: Set<String>): String =
+        "Completed ${completed.size}/${routes.size}: ${completed.joinToString().ifEmpty { "none" }}; " +
+            "incomplete: ${(routes - completed).joinToString().ifEmpty { "none" }}"
     private val newest = compareByDescending<Event> { it.createdAt }.thenBy { it.id }
 
     suspend fun change(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean = false) =
@@ -23,18 +27,20 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 fun current() = check(repo.state.value.publicKey == owner) { "Account changed" }
                 current()
                 require(Protocol.publicKey(target) == target && target != owner)
-                suspend fun discover(kind: Int, routes: List<String>): Pair<Event?, Set<String>> {
+                suspend fun discover(kind: Int, routes: List<String>): Discovery {
                     current()
                     var latest = repo.followEvent(owner, kind)
                     val lock = Mutex()
+                    val received = mutableMapOf<String, MutableSet<String>>()
                     val filter = Filter(kinds = listOf(kind), authors = listOf(owner), limit = 1)
                     val completed = withTimeout(45_000) {
-                        queries.completed(routes, listOf(filter.toJson())) { event ->
+                        queries.completed(routes, listOf(filter.toJson())) { relay, event ->
                             require(event.kind == kind && event.pubKey == owner && event.verify() &&
                                 event.tags.size <= 5000 && event.content.length <= 32_768 &&
                                 event.createdAt <= System.currentTimeMillis() / 1000 + 600) { "Invalid follow-list response" }
                             current()
                             lock.withLock {
+                                received.getOrPut(relay) { mutableSetOf() }.add(event.id)
                                 latest = listOfNotNull(latest, event).sortedWith(newest).firstOrNull()
                             }
                             repo.cacheFollowEvent(event)
@@ -42,28 +48,36 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                         }
                     }
                     current()
-                    latest = listOfNotNull(latest, repo.followEvent(owner, kind)).sortedWith(newest).firstOrNull()
-                    return latest to completed
+                    val cached = repo.followEvent(owner, kind)
+                    return lock.withLock {
+                        latest = listOfNotNull(latest, cached).sortedWith(newest).firstOrNull()
+                        Discovery(latest, completed, completed.any { latest?.id in received[it].orEmpty() })
+                    }
                 }
                 val knownRelays = repo.followEvent(owner, 10002)?.let(Outbox::parse)
                 val seeds = RelayDefaults.seeds.take(3)
                 val discoveryRoutes = (knownRelays?.write.orEmpty() + knownRelays?.read.orEmpty() + seeds).distinct()
                 require(discoveryRoutes.size <= 32) { "Too many relays to safely refresh the follow list" }
                 val relayResult = discover(10002, discoveryRoutes)
-                check(relayResult.second.size >= minOf(2, discoveryRoutes.size) &&
-                    relayResult.second.containsAll(knownRelays?.write.orEmpty())) {
-                    "Could not refresh account relays. Follow list unchanged."
+                check(relayResult.completed.size >= 2) {
+                    "Could not refresh account relays. ${diagnostic(discoveryRoutes, relayResult.completed)}"
                 }
-                val relayList = relayResult.first?.let(Outbox::parse)
+                val relayList = relayResult.event?.let(Outbox::parse)
                 val writes = relayList?.write.orEmpty()
                 val publishRoutes = (writes + seeds).distinct()
                 val readRoutes = (publishRoutes + relayList?.read.orEmpty()).distinct()
                 require(readRoutes.size <= 32) { "Too many relays to safely refresh the follow list" }
 
                 suspend fun fresh(): Event? {
-                    val (event, completed) = discover(3, readRoutes)
-                    check(completed.size >= minOf(2, readRoutes.size) && completed.containsAll(writes)) {
-                        "Could not refresh the follow list from all write relays. No further update sent."
+                    val result = discover(3, readRoutes)
+                    val event = result.event
+                    val completed = result.completed
+                    check(completed.size >= 2) {
+                        "Could not refresh the follow list. ${diagnostic(readRoutes, completed)}"
+                    }
+                    check(event == null || result.witnessed) {
+                        "No completed relay returned the latest known follow list (${event?.id?.take(12)}). " +
+                            "No further update sent. ${diagnostic(readRoutes, completed)}"
                     }
                     if (event == null) {
                         check(completed.size == readRoutes.size) { "Could not confirm an empty follow list. No further update sent." }
@@ -104,7 +118,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                     check(latest?.id == base?.id) { "Follow list changed in another client. Tap again to retry safely." }
                     current()
                     check(repo.followEvent(owner, 3)?.id == base?.id) { "Follow list changed. Tap again to retry safely." }
-                    if (repo.publishFollowEvent(signed, publishRoutes, base?.id, relayResult.first?.id)) return@withLock
+                    if (repo.publishFollowEvent(signed, publishRoutes, base?.id, relayResult.event?.id)) return@withLock
                 }
                 error("No relay confirmed the follow change. Tap again to check and retry safely.")
             }

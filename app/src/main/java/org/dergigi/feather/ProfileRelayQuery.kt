@@ -25,12 +25,12 @@ internal class ProfileRelayQuery {
     }
 
     /** EOSE is distinct from a disconnect, timeout or CLOSED response. */
-    suspend fun completed(relays: List<String>, filters: List<String>, accept: suspend (Event) -> Boolean): Set<String> {
+    suspend fun completed(relays: List<String>, filters: List<String>, accept: suspend (String, Event) -> Boolean): Set<String> {
         val complete = mutableSetOf<String>()
         for (batch in relays.distinct().chunked(4)) {
             currentCoroutineContext().ensureActive()
             val results = coroutineScope { batch.map { url -> async {
-                slots.withPermit { url to fetchOne(url, filters, accept) }
+                slots.withPermit { url to fetchOne(url, filters) { event -> accept(url, event) } }
             } }.awaitAll() }
             results.filter { it.second.complete }.forEach { complete += it.first }
         }
