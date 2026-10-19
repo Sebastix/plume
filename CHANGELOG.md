@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.83.2] - 2026-10-19
+
 ### Fixed
 - Allow follow/unfollow actions on other profiles while an update is pending. Queue up to 16 profile edits, refresh the latest list for each, and keep pending state local to each profile.
 
