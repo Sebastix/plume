@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Remove the duplicate full-screen screenshot beside the website video demo so the flower player uses the full available width on mobile.
 - State “No DMs, by design” beside the homepage features, linking to the explanation in the origin interview.
 - Simplify the blog social preview to its large title and app screenshots.
 - Lightly rebalance the origin interview with more narrative between its central quotes.
