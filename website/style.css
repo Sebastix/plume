@@ -47,3 +47,9 @@ feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
 .send-button:hover{background:#a5daff}
 .gif-attribution:hover{color:var(--blue)}
 .phone[data-page="3"],.phone[data-page="4"]{background:#0e171c}
+
+/* Keep the app-sized switcher compact as the screenshot tour grows. */
+.feed-pill{width:269px;max-width:calc(100% - 24px);overflow-x:auto;scrollbar-width:none}
+.feed-pill::-webkit-scrollbar{display:none}
+.feed-pill button{flex-shrink:0}
+@media(max-width:480px){.feed-pill{width:254px}}
