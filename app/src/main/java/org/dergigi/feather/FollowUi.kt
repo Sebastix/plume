@@ -21,8 +21,8 @@ internal fun ProfileFollowButton(vm: FeatherViewModel, target: String) {
     val busy by vm.followBusy.collectAsStateWithLifecycle()
     val pending by vm.firstFollow.collectAsStateWithLifecycle()
     val following = target in state.followedAccounts
-    IconButton(onClick = { vm.changeFollow(target, !following) }, enabled = busy == null) {
-        if (busy == target) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+    IconButton(onClick = { vm.changeFollow(target, !following) }, enabled = target !in busy) {
+        if (target in busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         else Box(Modifier.size(24.dp)) {
             Icon(Icons.Default.Person, stringResource(if (following) R.string.ui_unfollow_profile else R.string.ui_follow_profile),
                 Modifier.size(20.dp).align(Alignment.CenterStart), tint = MaterialTheme.colorScheme.primary)
