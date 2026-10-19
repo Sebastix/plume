@@ -270,6 +270,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
             val state = vm.state.value
             val tabs = when (current.screen) {
                 "feed" -> current.tabs
+                "hashtag" -> hashtagTabs
                 "profile" -> if (state.profileTabsFor == current.target) state.profileTabs.toList() else current.tabs
                 else -> return@handler
             }
@@ -310,7 +311,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     }
     val entry = navigation.current
     BackHandler(entry.screen == "feed" && navigation.entries.size > 1) { navigation.back() }
-    if (entry.screen in listOf("feed", "profile") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
+    if (entry.screen in listOf("feed", "profile", "hashtag") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else FeatherReader(vm, navigation, entry)
     ReplyComposer(vm)
@@ -354,17 +355,17 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     var statusReport by rememberSaveable { mutableStateOf<String?>(null) }
     var statusTitle by rememberSaveable { mutableStateOf("") }
     var profileTab by entry::tab
-    val visibleProfileTabs = if (s.profileTabsFor == profileKey && profileKey != null) {
+    val visibleProfileTabs = if (screen == "hashtag") hashtagTabs else if (s.profileTabsFor == profileKey && profileKey != null) {
         // Discovery samples are bounded, not evidence that a previously found category is empty.
         // Keep this visit's tabs when returning after another profile replaced repository state.
         (listOf(ProfileTab.POSTS) + s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
     } else (listOf(ProfileTab.POSTS) + entry.tabs).distinct().sortedBy { it.orderPriority }
     LaunchedEffect(entry.key, visibleProfileTabs) {
-        if (screen == "profile" && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
+        if (screen in listOf("profile", "hashtag") && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
     }
     var topBarVisible by (homeToolbar ?: entry)::toolbar
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val activeListState = entry.list
+    val activeListState = if (screen == "hashtag") entry.hashtagList(profileTab) else entry.list
     val savedScreens = rememberSaveableStateHolder()
     val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
     val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
@@ -382,7 +383,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     fun activate(destination: ReaderEntry, clicked: Event? = null) {
         vm.repo.openReference(destination.reference)
-        vm.repo.viewHashtag(destination.target.takeIf { destination.screen == "hashtag" }, destination.hashtagAuthor)
+        vm.repo.viewHashtag(destination.target.takeIf { destination.screen == "hashtag" }, destination.hashtagAuthor, destination.tab)
         vm.repo.viewProfile(destination.target.takeIf { destination.screen == "profile" })
         if (destination.screen == "profile") vm.repo.profileTab(destination.tab)
         if (destination.screen == "feed") vm.repo.feedTab(destination.tab)
@@ -456,7 +457,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (activePage) vm.loadMutes(s.pendingMuteList)
     }
     LaunchedEffect(entry.key, activePage) { if (activePage) activate(entry) }
-    LaunchedEffect(entry.key, profileTab, activePage) { if (activePage && screen == "profile") vm.repo.profileTab(profileTab) }
+    LaunchedEffect(entry.key, profileTab, activePage) {
+        if (activePage && screen == "profile") vm.repo.profileTab(profileTab)
+        if (activePage && screen == "hashtag") vm.repo.viewHashtag(hashtag, entry.hashtagAuthor, profileTab)
+    }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     CompositionLocalProvider(LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
@@ -474,7 +478,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }, LocalReactionActions provides ReactionActions(pending = reacting, optimistic = optimisticReactions, choices = s.reactionChoices, recentEmojis = s.recentEmojis, customEmojis = s.customEmojis, remove = { note, choice -> vm.react(note, choice, remove = true) }) { note, choice ->
         if (s.publicKey == null) showAccount = true else vm.react(note, choice)
     }) {
-    GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
+    GalleryHost(state = s, walletConnected = walletConnected, covered = showAccount || showWallet || showSettings || composingReply != null, album = { if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PHOTOS) entry.photos else ProfilePhotos() },
         onOpenNote = { id, note -> if (note != null) openNote(note) else openReference(NostrContent.Reference(id)) },
         onOpenProfile = ::openProfile, onLogin = { showAccount = true }, onWallet = { showWallet = true }) {
     MediaHost(mediaStore, reading = activePage && !showSettings && !showAccount && composingReply == null) {
@@ -571,21 +575,20 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         when (screen) {
             else -> {
                 // A new input token is pending immediately, before the background effect starts.
-                val preparation = remember(entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, s.followedHashtags, contentFilter) { Any() }
+                val preparation = remember(entry.key, s.notes, s.feedTab, s.feedPreviews, s.profileEvents, s.hashtagNotes, s.hashtagFor, s.hashtagAuthor, s.hashtagTab, hashtag, screen, profileKey, threadId, profileTab, s.publicKey, s.following, s.followedHashtags, contentFilter) { Any() }
                 val preparedNotes by key(profileTab) { produceState<Pair<Any?, List<Event>>>(null to entry.notes[profileTab].orEmpty(), preparation) {
                     val retained = entry.notes[profileTab].orEmpty().filterNot(contentFilter::hides)
                     value = preparation to withContext(Dispatchers.Default) {
                     val filtered = when (screen) {
-                    "hashtag" -> s.hashtagNotes.filter { event -> (entry.hashtagAuthor == null || event.pubKey == entry.hashtagAuthor) && event.tags.any { it.size > 1 && it[0] == "t" && it[1].equals(hashtag, ignoreCase = true) } }
+                    "hashtag" -> latestProfileEvents(
+                        (s.hashtagNotes.takeIf { s.hashtagFor == hashtag && s.hashtagAuthor == entry.hashtagAuthor && s.hashtagTab == profileTab }.orEmpty() + retained)
+                            .filter { it.matchesHashtagFeed(hashtag.orEmpty(), entry.hashtagAuthor, profileTab) }).take(600)
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
                     else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
                         .filter { profileTab.matchesFeed(it) && (if (profileTab == ProfileTab.HASHTAGS) true else (s.publicKey == null || (profileTab == ProfileTab.POSTS && it.matchesHashtags(s.followedHashtags)) || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following)))) }.take(600)
                     }
-                    // Returning to a paginated profile must not discard its already displayed pages.
-                    if (screen == "hashtag" && filtered.size < retained.size)
-                        latestProfileEvents(filtered + retained).filter { screen != "profile" || profileTab.matches(it) }.take(600)
-                    else filtered
+                    filtered
                     }
                 } }
                 // The selected note is handed off immediately; background filtering never blanks it.
@@ -686,18 +689,18 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 }
                 val preparedPhotos by produceState(entry.photos, visibleNotes, profileTab) {
                     value = withContext(Dispatchers.Default) {
-                        if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) {
+                        if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PHOTOS) {
                             val photos = visibleNotes.asSequence().flatMap { note -> MediaContent.attachments(note, 32).filter { it.kind == MediaContent.Kind.IMAGE }.map { note to it } }.take(600).toList()
                             ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
                         } else ProfilePhotos()
                     }
-                    if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = value
+                    if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PHOTOS) entry.photos = value
                 }
                 val photoGrid = remember(preparedPhotos, contentFilter) {
                     val photos = preparedPhotos.rows.flatten().filterNot { contentFilter.hides(it.first) }
                     ProfilePhotos(photos.chunked(3), photos.map { it.second.url }, photos.map { it.first })
                 }
-                SideEffect { if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
+                SideEffect { if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PHOTOS) entry.photos = photoGrid }
                 val photoRows = photoGrid.rows
                 val currentPhotos by rememberUpdatedState(photoRows)
                 val repostKeys = remember(displayRows) { displayRows.filter { it.reposts.isNotEmpty() }.associate { it.key to (listOfNotNull(it.event?.id) + it.reposts.map { repost -> repost.id }).distinct() } }
@@ -738,7 +741,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 var emptyPages by remember(screen, profileKey, profileTab, hashtag) { mutableIntStateOf(0) }
                 val rawHistory by rememberUpdatedState(when (screen) {
                     "profile" -> s.profileEvents
-                    "hashtag" -> s.hashtagNotes
+                    "hashtag" -> s.hashtagNotes.takeIf { s.hashtagFor == hashtag && s.hashtagAuthor == entry.hashtagAuthor && s.hashtagTab == profileTab }.orEmpty()
                     else -> s.notes.takeIf { s.feedTab == profileTab }.orEmpty()
                 })
                 val pagingBusy by rememberUpdatedState(s.loading || s.loadingOlder)
@@ -788,7 +791,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             end = padding.calculateEndPadding(LocalLayoutDirection.current),
                         ) else padding
                     ).fillMaxSize().nestedScroll(toolbarScroll)
-                        .profileTabSwipes(screen == "profile", visibleProfileTabs, profileTab, ::selectProfileTab).semantics {
+                        .profileTabSwipes(screen in listOf("profile", "hashtag"), visibleProfileTabs, profileTab, ::selectProfileTab).semantics {
                         customActions = listOf(
                             CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
                             CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
@@ -851,7 +854,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
+                        if (screen in listOf("profile", "hashtag") && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
                             // Tab discovery can change the measured positions between frames.
                             // Recreate only the tab row when its membership changes, and never
                             // index a previous layout's positions without checking its bounds.
@@ -909,7 +912,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
-                        } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PHOTOS) {
+                        } else if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PHOTOS) {
                             itemsIndexed(photoRows, key = { _, row -> "photo:${row.first().first.id}:${row.first().second.url}" }) { rowIndex, row ->
                                 val openGallery = LocalOpenGallery.current
                                 ProfileTabRow(tabSpace, "photo:${row.first().first.id}:${row.first().second.url}", profileViewport) {

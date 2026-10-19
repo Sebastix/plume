@@ -21,6 +21,9 @@ internal class ReaderEntry(
     toolbar: Boolean = true,
 ) {
     val list = LazyListState(index, offset)
+    val hashtagLists = mutableMapOf<ProfileTab, LazyListState>()
+    fun hashtagList(category: ProfileTab): LazyListState =
+        if (category == ProfileTab.POSTS) list else hashtagLists.getOrPut(category) { LazyListState() }
     val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
     fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
     var searchQuery by mutableStateOf("")
@@ -85,6 +88,9 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putStringArrayList("relays", ArrayList(entry.reference?.relays.orEmpty()))
                 putString("author", entry.reference?.author)
                 putString("hashtagAuthor", entry.hashtagAuthor)
+                entry.hashtagLists.forEach { (category, list) -> putBundle("hashtag-list:${category.name}", Bundle().apply {
+                    putInt("index", list.firstVisibleItemIndex); putInt("offset", list.firstVisibleItemScrollOffset)
+                }) }
                 entry.reference?.kind?.let { putInt("kind", it) }
             } }) },
             restore = { saved -> ReaderNavigation(saved.map { bundle ->
@@ -92,6 +98,11 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
                     entry.hashtagAuthor = bundle.getString("hashtagAuthor")
+                    if (entry.screen == "hashtag") hashtagTabs.forEach { category ->
+                        bundle.getBundle("hashtag-list:${category.name}")?.let { saved ->
+                            entry.hashtagLists[category] = LazyListState(saved.getInt("index"), saved.getInt("offset"))
+                        }
+                    }
                     entry.threadPositioned = bundle.getBoolean("threadPositioned")
                     entry.expandedThreadParents = bundle.getStringArrayList("threadExpanded").orEmpty().takeLast(64)
                     entry.threadAncestorLimit = bundle.getInt("threadAncestorLimit", INITIAL_THREAD_ANCESTORS)
