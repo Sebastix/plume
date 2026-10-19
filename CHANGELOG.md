@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Let the shared website feed switcher follow light and dark mode, including its controls, phone frames and video mockup.
 - Share the interactive homepage feed switcher with the origin interview, beside the discussion of separate content tabs.
 
 ### Added
