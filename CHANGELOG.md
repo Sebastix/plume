@@ -17,7 +17,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Share the interactive homepage feed switcher with the origin interview, beside the discussion of separate content tabs.
 
 ### Added
-- Browse hashtags with swipeable Posts, Photos, and Videos tabs, cached content and separate scroll positions; hashtags opened from profiles keep their author scope.
+- Browse hashtags with the same discovered content tabs as profiles, including related hashtags, cached content and separate scroll positions; hashtags opened from profiles keep their author scope.
 - A static Feather blog at `/blog/`, beginning with an edited creator interview about why Feather exists.
 
 ## [0.83.4] - 2026-10-19

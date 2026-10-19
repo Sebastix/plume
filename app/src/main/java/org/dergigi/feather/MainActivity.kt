@@ -270,7 +270,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
             val state = vm.state.value
             val tabs = when (current.screen) {
                 "feed" -> current.tabs
-                "hashtag" -> hashtagTabs
+                "hashtag" -> current.tabs
                 "profile" -> if (state.profileTabsFor == current.target) state.profileTabs.toList() else current.tabs
                 else -> return@handler
             }
@@ -355,7 +355,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     var statusReport by rememberSaveable { mutableStateOf<String?>(null) }
     var statusTitle by rememberSaveable { mutableStateOf("") }
     var profileTab by entry::tab
-    val visibleProfileTabs = if (screen == "hashtag") hashtagTabs else if (s.profileTabsFor == profileKey && profileKey != null) {
+    val visibleProfileTabs = if (screen == "hashtag") {
+        (entry.tabs + s.hashtagCategories.takeIf { s.hashtagFor == hashtag && s.hashtagAuthor == entry.hashtagAuthor }.orEmpty())
+            .distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
+    } else if (s.profileTabsFor == profileKey && profileKey != null) {
         // Discovery samples are bounded, not evidence that a previously found category is empty.
         // Keep this visit's tabs when returning after another profile replaced repository state.
         (listOf(ProfileTab.POSTS) + s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
@@ -601,11 +604,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 // bounded in-memory key checks; no parsing, disk, or network work on main.
                 val visibleNotes = remember(notes, contentFilter) { notes.filterNot(contentFilter::hides) }
                 SideEffect { entry.notes[profileTab] = visibleNotes }
-                val topicPage = screen in listOf("feed", "profile") && profileTab == ProfileTab.HASHTAGS
+                val topicPage = screen in listOf("feed", "profile", "hashtag") && profileTab == ProfileTab.HASHTAGS
                 val topics by produceState<List<String>>(entry.topics, topicPage, visibleNotes, screen) {
                     if (!topicPage) return@produceState
                     value = withContext(Dispatchers.Default) {
                         rankedHashtags(visibleNotes, if (screen == "feed") System.currentTimeMillis() / 1000 - 24 * 60 * 60 else null)
+                            .filterNot { screen == "hashtag" && it.equals(hashtag, ignoreCase = true) }
                     }
                 }
                 SideEffect { if (topicPage) entry.topics = topics }
@@ -617,7 +621,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         if (groupFeed)
                             homeConversations(visibleNotes, s.notes + s.profileEvents + s.embedded.values, contentFilter,
                                 if (entry.homeRefresh > 0 && s.loading) emptyList() else entry.homeOrder)
-                        else if (profileTab == ProfileTab.REPOSTS && screen in listOf("feed", "profile")) {
+                        else if (profileTab == ProfileTab.REPOSTS && screen in listOf("feed", "profile", "hashtag")) {
                             visibleNotes.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
                                 .mapNotNull { repost -> repostTarget(repost)?.let { it.id to repost } }
                                 .groupBy({ it.first }, { it.second })
@@ -677,12 +681,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val widthPx = with(LocalDensity.current) { (LocalConfiguration.current.screenWidthDp - 48).dp.roundToPx() }
                 val preparedBookmarks by produceState<List<Pair<Event, NostrContent.Reference>>>(if (profileTab == ProfileTab.PEOPLE) entry.people else entry.bookmarks, visibleNotes, profileTab) {
                     value = withContext(Dispatchers.Default) {
-                        if (screen in listOf("profile", "feed") && profileTab in listOf(ProfileTab.BOOKMARKS, ProfileTab.PEOPLE))
+                        if (screen in listOf("profile", "feed", "hashtag") && profileTab in listOf(ProfileTab.BOOKMARKS, ProfileTab.PEOPLE))
                             visibleNotes.asSequence().flatMap { collection -> (if (profileTab == ProfileTab.PEOPLE) peopleReferences(collection) else bookmarkReferences(collection)).asSequence().map { collection to it } }.take(5000).toList()
                         else emptyList()
                     }
-                    if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
-                    if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PEOPLE) entry.people = value
+                    if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.BOOKMARKS) entry.bookmarks = value
+                    if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PEOPLE) entry.people = value
                 }
                 val bookmarkRows = remember(preparedBookmarks, contentFilter) {
                     preparedBookmarks.filterNot { contentFilter.hides(it.first) || contentFilter.hides(it.second) }
@@ -709,7 +713,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     photoRows.associate { row -> "photo:${row.first().first.id}:${row.first().second.url}" to row.map { it.first.id } } +
                         bookmarkRows.associate { "${it.first.id}:${it.second.id}" to listOf(s.embedded[it.second.id]?.id ?: it.second.id) } + repostKeys
                 }
-                val mediaNotes = if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS)
+                val mediaNotes = if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.BOOKMARKS)
                     bookmarkRows.mapNotNull { s.embedded[it.second.id] }.filterNot(contentFilter::hides).distinctBy { it.id } else if (screen == "thread" || groupFeed) displayedEvents else visibleNotes
                 val mediaEmbeds = remember(s.embedded, contentFilter) { s.embedded.filterValues { !contentFilter.hides(it) } }
                 if (!topicPage) PrefetchMedia(mediaNotes, s.profiles, activeListState, widthPx, mediaEmbeds, mediaKeys)
@@ -905,7 +909,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             items(topics, key = { "topic:$it" }) { tag ->
                                 ProfileTabRow(tabSpace, "topic:$tag", profileViewport) {
                                     Text("#$tag", Modifier.fillMaxWidth()
-                                        .clickable { openReference(NostrContent.Reference(tag, hashtag = tag, author = profileKey.takeIf { screen == "profile" })) }
+                                        .clickable { openReference(NostrContent.Reference(tag, hashtag = tag, author = if (screen == "hashtag") entry.hashtagAuthor else profileKey.takeIf { screen == "profile" })) }
                                         .padding(horizontal = 24.dp, vertical = 16.dp),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.primary,
@@ -926,7 +930,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     }
                                 }
                             }
-                        } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.PEOPLE) {
+                        } else if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.PEOPLE) {
                             itemsIndexed(bookmarkRows, key = { _, row -> "${row.first.id}:${row.second.id}" }) { index, (collection, reference) ->
                                 ProfileTabRow(tabSpace, "${collection.id}:${reference.id}", profileViewport) {
                                     if (index == 0 || bookmarkRows[index - 1].first.id != collection.id) {
@@ -938,7 +942,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         reference.id in s.followedAccounts) { openReference(reference) }
                                 }
                             }
-                        } else if (screen in listOf("profile", "feed") && profileTab == ProfileTab.BOOKMARKS) {
+                        } else if (screen in listOf("profile", "feed", "hashtag") && profileTab == ProfileTab.BOOKMARKS) {
                             items(bookmarkRows, key = { "${it.first.id}:${it.second.id}" }) { (collection, reference) ->
                                 ProfileTabRow(tabSpace, "${collection.id}:${reference.id}", profileViewport) {
                                     Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

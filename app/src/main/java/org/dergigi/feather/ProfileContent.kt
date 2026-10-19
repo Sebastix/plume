@@ -185,6 +185,8 @@ internal fun com.vitorpamplona.quartz.nip01Core.relay.filters.Filter.activityFil
             com.vitorpamplona.quartz.nip01Core.relay.filters.Filter(authors = authors, kinds = ordinary,
                 tags = tags, limit = limit, until = until, since = since)).flatMap { it.activityFilters() }) + podcastTagFilters()
     }
+    // Hashtag readers retain the explicit event-author and topic intersection.
+    if (tags?.containsKey("t") == true) return listOf(this)
     val people = authors ?: return listOf(this)
     if (kinds.orEmpty().none { it == 9735 || it == 9321 }) return listOf(this)
     return buildList {

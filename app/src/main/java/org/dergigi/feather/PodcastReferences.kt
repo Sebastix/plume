@@ -39,6 +39,6 @@ internal fun Filter.podcastTagFilters(): List<Filter> = buildList {
     for (kind in kinds.orEmpty().filter { it in podcastKinds }) {
         val tagsToRead = if (kind == 1111) listOf("K", "k") else listOf("k")
         for (tag in tagsToRead) add(Filter(authors = authors, kinds = listOf(kind),
-            tags = mapOf(tag to podcastTypes), limit = limit, until = until, since = since))
+            tags = tags.orEmpty() + (tag to podcastTypes), limit = limit, until = until, since = since))
     }
 }
