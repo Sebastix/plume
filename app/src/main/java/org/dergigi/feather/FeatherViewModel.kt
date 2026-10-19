@@ -81,6 +81,36 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         catch (e: Exception) { message.value = "Settings: ${e.message}" }
     }
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
+    internal val followBusy = MutableStateFlow<String?>(null)
+    internal val firstFollow = MutableStateFlow<Pair<String, String>?>(null)
+    private var followJob: Job? = null
+    private val followLists by lazy { FollowLists(repo, signerRequests) }
+    internal fun changeFollow(target: String, follow: Boolean, allowCreate: Boolean = false) {
+        val identity = signer.value ?: return
+        if (followBusy.value != null) return
+        firstFollow.value = null
+        followBusy.value = target
+        followJob = viewModelScope.launch {
+            try {
+                followLists.change(identity, target, follow, allowCreate)
+                if (!follow && signer.value === identity) {
+                    val app = getApplication<Application>()
+                    AppMessages.showAction(app.getString(R.string.ui_unfollowed), app.getString(R.string.ui_follow_undo)) {
+                        if (signer.value === identity) changeFollow(target, true)
+                    }
+                }
+            } catch (_: MissingFollowList) {
+                if (signer.value === identity) firstFollow.value = identity.pubKey to target
+            } catch (e: TimeoutCancellationException) {
+                if (signer.value === identity) message.value = "Follow operation timed out. Refresh the profile before trying again."
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (signer.value === identity) AppMessages.show("Follow: ${e.message}", e.stackTraceToString())
+            } finally {
+                if (signer.value === identity) followBusy.value = null
+            }
+        }
+    }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
@@ -92,6 +122,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
+        followJob?.cancel(); followJob = null; followBusy.value = null; firstFollow.value = null
         issues.accountChanged()
         if (signer.value != null) cancelSharedMedia()
         cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null; replyMining.value = false

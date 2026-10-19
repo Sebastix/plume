@@ -19,15 +19,30 @@ internal class ProfileRelayQuery {
         for (batch in relays.distinct().chunked(4)) {
             currentCoroutineContext().ensureActive()
             val received = coroutineScope { batch.map { url -> async { slots.withPermit { fetchOne(url, filters, accept) } } }.awaitAll() }
-            found = found || received.any { it }
+            found = found || received.any { it.found }
         }
         return found
     }
 
-    private suspend fun fetchOne(url: String, filters: List<String>, accept: suspend (Event) -> Boolean): Boolean {
+    /** EOSE is distinct from a disconnect, timeout or CLOSED response. */
+    suspend fun completed(relays: List<String>, filters: List<String>, accept: suspend (Event) -> Boolean): Set<String> {
+        val complete = mutableSetOf<String>()
+        for (batch in relays.distinct().chunked(4)) {
+            currentCoroutineContext().ensureActive()
+            val results = coroutineScope { batch.map { url -> async {
+                slots.withPermit { url to fetchOne(url, filters, accept) }
+            } }.awaitAll() }
+            results.filter { it.second.complete }.forEach { complete += it.first }
+        }
+        return complete
+    }
+
+    private data class Read(val found: Boolean, val complete: Boolean)
+    private suspend fun fetchOne(url: String, filters: List<String>, accept: suspend (Event) -> Boolean): Read {
         val done = CompletableDeferred<Unit>()
         val stopped = AtomicBoolean(false)
         val found = AtomicBoolean(false)
+        val complete = AtomicBoolean(false)
         var count = 0
         val socket = http.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -46,7 +61,8 @@ internal class ProfileRelayQuery {
                             // Backpressure on this socket's reader; never enqueue an unbounded event stream.
                             runBlocking { if (!stopped.get() && accept(event)) found.set(true) }
                         }
-                        "EOSE", "CLOSED" -> done.complete(Unit)
+                        "EOSE" -> { complete.set(true); done.complete(Unit) }
+                        "CLOSED" -> done.complete(Unit)
                     }
                 } catch (_: Exception) { done.complete(Unit) }
             }
@@ -55,6 +71,6 @@ internal class ProfileRelayQuery {
         })
         try { withTimeoutOrNull(10_000) { done.await() } }
         finally { stopped.set(true); socket.cancel() }
-        return found.get()
+        return Read(found.get(), complete.get())
     }
 }

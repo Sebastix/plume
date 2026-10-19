@@ -828,6 +828,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
+                                        ProfileFollowButton(vm, key)
                                         p?.website?.let { website ->
                                             IconButton(onClick = { context.openWebLink(website) }) {
                                                 Icon(Icons.Default.Home, stringResource(R.string.ui_open_profile_homepage), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)

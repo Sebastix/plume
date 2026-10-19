@@ -189,7 +189,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             profile.identity?.let { Text(it, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
-                        ProfileStatusIcons(profile, profile.event.pubKey in state.following)
+                        ProfileStatusIcons(profile, profile.event.pubKey in state.followedAccounts)
                     }
                 }
             }

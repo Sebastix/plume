@@ -147,4 +147,12 @@
     <string name="ui_poll_view_votes">投票した人を見る</string>
     <string name="ui_notifications_sign_in">ログインして通知を見る</string>
     <string name="ui_poll_image_option">画像の選択肢 %1$d</string>
+    <string name="ui_follow_profile">フォローする</string>
+    <string name="ui_unfollow_profile">フォローを解除する</string>
+    <string name="ui_unfollowed">フォローを解除しました</string>
+    <string name="ui_follow_undo">元に戻す</string>
+    <string name="ui_first_follow_title">フォローリストを作成しますか？</string>
+    <string name="ui_first_follow_body">リレーに既存のフォローリストが見つかりませんでした。このプロフィールを含む新しいリストを作成しますか？別のアプリですでにフォローしている場合は、キャンセルしてリレー接続を確認してください。</string>
+    <string name="ui_first_follow_create">リストを作成</string>
+    <string name="ui_follow_cancel">キャンセル</string>
 </resources>

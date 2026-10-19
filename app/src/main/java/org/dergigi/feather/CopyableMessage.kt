@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /** One transient message, never an unbounded queue of stale errors. */
 internal object AppMessages {
-    data class Message(val id: Long, val text: String, val details: String)
+    data class Message(val id: Long, val text: String, val details: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)
     val current = MutableStateFlow<Message?>(null)
     val topHost = MutableStateFlow<Any?>(null)
     private val hosts = mutableListOf<Any>()
@@ -35,6 +35,9 @@ internal object AppMessages {
     @Synchronized fun show(text: String, details: String = text) {
         if (text.isBlank() || (current.value?.text == text && current.value?.details == details)) return
         current.value = Message(++sequence, text, details)
+    }
+    @Synchronized fun showAction(text: String, label: String, action: () -> Unit) {
+        current.value = Message(++sequence, text, text, label, action)
     }
     @Synchronized fun dismiss(id: Long) {
         if (current.value?.id == id) current.value = null
@@ -76,7 +79,11 @@ internal fun CopyableMessageHost() {
         Snackbar(modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
             .padding(16.dp).widthIn(max = 560.dp).clickable(onClickLabel = "Copy message", onClick = ::copy),
             action = {
-                IconButton(onClick = ::copy) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_message)) }
+                if (shown.action != null) TextButton(onClick = {
+                    AppMessages.dismiss(shown.id)
+                    shown.action.invoke()
+                }) { Text(shown.actionLabel.orEmpty()) }
+                else IconButton(onClick = ::copy) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_message)) }
             }) {
             Text(shown.text, maxLines = 6, overflow = TextOverflow.Ellipsis)
         }

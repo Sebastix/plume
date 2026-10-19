@@ -430,7 +430,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     Avatar(profile.name, 32, profile.picture)
                     Text(profile.name, modifier = Modifier.weight(1f), maxLines = 1,
                         overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    ProfileStatusIcons(profile, profile.event.pubKey in state.following)
+                    ProfileStatusIcons(profile, profile.event.pubKey in state.followedAccounts)
                 }
             } }
             if (current.target != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

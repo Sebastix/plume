@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Follow and unfollow profiles from the profile header, with Undo, first-list confirmation, and fresh relay checks before signing and publishing. Preserve unrelated follow-list data and stop when a newer list appears.
+
 ## [0.80.1] - 2026-10-19
 
 ### Changed
