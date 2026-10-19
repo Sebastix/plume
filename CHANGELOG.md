@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-10-19
+
 ### Added
 - Long-press the top-right account avatar to open Notifications; a normal tap still opens your profile.
 
