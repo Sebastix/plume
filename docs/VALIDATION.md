@@ -1544,3 +1544,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256 `78fe971e117c8a76da7c119b11f2c5be49ccfeb2c6e0d706bd4f495b86751121`; 15,850,721 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `c02ebd713ee536d3b8b77868586e3248d5f426b7cb5f38bb3f0ac168dabdb4ef` and asset `b678a974c9e52302196463da331e3f89f81d1d9e4b3629de98a9d390e70305fa` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
 - Provider research: Fountain’s documented public /v1/search/lookup returned the example episode GUID with its exact parent show and an audio URL. Episode-only identifiers without sufficient feed context retain the fallback card. Feed GUID lookup uses the documented lookup.wherever.audio endpoint.
+
+## 2026-10-19 — 0.80.1 release
+
+- Version 0.80.1 (157), source `8762a39fe9ac11a3ee523f20d00149a93bd3ff87`. Image poll options render as fitted selectable images with checkmarks/percentages and voter thumbnails; reply composers show the posting account avatar.
+- Signed release build passed in 1m 9s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; mapping archived.
+- APK SHA-256 `7e33356dedfb0a8ce493d68cb629d6abf5a4dd449b4b791603686f45b5928b17`; 15,851,189 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
+- Signed Zapstore release `09ca2e4a2b558f12c93a40e9a1f3932406307532be2f1cd01e4e9e434f4455ec` and asset `678007ad98876215cd9f20917b4e0ae0be4209e9778b752636915bde73978e67` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
