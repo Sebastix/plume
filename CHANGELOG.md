@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Share the interactive homepage feed switcher with the origin interview, beside the discussion of separate content tabs.
+
 ### Added
 - A static Feather blog at `/blog/`, beginning with an edited creator interview about why Feather exists.
 

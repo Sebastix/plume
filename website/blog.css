@@ -16,3 +16,5 @@
 .blog-entry>p{color:var(--muted)}
 .blog-page header nav>a:first-child{display:inline}
 @media(max-width:480px){.blog-main{margin-top:36px}.blog-prose{font-size:17px}.blog-prose blockquote{font-size:20px;padding-inline-start:18px}.blog-back{margin-bottom:30px}.blog-intro{margin-bottom:36px}}
+
+.blog-feed-demo{margin:36px 0 44px;overflow:hidden;padding-bottom:4px}.blog-feed-demo .feed-demo{width:100%;max-width:600px;margin:auto}.blog-feed-demo .demo-caption{font-size:12px;margin-bottom:0;line-height:1.65}

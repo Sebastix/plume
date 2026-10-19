@@ -5,57 +5,6 @@
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const icon = (name) => `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#i-${name}"/></svg>`;
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const stage = $('feed-stage');
-  const tabs = [...document.querySelectorAll('[data-tab]')];
-  const phones = [...document.querySelectorAll('[data-page]')];
-  let page = 2;
-  function choosePage(index, focus = false) {
-    page = clamp(index, 0, tabs.length - 1);
-    phones.forEach((phone, i) => {
-      phone.dataset.position = i - page;
-      phone.setAttribute('aria-hidden', String(i !== page));
-    });
-    tabs.forEach((tab, i) => {
-      tab.setAttribute('aria-selected', String(i === page));
-      tab.tabIndex = i === page ? 0 : -1;
-    });
-    stage.setAttribute('aria-labelledby', tabs[page].id);
-    $('feed-label').textContent = tabs[page].getAttribute('aria-label');
-    if (focus) tabs[page].focus();
-  }
-  tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => choosePage(i));
-    tab.addEventListener('keydown', (e) => {
-      const destinations = { ArrowLeft: page - 1, ArrowRight: page + 1, Home: 0, End: tabs.length - 1 };
-      if (e.key in destinations) { e.preventDefault(); choosePage(destinations[e.key], true); }
-    });
-  });
-  stage.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault(); choosePage(page + (e.key === 'ArrowRight' ? 1 : -1));
-    }
-  });
-  let swipe;
-  stage.addEventListener('pointerdown', (e) => {
-    if (!e.isPrimary || e.button !== 0) return;
-    swipe = { x: e.clientX, y: e.clientY, id: e.pointerId };
-    stage.setPointerCapture(e.pointerId);
-  });
-  stage.addEventListener('pointermove', (e) => {
-    if (!swipe || e.pointerId !== swipe.id) return;
-    const dx = e.clientX - swipe.x;
-    if (Math.abs(dx) > Math.abs(e.clientY - swipe.y)) stage.style.setProperty('--drag', `${clamp(dx, -100, 100)}px`);
-  });
-  function finishSwipe(e) {
-    if (!swipe || e.pointerId !== swipe.id) return;
-    const dx = e.clientX - swipe.x;
-    if (e.type === 'pointerup' && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - swipe.y)) choosePage(page + (dx < 0 ? 1 : -1));
-    swipe = null; stage.style.removeProperty('--drag');
-  }
-  stage.addEventListener('pointerup', finishSwipe);
-  stage.addEventListener('pointercancel', finishSwipe);
-  stage.addEventListener('lostpointercapture', () => { swipe = null; stage.style.removeProperty('--drag'); });
-
   // The video is intentionally user-started, and pauses out of view.
   const video = $('demo-video');
   video.controls = false;
