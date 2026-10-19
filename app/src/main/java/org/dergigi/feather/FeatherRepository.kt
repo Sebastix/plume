@@ -178,6 +178,8 @@ class FeatherRepository(context: Context) {
     @Volatile private var active = false
     private var notificationTimeout: Job? = null
     @Volatile private var viewingNotifications = false
+    private var profileRestoreJob: Job? = null
+    private val profileRestoreGeneration = java.util.concurrent.atomic.AtomicLong()
     @Volatile private var viewedProfile: String? = null
     @Volatile private var profileTab = ProfileTab.POSTS
     @Volatile private var feedUntil: Long? = null
@@ -1728,13 +1730,48 @@ class FeatherRepository(context: Context) {
         scope.launch { ready.await(); if (active) subscribeFeed() }
     }
 
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps"); client.unsubscribe("profile-issues") }; if (active) subscribeFeed() }
+    /** Restore the selected profile page without waiting for home discovery or engagement work. */
+    private fun restoreProfileCache() {
+        val generation = profileRestoreGeneration.incrementAndGet()
+        profileRestoreJob?.cancel()
+        val author = viewedProfile ?: return
+        val tab = profileTab
+        val owner = state.value.publicKey
+        val ceiling = profileUntil
+        val limit = profileLimit
+        profileRestoreJob = scope.launch {
+            ready.await()
+            fun current() = profileRestoreGeneration.get() == generation && viewedProfile == author &&
+                profileTab == tab && state.value.publicKey == owner && profileUntil == ceiling && profileLimit == limit
+            val retained = state.value.profileEvents.filter { it.involves(author) }
+            val events = latestProfileEvents(timeline(
+                Filter(kinds = tab.kinds, authors = listOf(author), limit = limit, until = ceiling), retained, limit))
+            ensureActive()
+            if (!current()) return@launch
+            rememberDeleted(events)
+            _state.update { previous ->
+                if (!current()) previous else previous.copy(
+                    profileEvents = events,
+                    profileTabsFor = author,
+                    profileTabs = (listOf(ProfileTab.POSTS) +
+                        previous.profileTabs.takeIf { previous.profileTabsFor == author }.orEmpty() +
+                        listOfNotNull(tab.takeIf { events.any(tab::matches) })).distinct().sortedBy { it.orderPriority })
+            }
+            // Author metadata is optional: make cached content visible before querying it.
+            val profiles = cachedProfiles((listOf(author) + events.take(24).map { it.pubKey }).distinct())
+            ensureActive()
+            if (current()) _state.update { if (current()) it.copy(profiles = it.profiles + profiles) else it }
+        }
+    }
+
+    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; restoreProfileCache(); changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps"); client.unsubscribe("profile-issues") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
         profileTab = tab
         profileLimit = 100
         profileUntil = null
+        restoreProfileCache()
         changed.tryEmit(Unit)
         if (active) viewedProfile?.let(::subscribeProfile)
     }

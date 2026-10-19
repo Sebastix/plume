@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Restore profile feeds directly from disk on profile opens and tab switches, before the full home-feed discovery and engagement refresh.
+
 ### Added
 - Reply, repost, like, and zap referenced posts directly from the zap feed, with the existing long-press pickers and quote-post action.
 
