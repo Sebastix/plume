@@ -5,7 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
-- Show hashtag tabs together with the top bar, revealing both when scrolling upward instead of requiring a return to the start of the feed.
+- Show hashtag and profile tabs together with the top bar, revealing both when scrolling upward instead of requiring a return to the start of the feed. Show the profile name in the toolbar, with its banner and biography below the combined header.
 
 ### Fixed
 - Keep newly opened hashtag readers at their tab bar while categories load, with a stable header slot and independent reader composition state.

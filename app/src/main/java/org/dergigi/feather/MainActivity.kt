@@ -370,15 +370,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
     val activeListState = if (screen == "hashtag") entry.hashtagList(profileTab) else entry.list
     val savedScreens = rememberSaveableStateHolder()
-    val hasProfileBanner = screen == "profile" && s.profiles[profileKey]?.banner != null
-    val bannerBelowToolbarPx = with(LocalDensity.current) { 112.dp.toPx() }
-    val toolbarOverBanner by remember(hasProfileBanner, activeListState, bannerBelowToolbarPx) {
-        derivedStateOf {
-            hasProfileBanner && activeListState.firstVisibleItemIndex == 0 &&
-                activeListState.firstVisibleItemScrollOffset < bannerBelowToolbarPx
-        }
-    }
-    val transparentToolbar = screen == "feed" || toolbarOverBanner
+    val transparentToolbar = screen == "feed"
     val toolbarButtonSurface = Modifier.size(RoundControlSize).then(if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier)
     fun selectProfileTab(tab: ProfileTab) {
         if (profileTab == tab) return
@@ -518,6 +510,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
             Column {
             TopAppBar(title = {
+                if (screen == "profile" && profileKey != null) {
+                    Text(s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium)
+                }
                 if (screen == "hashtag") {
                     val author = entry.hashtagAuthor
                     if (author == null) {
@@ -585,7 +582,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
-            if (screen == "hashtag") categoryTabs()
+            if (screen in listOf("profile", "hashtag")) categoryTabs()
             }
             }
         },
@@ -818,7 +815,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     isRefreshing = refreshing && s.loading,
                     onRefresh = refresh,
                     modifier = Modifier.padding(
-                        if (screen == "feed" || hasProfileBanner) PaddingValues(
+                        if (screen == "feed") PaddingValues(
                             top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                             bottom = padding.calculateBottomPadding(),
                             start = padding.calculateStartPadding(LocalLayoutDirection.current),
@@ -887,9 +884,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                                 }
                             }
-                        }
-                        if (screen == "profile" && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
-                            categoryTabs()
                         }
                         if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (visibleNotes.isEmpty() && activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
