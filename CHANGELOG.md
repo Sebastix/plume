@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.83.1] - 2026-10-19
+
 ### Changed
 - Render People-tab profiles with the same shared row as search results: 40dp avatar, name, NIP-05 identity and verification, and the follow indicator on the right.
 
