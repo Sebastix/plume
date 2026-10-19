@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- State “No DMs, by design” beside the homepage features, linking to the explanation in the origin interview.
 - Simplify the blog social preview to its large title and app screenshots.
 - Lightly rebalance the origin interview with more narrative between its central quotes.
 - Give “Why Feather exists” its own social preview artwork with the interview title, weekend quote and cropped app screenshots.

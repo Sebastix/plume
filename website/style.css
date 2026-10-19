@@ -53,3 +53,5 @@ feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
 .feed-pill::-webkit-scrollbar{display:none}
 .feed-pill button{flex-shrink:0}
 @media(max-width:480px){.feed-pill{width:254px}}
+
+.feature-note{grid-column:1/-1;margin:0;color:var(--muted)}.feature-note a:hover{color:var(--blue)}
