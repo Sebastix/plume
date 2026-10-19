@@ -1659,7 +1659,6 @@ private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, o
 @Composable
 private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedState, onReference: (NostrContent.Reference) -> Unit) {
     var expanded by rememberSaveable(profileKey, profile.about) { mutableStateOf(false) }
-    var overflows by remember(profileKey, profile.about) { mutableStateOf(false) }
     val quotes = remember(profile.aboutTokens) {
         profile.aboutTokens.filter { it.reference?.let { ref -> !ref.profile && ref.hashtag == null && ref.external == null } == true }
             .distinctBy { it.reference?.id }.take(3)
@@ -1672,12 +1671,9 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (!expanded) {
             SelectionContainer {
-                LinkText(
+                CompactBiography(
                     richText(profile.about, profile.aboutTokens, state.profiles, onReference),
-                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    onTextLayout = { overflows = it.hasVisualOverflow },
+                    hasQuotes = quotes.isNotEmpty(), onExpand = { expanded = true },
                 )
             }
         } else {
@@ -1695,7 +1691,7 @@ private fun ProfileBiography(profileKey: String, profile: Profile, state: FeedSt
             }
         }
         // Event cards stay out of the compact preview, even when their link fits on one line.
-        if (expanded || overflows || quotes.isNotEmpty()) {
+        if (expanded) {
             IconButton(
                 onClick = { expanded = !expanded },
                 modifier = Modifier.align(Alignment.CenterHorizontally).semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },

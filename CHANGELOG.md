@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Place the profile biography expand chevron inline at the end of its three-line preview, removing the separate expand row while preserving links and expanded embedded cards.
+
 ## [0.82.1] - 2026-10-19
 
 ### Fixed

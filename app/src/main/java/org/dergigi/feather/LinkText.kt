@@ -129,8 +129,10 @@ internal fun linkTextModifier(text: AnnotatedString, layout: TextLinkLayout, res
 @Composable
 internal fun LinkText(text: AnnotatedString, modifier: Modifier = Modifier, color: Color = Color.Unspecified,
     style: TextStyle = LocalTextStyle.current, maxLines: Int = Int.MAX_VALUE,
-    overflow: TextOverflow = TextOverflow.Clip, onTextLayout: (TextLayoutResult) -> Unit = {}) {
+    overflow: TextOverflow = TextOverflow.Clip, onTextLayout: (TextLayoutResult) -> Unit = {},
+    inlineContent: Map<String, androidx.compose.foundation.text.InlineTextContent> = emptyMap()) {
     val layout = remember { TextLinkLayout() }
     Text(text, modifier.then(linkTextModifier(text, layout)), color = color, style = style,
-        maxLines = maxLines, overflow = overflow, onTextLayout = { layout.result = it; onTextLayout(it) })
+        maxLines = maxLines, overflow = overflow, inlineContent = inlineContent,
+        onTextLayout = { layout.result = it; onTextLayout(it) })
 }
