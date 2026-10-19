@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.83.3] - 2026-10-19
+
 ### Changed
 - Align the floating account avatar’s right edge with the recipient avatars in the zap feed, including its onboarding counterpart.
 - Place zap-feed reply, repost, reaction and zap controls inside the referenced note card, including article and app previews.
