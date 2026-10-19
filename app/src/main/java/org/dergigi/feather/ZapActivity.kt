@@ -4,6 +4,8 @@ import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -105,7 +107,13 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
         }
         if (zap.comment.isNotBlank()) Text(zap.comment, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
         zapNoteReference(event)?.let { reference ->
-            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${event.id}:${reference.id}", onReference)
+            val note = state.embedded[reference.id]
+            val filter = LocalContentFilter.current
+            if (!filter.hides(reference) && (note == null || !filter.hides(note))) {
+                EmbeddedNote(reference, note, state.profiles, "${event.id}:${reference.id}", onReference)
+                // Actions belong to the referenced post, never the payment receipt or its sender.
+                if (note != null && note.kind !in listOf(7, 17, 30030, 9735, 9321)) ZapNoteActions(note, state)
+            }
         }
     }
 }
@@ -119,5 +127,30 @@ private fun ZapParty(key: String?, profiles: Map<String, Profile>, modifier: Mod
     }.padding(vertical = 4.dp), horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Avatar(name, 36, profile?.picture)
         Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ZapNoteActions(note: Event, state: FeedState) {
+    val counts = state.engagement[note.id] ?: Engagement()
+    val reply = LocalReply.current
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp).clip(CircleShape)
+                .clickable(onClickLabel = "Reply to note") { reply(note) }.padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(painterResource(R.drawable.conversation), "Reply; ${counts.replies} replies",
+                    Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (counts.replies > 0) Text(counts.replies.toString(), maxLines = 1,
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            RepostButton(note, note.id in state.sentReposts, counts.reposts,
+                ownCounted = state.publicKey != null && counts.repostedByAccount == state.publicKey)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())
+            NoteZap(note, counts, state.publicKey)
+        }
     }
 }

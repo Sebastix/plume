@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Reply, repost, like, and zap referenced posts directly from the zap feed, with the existing long-press pickers and quote-post action.
+
 ## [0.81.0] - 2026-10-19
 
 ### Added
