@@ -1469,19 +1469,27 @@ private fun richText(body: String, tokens: List<NostrContent.Token>, profiles: M
 }
 
 @Composable
-internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true) {
+internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profiles: Map<String, Profile>, mediaKey: String, onReference: (NostrContent.Reference) -> Unit, compact: Boolean = true, actions: (@Composable () -> Unit)? = null) {
     val filter = LocalContentFilter.current
     if (filter.hides(reference) || (note != null && filter.hides(note))) return
     if (note?.kind == 32267) {
-        SoftwareAppCard(note) { onReference(reference) }
+        Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+            Column {
+                SoftwareAppCard(note) { onReference(reference) }
+                actions?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { it() } }
+            }
+        }
         return
     }
     if (note?.kind == 30023) {
         val profile = profiles[note.pubKey]
         Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-            ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), profile?.picture,
-                onProfile = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
-                onOpen = { onReference(reference) })
+            Column {
+                ArticleListRow(note, profile?.name ?: FeatherRepository.shortKey(note.pubKey), profile?.picture,
+                    onProfile = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
+                    onOpen = { onReference(reference) })
+                actions?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { it() } }
+            }
         }
         return
     }
@@ -1537,6 +1545,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 // One level only. Deeper references remain links, avoiding recursive network/render work.
                 if (attachments.isNotEmpty()) NoteMedia(note, attachments, mediaKey)
                 }
+                actions?.invoke()
             }
         }
     }

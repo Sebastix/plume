@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Place zap-feed reply, repost, reaction and zap controls inside the referenced note card, including article and app previews.
+
 ## [0.83.2] - 2026-10-19
 
 ### Fixed

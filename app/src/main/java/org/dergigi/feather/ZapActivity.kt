@@ -110,9 +110,11 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
             val note = state.embedded[reference.id]
             val filter = LocalContentFilter.current
             if (!filter.hides(reference) && (note == null || !filter.hides(note))) {
-                EmbeddedNote(reference, note, state.profiles, "${event.id}:${reference.id}", onReference)
-                // Actions belong to the referenced post, never the payment receipt or its sender.
-                if (note != null && note.kind !in listOf(7, 17, 30030, 9735, 9321)) ZapNoteActions(note, state)
+                // Keep actions inside the referenced post, never on the payment receipt.
+                EmbeddedNote(reference, note, state.profiles, "${event.id}:${reference.id}", onReference,
+                    actions = if (note != null && note.kind !in listOf(7, 17, 30030, 9735, 9321)) {
+                        { ZapNoteActions(note, state) }
+                    } else null)
             }
         }
     }
