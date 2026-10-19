@@ -18,15 +18,15 @@ feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
 /* Real captures retain their complete cropped viewport and native theme. */
 .phone picture{display:block;width:100%;height:100%}
 .phone picture img{object-fit:contain}
-.screen-showcase{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding-bottom:100px}
-.screen-showcase figure{margin:0;min-width:0}
-.screen-showcase picture{display:block;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--paper)}
-.screen-showcase img{width:100%;height:auto}
-.screen-showcase figcaption{color:var(--muted);font-size:13px;margin-top:14px;text-align:center}
+
+
+
+
+
 .player-tools{flex-wrap:wrap}
 .player-tools .fine{flex-basis:100%;text-align:left}
-@media(max-width:800px){.screen-showcase{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 20px;padding-bottom:70px}}
-@media(max-width:480px){.screen-showcase{gap:24px 14px}.screen-showcase picture{border-radius:14px}}
+
+
 
 /* Match the interactive composer to the screenshot theme. */
 .composer-demo{background:var(--paper);color:var(--ink);border-color:var(--line)}

@@ -9,6 +9,7 @@
     { label: 'Photos', file: 'photos', icon: 'photo', shared: true },
     { label: 'Videos', file: 'video-fullscreen', icon: 'play', shared: true },
     { label: 'Articles', file: 'articles', icon: 'article' },
+    { label: 'Replies', file: 'reply', icon: 'reply' },
     { label: 'Podcasts', file: 'podcasts', icon: 'podcast' },
     { label: 'Artist gallery', file: 'profile-photos', icon: 'profile' }
   ];
