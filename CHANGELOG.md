@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Simplify the blog social preview to its large title and app screenshots.
 - Lightly rebalance the origin interview with more narrative between its central quotes.
 - Give “Why Feather exists” its own social preview artwork with the interview title, weekend quote and cropped app screenshots.
 - Extend the website/blog swipe demo with themed Articles, Podcasts and artist profile gallery screenshots, keeping the icon switcher compact and scrollable.
