@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Give “Why Feather exists” its own social preview artwork with the interview title, weekend quote and cropped app screenshots.
 - Extend the website/blog swipe demo with themed Articles, Podcasts and artist profile gallery screenshots, keeping the icon switcher compact and scrollable.
 - Refresh website and blog previews with paired light/dark screenshots, the app’s Home icon, and real full-screen video. Curate updated Zapstore screenshots while retaining the feather gallery and settings captures; remove Android system bars from all new public captures.
 - Let the shared website feed switcher follow light and dark mode, including its controls, phone frames and video mockup.
