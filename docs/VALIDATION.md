@@ -1607,3 +1607,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Final signed release build passed in 58s. No tests or emulators run. Packaged version, embedded source and signing certificate verified; mapping archived.
 - APK SHA-256 `8e51d6f305fa849a442c566ee2fba8328bcfffab5446273ca0662e282711b576`; 15,872,165 bytes. GitHub asset digest and source/tag refs on GitHub and both GRASP mirrors match.
 - Signed Zapstore release `9cef4c5b01b28eb2b93ca10d16093a9bda2247a773bf48d0782578e3ed935a54` and asset `06f6680ea0abf59916134aa1dc43acafef2a37e4253196b54c07f4719f1f4fb8` retrieved and verified; hash, size, versionCode and certificate match. CDN HTTP 200 with matching size. No website deployment.
+
+## 2026-10-19 — 0.84.0 release
+
+- Version 0.84.0 (166), source `dc3482e7c668668235cfbcfab8e85afc506b6b39`. Hashtag readers discover profile-style content categories, including related hashtags, and retain per-tab positions and optional author scope.
+- Final signed release build passed in 1m 17s after extracting hashtag discovery from the feed snapshot to stay below Kotlin's method-size limit. No tests or emulators run. APK package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `77fda889f3d9398bde468563639a5e3637f48583c031ea6337ccc27ca59c3c43`; 15,872,165 bytes. GitHub asset digest matches. Source and tag refs match on GitHub and both GRASP mirrors.
+- Zapstore release `a6d5227d5527769d450c397e2009bc78138f427814ce4e844c211963a6dd238d` and asset `474d3f1a9331e3a32a5208dc6a66c5a07e92628dc50b3fbe2b4cef9d3e78b7b2` retrieved; hash, size, versionCode and certificate match. No website deployment.
