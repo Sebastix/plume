@@ -1076,7 +1076,7 @@ class FeatherRepository(context: Context) {
             val authors = (listOfNotNull(key) + all.take(24).map { it.pubKey }).distinct()
             val profiles = cachedProfiles(authors)
             if (key == state.value.publicKey && feed == selectedFeed && feedCeiling == feedUntil) {
-                _state.update { it.copy(notes = all, feedTab = feed, following = following, followedHashtags = hashtagFollows, pendingHashtagList = pendingHashtags,
+                _state.update { it.copy(notes = all, feedTab = feed, following = following,
                     mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList,
                     deletedReactions = deletedReactions, profiles = it.profiles + profiles,
                     loading = all.isEmpty()).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
