@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.withLock
 
 internal class MissingFollowList : IllegalStateException("No existing follow list found")
 
-/** Apply one explicit delta to a freshly discovered, complete NIP-02 event. */
+/** Apply one explicit delta to a freshly discovered, complete follow/interests list. */
 internal class FollowLists(private val repo: FeatherRepository, private val requests: SignerRequests) {
     private val edits = Mutex()
     private val queries = ProfileRelayQuery()
@@ -21,12 +21,19 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
     private val newest = compareByDescending<Event> { it.createdAt }.thenBy { it.id }
 
     suspend fun change(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean = false) =
+        changeList(identity, target, follow, allowCreate, 3)
+
+    suspend fun changeHashtag(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean = false) =
+        changeList(identity, target, follow, allowCreate, 10015)
+
+    private suspend fun changeList(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean, listKind: Int) =
         withContext(Dispatchers.IO) {
             edits.withLock {
                 val owner = identity.pubKey
                 fun current() = check(repo.state.value.publicKey == owner) { "Account changed" }
                 current()
-                require(Protocol.publicKey(target) == target && target != owner)
+                if (listKind == 3) require(Protocol.publicKey(target) == target && target != owner)
+                else require(normalizeFollowedTag(target) == target)
                 suspend fun discover(kind: Int, routes: List<String>): Discovery {
                     current()
                     var latest = repo.followEvent(owner, kind)
@@ -36,7 +43,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                     val completed = withTimeout(45_000) {
                         queries.completed(routes, listOf(filter.toJson())) { relay, event ->
                             require(event.kind == kind && event.pubKey == owner && event.verify() &&
-                                event.tags.size <= 5000 && event.content.length <= 32_768 &&
+                                event.tags.size <= 5000 && event.content.length <= (if (kind == 10015) 262_144 else 32_768) &&
                                 event.createdAt <= System.currentTimeMillis() / 1000 + 600) { "Invalid follow-list response" }
                             current()
                             lock.withLock {
@@ -69,7 +76,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 require(readRoutes.size <= 32) { "Too many relays to safely refresh the follow list" }
 
                 suspend fun fresh(): Event? {
-                    val result = discover(3, readRoutes)
+                    val result = discover(listKind, readRoutes)
                     val event = result.event
                     val completed = result.completed
                     check(completed.size >= 2) {
@@ -87,14 +94,16 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 }
 
                 val base = fresh()
+                val edit = if (listKind == 10015) editHashtagList(base, target, follow, identity, requests) else null
+                if (listKind == 10015 && edit == null) return@withLock
                 val wasFollowing = target in Protocol.follows(base)
-                if (wasFollowing == follow) return@withLock
-                val tags = base?.tags.orEmpty().filterNot {
+                if (listKind == 3 && wasFollowing == follow) return@withLock
+                val tags = if (edit != null) edit.tags.toMutableList() else base?.tags.orEmpty().filterNot {
                     !follow && it.firstOrNull() == "p" && it.getOrNull(1) == target
-                }.toMutableList()
-                if (follow) tags.add(arrayOf("p", target))
+                }.toMutableList().also { if (follow) it.add(arrayOf("p", target)) }
                 require(tags.size <= 5000) { "Follow list is too large" }
-                val content = base?.content.orEmpty()
+                val content = edit?.content ?: base?.content.orEmpty()
+                require(content.length <= (if (listKind == 10015) 262_144 else 32_768)) { "Follow list is too large" }
                 val timestamp = maxOf(System.currentTimeMillis() / 1000, (base?.createdAt ?: 0) + 1)
                 check(timestamp <= System.currentTimeMillis() / 1000 + 60) {
                     "Follow list is dated in the future. Check your device clock."
@@ -102,10 +111,10 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 val expectedTags = tags.toTypedArray()
                 val signed = requests.run {
                     current()
-                    check(repo.followEvent(owner, 3)?.id == base?.id) { "Follow list changed. Tap again to retry safely." }
-                    withTimeout(180_000) { identity.sign<Event>(timestamp, 3, expectedTags, content) }
+                    check(repo.followEvent(owner, listKind)?.id == base?.id) { "Follow list changed. Tap again to retry safely." }
+                    withTimeout(180_000) { identity.sign<Event>(timestamp, listKind, expectedTags, content) }
                 }
-                require(signed.pubKey == owner && signed.kind == 3 && signed.createdAt == timestamp &&
+                require(signed.pubKey == owner && signed.kind == listKind && signed.createdAt == timestamp &&
                     signed.content == content && signed.tags.contentDeepEquals(expectedTags) && signed.verify()) {
                     "Invalid signed follow list"
                 }
@@ -114,11 +123,17 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                     // The signer can stay open while another app edits the list. Refresh after
                     // signing and before every retransmission; never re-sign an obsolete snapshot.
                     val latest = fresh()
-                    if (latest?.id == signed.id) return@withLock
+                    if (latest?.id == signed.id) {
+                        edit?.privatePlaintext?.let { repo.cacheHashtagPlaintext(signed, it) }
+                        return@withLock
+                    }
                     check(latest?.id == base?.id) { "Follow list changed in another client. Tap again to retry safely." }
                     current()
-                    check(repo.followEvent(owner, 3)?.id == base?.id) { "Follow list changed. Tap again to retry safely." }
-                    if (repo.publishFollowEvent(signed, publishRoutes, base?.id, relayResult.event?.id)) return@withLock
+                    check(repo.followEvent(owner, listKind)?.id == base?.id) { "Follow list changed. Tap again to retry safely." }
+                    if (repo.publishFollowEvent(signed, publishRoutes, base?.id, relayResult.event?.id)) {
+                        edit?.privatePlaintext?.let { repo.cacheHashtagPlaintext(signed, it) }
+                        return@withLock
+                    }
                 }
                 error("No relay confirmed the follow change. Tap again to check and retry safely.")
             }

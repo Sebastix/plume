@@ -156,4 +156,8 @@
     <string name="ui_first_follow_create">Create list</string>
     <string name="ui_follow_cancel">Cancel</string>
     <string name="ui_open_notifications">Open notifications</string>
+    <string name="ui_follow_hashtag">Follow hashtag</string>
+    <string name="ui_unfollow_hashtag">Unfollow hashtag</string>
+    <string name="ui_first_hashtag_title">Create interests list?</string>
+    <string name="ui_first_hashtag_body">No existing interests list was found on your relays. Create a new list with this hashtag? If you already follow hashtags in another app, cancel and check your relay connections first.</string>
 </resources>

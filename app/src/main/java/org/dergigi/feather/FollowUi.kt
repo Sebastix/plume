@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +36,39 @@ internal fun ProfileFollowButton(vm: FeatherViewModel, target: String) {
         title = { Text(stringResource(R.string.ui_first_follow_title)) },
         text = { Text(stringResource(R.string.ui_first_follow_body)) },
         confirmButton = { TextButton(onClick = { vm.changeFollow(target, true, allowCreate = true) }) {
+            Text(stringResource(R.string.ui_first_follow_create))
+        } },
+        dismissButton = { TextButton(onClick = { vm.firstFollow.value = null }) {
+            Text(stringResource(R.string.ui_follow_cancel))
+        } }
+    )
+}
+
+@Composable
+internal fun HashtagFollowButton(vm: FeatherViewModel, target: String, onLogin: () -> Unit) {
+    val tag = normalizeFollowedTag(target) ?: return
+    val state by vm.state.collectAsStateWithLifecycle()
+    val busy by vm.followBusy.collectAsStateWithLifecycle()
+    val pending by vm.firstFollow.collectAsStateWithLifecycle()
+    val actionKey = "#$tag"
+    val following = tag in state.followedHashtags
+    IconButton(onClick = {
+        if (state.publicKey == null) onLogin() else vm.changeHashtagFollow(tag, !following)
+    }, enabled = actionKey !in busy) {
+        if (actionKey in busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Box(Modifier.size(24.dp)) {
+            Icon(painterResource(R.drawable.hashtag),
+                stringResource(if (following) R.string.ui_unfollow_hashtag else R.string.ui_follow_hashtag),
+                Modifier.size(20.dp).align(Alignment.CenterStart), tint = MaterialTheme.colorScheme.primary)
+            Icon(if (following) Icons.Default.Check else Icons.Default.Add, null,
+                Modifier.size(12.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+    if (state.publicKey != null && pending == (state.publicKey to actionKey)) AlertDialog(
+        onDismissRequest = { vm.firstFollow.value = null },
+        title = { Text(stringResource(R.string.ui_first_hashtag_title)) },
+        text = { Text(stringResource(R.string.ui_first_hashtag_body)) },
+        confirmButton = { TextButton(onClick = { vm.changeHashtagFollow(tag, true, allowCreate = true) }) {
             Text(stringResource(R.string.ui_first_follow_create))
         } },
         dismissButton = { TextButton(onClick = { vm.firstFollow.value = null }) {

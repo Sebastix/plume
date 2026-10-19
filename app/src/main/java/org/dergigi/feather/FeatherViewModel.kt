@@ -86,44 +86,50 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     private val followJobs = mutableMapOf<String, Job>()
     private val followQueueMutex = Mutex()
     private val followLists by lazy { FollowLists(repo, signerRequests) }
-    internal fun changeFollow(target: String, follow: Boolean, allowCreate: Boolean = false) {
+    internal fun changeHashtagFollow(target: String, follow: Boolean, allowCreate: Boolean = false) {
+        val tag = normalizeFollowedTag(target) ?: return
+        changeFollow(tag, follow, allowCreate, hashtag = true)
+    }
+    internal fun changeFollow(target: String, follow: Boolean, allowCreate: Boolean = false, hashtag: Boolean = false) {
         val identity = signer.value ?: return
-        if (target in followJobs) return
+        val actionKey = if (hashtag) "#$target" else target
+        if (actionKey in followJobs) return
         if (followJobs.size >= 16) {
             message.value = "Follow queue is full. Try again shortly."
             return
         }
-        if (firstFollow.value?.second == target) firstFollow.value = null
-        followBusy.update { it + target }
+        if (firstFollow.value?.second == actionKey) firstFollow.value = null
+        followBusy.update { it + actionKey }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 // Queue intentions, not signed snapshots. Each edit reads the result of
                 // the previous edit and refreshes it before requesting a signature.
                 followQueueMutex.withLock {
                     check(signer.value === identity) { "Account changed" }
-                    followLists.change(identity, target, follow, allowCreate)
+                    if (hashtag) followLists.changeHashtag(identity, target, follow, allowCreate)
+                    else followLists.change(identity, target, follow, allowCreate)
                 }
-                if (!follow && signer.value === identity) {
+                if (!follow && !hashtag && signer.value === identity) {
                     val app = getApplication<Application>()
                     AppMessages.showAction(app.getString(R.string.ui_unfollowed), app.getString(R.string.ui_follow_undo)) {
-                        if (signer.value === identity) changeFollow(target, true)
+                        if (signer.value === identity) changeFollow(target, true, hashtag = hashtag)
                     }
                 }
             } catch (_: MissingFollowList) {
-                if (signer.value === identity) firstFollow.value = identity.pubKey to target
+                if (signer.value === identity) firstFollow.value = identity.pubKey to actionKey
             } catch (e: TimeoutCancellationException) {
-                if (signer.value === identity) message.value = "Follow operation timed out. Refresh the profile before trying again."
+                if (signer.value === identity) message.value = "Follow operation timed out. Refresh before trying again."
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (signer.value === identity) AppMessages.show("Follow: ${e.message}", e.stackTraceToString())
             } finally {
-                if (followJobs[target] === currentCoroutineContext()[Job]) {
-                    followJobs.remove(target)
-                    followBusy.update { it - target }
+                if (followJobs[actionKey] === currentCoroutineContext()[Job]) {
+                    followJobs.remove(actionKey)
+                    followBusy.update { it - actionKey }
                 }
             }
         }
-        followJobs[target] = job
+        followJobs[actionKey] = job
         job.start()
     }
     private val paymentMutex = Mutex()

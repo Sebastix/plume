@@ -156,4 +156,8 @@
     <string name="ui_first_follow_create">リストを作成</string>
     <string name="ui_follow_cancel">キャンセル</string>
     <string name="ui_open_notifications">通知を開く</string>
+    <string name="ui_follow_hashtag">ハッシュタグをフォロー</string>
+    <string name="ui_unfollow_hashtag">ハッシュタグのフォローを解除</string>
+    <string name="ui_first_hashtag_title">興味・関心リストを作成しますか？</string>
+    <string name="ui_first_hashtag_body">リレーに既存の興味・関心リストが見つかりませんでした。このハッシュタグを含む新しいリストを作成しますか？別のアプリですでにハッシュタグをフォローしている場合は、キャンセルしてリレー接続を確認してください。</string>
 </resources>

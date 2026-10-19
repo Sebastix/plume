@@ -552,6 +552,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_back)) }
             }, actions = {
+                if (screen == "hashtag") HashtagFollowButton(vm, hashtag.orEmpty()) { showAccount = true }
                 val detailNote = if (screen == "thread") {
                     (s.threadNotes.firstOrNull { it.matchesThread(threadId) }
                         ?: entry.notes[profileTab]?.firstOrNull { it.matchesThread(threadId) })
