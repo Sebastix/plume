@@ -18,7 +18,7 @@ internal class ProfileRelayQuery {
         var found = false
         for (batch in relays.distinct().chunked(4)) {
             currentCoroutineContext().ensureActive()
-            val received = coroutineScope { batch.map { url -> async { slots.withPermit { fetchOne(url, filters, accept) } } }.awaitAll() }
+            val received = coroutineScope { batch.map { url -> async { slots.withPermit { fetchOne(url, filters, accept = accept) } } }.awaitAll() }
             found = found || received.any { it.found }
         }
         return found
@@ -26,19 +26,19 @@ internal class ProfileRelayQuery {
 
     /** EOSE is distinct from a disconnect, timeout or CLOSED response. */
     suspend fun completed(relays: List<String>, filters: List<String>, accept: suspend (String, Event) -> Boolean): Set<String> {
-        val complete = mutableSetOf<String>()
-        for (batch in relays.distinct().chunked(4)) {
-            currentCoroutineContext().ensureActive()
-            val results = coroutineScope { batch.map { url -> async {
-                slots.withPermit { url to fetchOne(url, filters) { event -> accept(url, event) } }
-            } }.awaitAll() }
-            results.filter { it.second.complete }.forEach { complete += it.first }
+        // Keep four sockets busy without waiting for the slowest member of each batch.
+        // Every candidate is still queried; do not stop at the first quorum and miss a newer list.
+        return coroutineScope {
+            relays.distinct().map { url -> async {
+                slots.withPermit {
+                    url to fetchOne(url, filters, timeoutMs = 5_000) { event -> accept(url, event) }
+                }
+            } }.awaitAll().filter { it.second.complete }.mapTo(mutableSetOf()) { it.first }
         }
-        return complete
     }
 
     private data class Read(val found: Boolean, val complete: Boolean)
-    private suspend fun fetchOne(url: String, filters: List<String>, accept: suspend (Event) -> Boolean): Read {
+    private suspend fun fetchOne(url: String, filters: List<String>, timeoutMs: Long = 10_000, accept: suspend (Event) -> Boolean): Read {
         val done = CompletableDeferred<Unit>()
         val stopped = AtomicBoolean(false)
         val found = AtomicBoolean(false)
@@ -69,7 +69,7 @@ internal class ProfileRelayQuery {
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { done.complete(Unit) }
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { done.complete(Unit) }
         })
-        try { withTimeoutOrNull(10_000) { done.await() } }
+        try { withTimeoutOrNull(timeoutMs) { done.await() } }
         finally { stopped.set(true); socket.cancel() }
         return Read(found.get(), complete.get())
     }
