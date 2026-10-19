@@ -254,14 +254,14 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             contentDescription = "Account"
             stateDescription = if (state.publicKey != null && walletConnected) "Wallet connected" else "Wallet not connected"
         }, contentAlignment = Alignment.Center) {
-        Box(Modifier.size(40.dp).clip(CircleShape)
+        Box(Modifier.size(AccountAvatarOuterSize).clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(2.dp, if (state.publicKey != null && walletConnected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
+            .border(AccountAvatarBorder, if (state.publicKey != null && walletConnected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
             val account = state.profiles[state.publicKey]
             if (state.publicKey != null) {
                 CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,
                     lifecycleState.isAtLeast(Lifecycle.State.STARTED), null)) {
-                    Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), 40, account?.picture)
+                    Avatar(account?.name ?: FeatherRepository.shortKey(state.publicKey!!), ACCOUNT_AVATAR_DP, account?.picture)
                 }
             } else Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         }

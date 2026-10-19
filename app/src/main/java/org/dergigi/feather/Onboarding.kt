@@ -216,8 +216,8 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
                     scaleX = .85f + .15f * login.value
                     scaleY = scaleX
                 }) {
-            Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surface, CircleShape)
-                .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(AccountAvatarOuterSize).background(MaterialTheme.colorScheme.surface, CircleShape)
+                .border(AccountAvatarBorder, MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
                 if (signedIn) Icon(Icons.Default.Check, stringResource(R.string.ui_signed_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                 else Icon(painterResource(R.drawable.login), stringResource(R.string.ui_log_in), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }

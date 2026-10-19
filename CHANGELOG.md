@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Align the account avatar picture and center with zap-feed avatars, with its border extending around the matching 36dp picture.
+
 ## [0.83.3] - 2026-10-19
 
 ### Changed
