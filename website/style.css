@@ -14,3 +14,36 @@ header{height:104px;display:flex;align-items:center;justify-content:space-betwee
 .phone{translate:calc(var(--drag,0px)*.3) 0}.note-preview{min-height:125px;padding:20px 4px;font-size:19px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 
 feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
+
+/* Real captures retain their complete cropped viewport and native theme. */
+.phone picture{display:block;width:100%;height:100%}
+.phone picture img{object-fit:contain}
+.screen-showcase{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding-bottom:100px}
+.screen-showcase figure{margin:0;min-width:0}
+.screen-showcase picture{display:block;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--paper)}
+.screen-showcase img{width:100%;height:auto}
+.screen-showcase figcaption{color:var(--muted);font-size:13px;margin-top:14px;text-align:center}
+.player-demo{display:grid;grid-template-columns:minmax(100px,.35fr) minmax(0,1fr);gap:20px;align-items:center}
+.player-capture{margin:0;min-width:0}
+.player-capture img{width:100%;border-radius:16px}
+.player-capture figcaption{font-size:10px;color:#9cb4c0;text-align:center;margin-top:10px}
+.player-interactive{min-width:0}
+.player-tools{flex-wrap:wrap}
+.player-tools .fine{flex-basis:100%;text-align:left}
+@media(max-width:800px){.screen-showcase{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 20px;padding-bottom:70px}}
+@media(max-width:480px){.player-demo{grid-template-columns:1fr}.player-capture{width:130px;margin:0 auto 8px}.screen-showcase{gap:24px 14px}.screen-showcase picture{border-radius:14px}}
+
+/* Match the interactive composer to the screenshot theme. */
+.composer-demo{background:var(--paper);color:var(--ink);border-color:var(--line)}
+.preview-tag,.composer-demo textarea::placeholder,.picker-search input::placeholder,.gif-attribution,.composer-status,#gif-empty{color:var(--muted)}
+.composer-avatar{background:var(--mist);border-color:var(--line)}
+.composer-demo textarea,.picker-search{background:var(--mist);color:var(--ink)}
+.picker-search input{color:var(--ink)}
+.gif-picker{border-color:var(--line)}
+.gif-tile{background:var(--mist)}
+.circle-button{background:var(--switcher-selected);color:var(--blue)}
+.circle-button:hover{background:var(--line)}
+.send-button{background:var(--sky);color:#103548}
+.send-button:hover{background:#a5daff}
+.gif-attribution:hover{color:var(--blue)}
+.phone[data-page="3"],.phone[data-page="4"]{background:#0e171c}
