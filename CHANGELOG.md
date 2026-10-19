@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Keep newly opened hashtag readers at their tab bar while categories load, with a stable header slot and independent reader composition state.
+
 ## [0.84.0] - 2026-10-19
 
 ### Changed

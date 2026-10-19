@@ -313,7 +313,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     BackHandler(entry.screen == "feed" && navigation.entries.size > 1) { navigation.back() }
     if (entry.screen in listOf("feed", "profile", "hashtag") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
     if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
-    else FeatherReader(vm, navigation, entry)
+    else key(entry.key) { FeatherReader(vm, navigation, entry) }
     ReplyComposer(vm)
 }
 
@@ -858,7 +858,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 }
                             }
                         }
-                        if (screen in listOf("profile", "hashtag") && visibleProfileTabs.isNotEmpty()) item("profile-tabs") {
+                        if (screen == "hashtag" || (screen == "profile" && visibleProfileTabs.isNotEmpty())) item("profile-tabs") {
+                            // Reserve the first item's identity before hashtag discovery finishes.
+                            // Otherwise lazy-list anchoring keeps a note visible and the new tabs offscreen.
+                            if (visibleProfileTabs.isEmpty()) Spacer(Modifier.fillMaxWidth().height(48.dp))
+                            else
                             // Tab discovery can change the measured positions between frames.
                             // Recreate only the tab row when its membership changes, and never
                             // index a previous layout's positions without checking its bounds.
