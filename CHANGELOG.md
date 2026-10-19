@@ -7,7 +7,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [0.83.4] - 2026-10-19
 
 ### Changed
-- Show zap-feed profile names beside their avatars, keeping the amount centered between the two avatars.
+- Show zap-feed profile names beside their avatars, keep the amount centered between them, and place the zap timestamp at the top-right above the recipient avatar.
 - Increase spacing between zap-feed entries while keeping each zap header, comment and referenced note grouped closely together.
 
 ### Fixed

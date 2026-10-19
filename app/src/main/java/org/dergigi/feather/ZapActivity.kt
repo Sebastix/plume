@@ -97,6 +97,7 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
     // Separate complete entries more than the header/comment/note within each entry.
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.align(Alignment.End)) { NoteTimestamp(event) }
         // Equal profile widths keep the amount centered between the two outer avatars.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ZapParty(zap.sender, state.profiles, Modifier.weight(1f), Alignment.Start, onReference)
@@ -105,7 +106,6 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
                     Icon(painterResource(R.drawable.zap), if (nutzap) stringResource(R.string.ui_nutzap_from_sender_to_recipient) else stringResource(R.string.ui_zap_from_sender_to_recipient), modifier = Modifier.size(24.dp), tint = paymentColor)
                     zap.amount?.let { Text("$it ${zap.unit}", style = MaterialTheme.typography.titleMedium, color = paymentColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
-                NoteTimestamp(event, alignment = Alignment.CenterHorizontally)
             }
             ZapParty(zap.recipient, state.profiles, Modifier.weight(1f), Alignment.End, onReference)
         }
