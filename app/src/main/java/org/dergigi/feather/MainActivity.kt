@@ -1049,7 +1049,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         ModalBottomSheet(onDismissRequest = { showSettings = false }, containerColor = MaterialTheme.colorScheme.surface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             CopyableMessageHost()
-            Settings(s, onChange = { sensitive, pow -> vm.changeSettings(sensitive, pow) }, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
+            Settings(vm, s, onChange = { sensitive, pow -> vm.changeSettings(sensitive, pow) }, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 onIssue = { type -> showSettings = false; vm.issues.open(type) },
                 onFeather = {
                     showSettings = false; showAccount = false
@@ -1592,20 +1592,39 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
+private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
     var showMutedWords by rememberSaveable { mutableStateOf(false) }
+    var mutedWordInput by rememberSaveable(state.publicKey) { mutableStateOf("") }
+    val muteWordBusy by vm.muteWordBusy.collectAsStateWithLifecycle()
     if (showMutedWords) ModalBottomSheet(onDismissRequest = { showMutedWords = false },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         val words = remember(state.mutedWords) { state.mutedWords.sorted() }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding()) {
             Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_muted_words),
                 Modifier.padding(bottom = 16.dp), tint = MaterialTheme.colorScheme.primary)
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(value = mutedWordInput, onValueChange = { if (it.length <= 256) mutedWordInput = it },
+                    modifier = Modifier.weight(1f), singleLine = true, enabled = !muteWordBusy,
+                    placeholder = { Text(stringResource(R.string.ui_mute_word_input)) }, shape = RoundedCornerShape(24.dp))
+                IconButton(enabled = !muteWordBusy && mutedWordInput.isNotBlank(), onClick = {
+                    vm.changeMutedWord(mutedWordInput, true) { mutedWordInput = "" }
+                }) {
+                    if (muteWordBusy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Default.Add, stringResource(R.string.ui_add_muted_word))
+                }
+            }
             if (words.isEmpty() && state.pendingMuteList == null) Text(stringResource(R.string.ui_no_muted_words),
                 Modifier.padding(bottom = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             else if (words.isNotEmpty()) LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(words, key = { it }) { word ->
-                    SelectionContainer { Text(word, Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                        style = MaterialTheme.typography.bodyLarge) }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        SelectionContainer(Modifier.weight(1f)) { Text(word, Modifier.padding(vertical = 10.dp),
+                            style = MaterialTheme.typography.bodyLarge) }
+                        IconButton(enabled = !muteWordBusy, onClick = { vm.changeMutedWord(word, false) }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.ui_remove_muted_word, word),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
             if (state.pendingMuteList != null) CircularProgressIndicator(Modifier.padding(bottom = 16.dp).size(20.dp), strokeWidth = 2.dp)

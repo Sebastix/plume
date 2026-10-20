@@ -1,6 +1,7 @@
 package org.dergigi.feather
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +89,9 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
         Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp).onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
-        }.clickable(onClickLabel = "$nextLabel for all notes") { preference.cycle() }
+        }.combinedClickable(onClickLabel = "$nextLabel for all notes", onClick = { preference.cycle() },
+            onLongClickLabel = stringResource(R.string.ui_copy_nostr_reference),
+            onLongClick = { context.copyTimestampReference(note) })
             .semantics { contentDescription = when {
                 mode == 1 && blockLabel != null -> "Bitcoin block $blockLabel at note time"
                 mode == 2 -> relative.spoken
@@ -103,9 +106,10 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     }
 }
 
-/** Passive relative age for notification rows; taps belong to the parent row. */
+/** Relative age; taps open the notification, long presses copy its event reference. */
 @Composable
-internal fun NotificationTimestamp(note: Event) {
+internal fun NotificationTimestamp(note: Event, onClick: () -> Unit) {
+    val context = LocalContext.current
     val view = LocalView.current
     var visible by remember(note.id) { mutableStateOf(false) }
     var relative by remember(note.createdAt) { mutableStateOf(relativeTime(note.createdAt)) }
@@ -122,5 +126,13 @@ internal fun NotificationTimestamp(note: Event) {
         modifier = Modifier.onGloballyPositioned {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
-        }.semantics { contentDescription = relative.spoken })
+        }.combinedClickable(onClick = onClick,
+            onLongClickLabel = stringResource(R.string.ui_copy_nostr_reference),
+            onLongClick = { context.copyTimestampReference(note) })
+            .semantics { contentDescription = relative.spoken })
+}
+
+private fun android.content.Context.copyTimestampReference(note: Event) {
+    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${note.nostrPointer()}"))
 }

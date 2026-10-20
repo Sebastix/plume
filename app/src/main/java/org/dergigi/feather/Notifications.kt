@@ -275,7 +275,9 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             if (item.text.isNotBlank()) Text(item.text, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        NotificationTimestamp(item.event)
+                        NotificationTimestamp(item.event) {
+                            (notificationTarget(item.event) ?: item.actor?.let { NostrContent.Reference(it, profile = true) })?.let(::open)
+                        }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }

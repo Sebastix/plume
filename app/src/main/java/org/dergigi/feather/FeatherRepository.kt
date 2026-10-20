@@ -1471,11 +1471,11 @@ class FeatherRepository(context: Context) {
 
     internal suspend fun followEvent(owner: String, kind: Int): Event? = withContext(Dispatchers.IO) {
         ready.await()
-        mutex.withLock { db.query<Event>(Filter(kinds = listOf(kind), authors = listOf(owner), limit = 1)).firstOrNull() }
+        mutex.withLock { db.query<Event>(Filter(kinds = listOf(kind), authors = listOf(owner), tags = if (kind == 30000) mapOf("d" to listOf("mute")) else null, limit = 1)).firstOrNull() }
     }
 
     internal suspend fun cacheFollowEvent(event: Event) {
-        require(event.kind in listOf(3, 10002, 10015) && event.pubKey == state.value.publicKey)
+        require(event.kind in listOf(3, 10002, 10015, 10000, 30000) && event.pubKey == state.value.publicKey)
         accept(event)
         if (event.kind == 3) {
             // Use the database winner, in case a newer replacement arrived during publication.
@@ -1487,7 +1487,7 @@ class FeatherRepository(context: Context) {
     internal suspend fun publishFollowEvent(event: Event, routes: List<String>, baseline: String?, relayBaseline: String?): Boolean = withContext(Dispatchers.IO) {
         withTimeout(15_000) { foregroundActive.first { it } }
         check(state.value.publicKey == event.pubKey) { "Account changed" }
-        require(event.kind in listOf(3, 10015))
+        require(event.kind in listOf(3, 10015, 10000))
         check(followEvent(event.pubKey, event.kind)?.id == baseline && followEvent(event.pubKey, 10002)?.id == relayBaseline) {
             "Account lists changed. Tap again to retry safely."
         }
@@ -1765,6 +1765,17 @@ class FeatherRepository(context: Context) {
                 changed.tryEmit(Unit)
             } finally { publishingAuthor = null; if (active) updateRoutingPool() }
         }
+    }
+
+    internal suspend fun cacheMutePlaintext(event: Event, plaintext: String) = withContext(Dispatchers.IO) {
+        if (event.pubKey != state.value.publicKey) return@withContext
+        if (followEvent(event.pubKey, 10000)?.id != event.id) return@withContext
+        muteCache.write(event, plaintext)
+        _state.update { if (it.publicKey == event.pubKey) it.copy(
+            mutedWords = mutedWords(event) + muteCache.readWords(event),
+            mutedAuthors = mutedPublicKeys(event) + muteCache.read(event).orEmpty(), pendingMuteList = null) else it }
+        changed.tryEmit(Unit)
+        threadChanges.tryEmit(Unit)
     }
 
     internal suspend fun cacheHashtagPlaintext(event: Event, plaintext: String) = withContext(Dispatchers.IO) {

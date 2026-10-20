@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-10-20
+
+### Added
+- Add private muted words or phrases and remove existing public/private words from Settings, preserving the freshly loaded mute list through the signer.
+- Long-press note and notification timestamps to copy their `nostr:` event link, using `naddr` for addressable events.
+
 ## [0.86.0] - 2026-10-20
 
 ### Added

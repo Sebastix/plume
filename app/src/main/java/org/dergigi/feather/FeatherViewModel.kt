@@ -132,6 +132,28 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         followJobs[actionKey] = job
         job.start()
     }
+    internal val muteWordBusy = MutableStateFlow(false)
+    private var muteWordJob: Job? = null
+    internal fun changeMutedWord(raw: String, add: Boolean, onSuccess: () -> Unit = {}) {
+        val word = normalizeMutedWord(raw)
+        val identity = signer.value ?: return
+        if (word.isBlank() || word.length > 256 || muteWordBusy.value) return
+        muteWordBusy.value = true
+        muteWordJob = viewModelScope.launch {
+            try {
+                followQueueMutex.withLock {
+                    check(signer.value === identity) { "Account changed" }
+                    followLists.changeMutedWord(identity, word, add)
+                }
+                if (signer.value === identity) onSuccess()
+            } catch (e: TimeoutCancellationException) {
+                if (signer.value === identity) AppMessages.show("Mute list: request timed out", e.stackTraceToString())
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (signer.value === identity) AppMessages.show("Mute list: ${e.message}", e.stackTraceToString())
+            } finally { if (signer.value === identity) muteWordBusy.value = false }
+        }
+    }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
@@ -143,6 +165,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
+        muteWordJob?.cancel(); muteWordJob = null; muteWordBusy.value = false
         followJobs.values.toList().forEach { it.cancel() }; followJobs.clear()
         followBusy.value = emptySet(); firstFollow.value = null
         issues.accountChanged()
