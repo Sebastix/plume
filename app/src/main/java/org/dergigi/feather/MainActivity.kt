@@ -318,7 +318,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     ReplyComposer(vm)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, activePage: Boolean = true, homeToolbar: ReaderEntry? = null,
     accountRequested: Boolean = false, onAccountHandled: () -> Unit = {}) {
@@ -592,7 +592,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, expandedHeight = 64.dp, colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
-            if (screen in listOf("profile", "hashtag")) categoryTabs()
+            if (screen == "hashtag") categoryTabs()
             }
             }
         },
@@ -900,6 +900,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 24.dp))
                                 }
                             }
+                        }
+                        if (screen == "profile") stickyHeader(key = "profile-tabs") {
+                            categoryTabs()
                         }
                         if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (visibleNotes.isEmpty() && activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {

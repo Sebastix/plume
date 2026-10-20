@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Keep profile tabs below the profile information, pinning them at the top while browsing posts and returning them to their original position when scrolling back.
+
 ## [0.85.0] - 2026-10-19
 
 ### Added
