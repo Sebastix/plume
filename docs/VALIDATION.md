@@ -1712,3 +1712,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 20s. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
 - APK SHA-256 `8512e5df6bcb4d683c86d41d26c2d13274fc488101cfca0912eb65e6107612b3`; 15,915,972 bytes. GitHub asset digest matches. GitHub and both GRASP mirrors report the release source for master and v0.90.1.
 - Zapstore release `05ed2f3789d03e019cad4fca84e6c6656c84a73a8cd687f2b0e9e32e1bd74650` and asset `439be993c5ecd5b2ca807462b04cbdac71bbb58f813f8b32515c9fcd35a40a56` retrieved; hash, size, versionCode and certificate match. CDN HTTP 200. No website deployment.
+
+## 2026-10-20 — 0.91.0 release
+
+- Version 0.91.0 (181), source `6c12120da9bbbe2151edb88625fb336575e73006`. Inline long-note chevrons and an icon-first, cache-backed details panel with tappable reaction/repost/zap avatars and observed relay hosts. Reviewed Wisp's ReactionDetailsSection and PostCard for the interaction pattern.
+- Final signed release build passed in 1m 24s after replacing unavailable Material icons with existing Feather resources. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `a84fdbcc77d270f1ec6fe1329ce852ba8a05447a1f763c4f8ecf88fbb860d370`; 15,920,156 bytes. GitHub asset digest matches. GitHub and both GRASP mirrors report the release source for master and v0.91.0.
+- Zapstore release `b2c4fa8e8f6afa58160ed7a612dc8bb6d63f99230e0a1409b315c6da26e05eac` and asset `3f8f50a7d229dabf1ea442e9296e74e0d36498e6656432c198f26d71d6beb3b7` retrieved; hash, size, versionCode and certificate match. CDN HTTP 200. No website deployment.
