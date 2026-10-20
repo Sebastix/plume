@@ -9,7 +9,7 @@
 <ellipse cx="936" cy="340" rx="345" ry="420" fill="url(#wash)"/>
 <g font-family="Arial, Helvetica, sans-serif" font-weight="700">
  <text x="64" y="280" font-size="84" letter-spacing="-3" fill="#edf5f9">Let people</text>
- <text x="64" y="390" font-size="112" letter-spacing="-4" fill="#79c4f2">play<tspan font-size="90" letter-spacing="0">!</tspan></text>
+ <text x="64" y="390" font-size="112" letter-spacing="-4" fill="#79c4f2">play!</text>
  <text x="38" y="259" font-size="54" fill="#edf5f9">“</text>
  <text x="304" y="354" font-size="54" fill="#79c4f2">”</text>
 </g>
