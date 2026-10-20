@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.88.0] - 2026-10-20
+
+### Added
+- Compact notification search that scrolls with the list and locally filters notification text and sender names, without relay search requests.
+
+### Fixed
+- Muted-word additions and removals update immediately, with a bounded background edit queue instead of blocking the editor behind a spinner. Failed edits roll back; successful edits stay visible while the cache catches up.
+
 ## [0.87.0] - 2026-10-20
 
 ### Added

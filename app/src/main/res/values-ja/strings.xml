@@ -164,4 +164,6 @@
     <string name="ui_mute_word_input">ワードやフレーズ</string>
     <string name="ui_add_muted_word">ミュートするワードを追加</string>
     <string name="ui_remove_muted_word">%1$s を削除</string>
+    <string name="ui_search_notifications">通知を検索</string>
+    <string name="ui_no_notification_matches">一致する通知はありません</string>
 </resources>

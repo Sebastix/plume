@@ -2,6 +2,13 @@ package org.dergigi.feather
 
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -89,6 +96,9 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) }
         return
     }
+    val focusManager = LocalFocusManager.current
+    val search = entry.notificationSearch.takeIf { entry.notificationSearchOwner == owner }.orEmpty()
+    val query = search.trim()
     val selectedTypes = selection.second
     val includedTypes = remember(selectedTypes) {
         NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
@@ -154,7 +164,16 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val media = (context.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-    val visiblePreviews = remember(previews, filter) { previews.filterNot { filter.hides(it.event) || it.actor in filter.authors } }
+    val visiblePreviews = remember(previews, filter, query, state.profiles) {
+        previews.filter { item ->
+            val profile = state.profiles[item.actor]
+            !filter.hides(item.event) && item.actor !in filter.authors &&
+                (query.isEmpty() || item.text.contains(query, ignoreCase = true) ||
+                    profile?.name?.contains(query, ignoreCase = true) == true ||
+                    profile?.username?.contains(query, ignoreCase = true) == true ||
+                    profile?.nip05?.contains(query, ignoreCase = true) == true)
+        }
+    }
     val emptySettled by produceState(false, active, events, visiblePreviews.isEmpty(), state.notificationsLoading) {
         value = false
         if (active && !state.notificationsLoading && visiblePreviews.isEmpty()) { delay(1_500); value = true }
@@ -238,9 +257,39 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                         }
                     }
                 }
+                item("notification-search") {
+                    Surface(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                        Row(Modifier.heightIn(min = 40.dp).padding(start = 12.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Search, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val hint = stringResource(R.string.ui_search_notifications)
+                            BasicTextField(value = search, onValueChange = {
+                                entry.notificationSearchOwner = owner
+                                entry.notificationSearch = it.take(256)
+                            }, modifier = Modifier.weight(1f).padding(vertical = 10.dp).semantics { contentDescription = hint },
+                                singleLine = true, textStyle = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                                decorationBox = { field ->
+                                    Box {
+                                        if (search.isEmpty()) Text(hint, style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        field()
+                                    }
+                                })
+                            if (search.isNotEmpty()) IconButton(onClick = { entry.notificationSearch = "" }, modifier = Modifier.size(40.dp)) {
+                                Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search), Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
                 if (visiblePreviews.isEmpty()) item("notification-status") {
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        if (state.notificationsLoading || !emptySettled) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        if (query.isNotEmpty()) Icon(Icons.Default.Search, stringResource(R.string.ui_no_notification_matches), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else if (state.notificationsLoading || !emptySettled) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                         else if (state.error != null) IconButton(onClick = { AppMessages.show(state.error!!) }) {
                             Icon(Icons.Default.Warning, stringResource(R.string.ui_notification_connection_error), tint = MaterialTheme.colorScheme.error)
                         } else Icon(Icons.Default.Notifications, stringResource(R.string.ui_no_notifications), tint = MaterialTheme.colorScheme.onSurfaceVariant)

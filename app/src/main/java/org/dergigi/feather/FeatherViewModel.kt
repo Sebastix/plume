@@ -132,27 +132,60 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         followJobs[actionKey] = job
         job.start()
     }
-    internal val muteWordBusy = MutableStateFlow(false)
-    private var muteWordJob: Job? = null
-    internal fun changeMutedWord(raw: String, add: Boolean, onSuccess: () -> Unit = {}) {
+    internal data class MuteWordEdit(val id: Long, val word: String, val add: Boolean, val complete: Boolean = false)
+    internal val muteWordEdits = MutableStateFlow<List<MuteWordEdit>>(emptyList())
+    private val muteWordJobs = mutableMapOf<Long, Job>()
+    private var muteWordSequence = 0L
+
+    internal fun changeMutedWord(raw: String, add: Boolean): Boolean {
         val word = normalizeMutedWord(raw)
-        val identity = signer.value ?: return
-        if (word.isBlank() || word.length > 256 || muteWordBusy.value) return
-        muteWordBusy.value = true
-        muteWordJob = viewModelScope.launch {
+        val identity = signer.value ?: return false
+        if (word.isBlank() || word.length > 256) return false
+        val present = muteWordEdits.value.lastOrNull { it.word == word }?.add ?: (word in state.value.mutedWords)
+        if (present == add) return true
+        if (muteWordJobs.size >= 16 || muteWordEdits.value.size >= 5000) {
+            message.value = "Action queue is full. Try again shortly."
+            return false
+        }
+        val id = ++muteWordSequence
+        muteWordEdits.update { it + MuteWordEdit(id, word, add) }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 followQueueMutex.withLock {
                     check(signer.value === identity) { "Account changed" }
                     followLists.changeMutedWord(identity, word, add)
                 }
-                if (signer.value === identity) onSuccess()
+                if (signer.value === identity) {
+                    // Keep the successful intent visible until the repository catches up.
+                    // Newer queued edits to this word remain on top of it.
+                    muteWordEdits.update { edits ->
+                        edits.filterNot { it.word == word && it.complete }.map {
+                            if (it.id == id) it.copy(complete = true) else it
+                        }
+                    }
+                    reconcileMutedWords()
+                }
             } catch (e: TimeoutCancellationException) {
-                if (signer.value === identity) AppMessages.show("Mute list: request timed out", e.stackTraceToString())
+                if (signer.value === identity) {
+                    muteWordEdits.update { it.filterNot { edit -> edit.id == id } }
+                    AppMessages.show("Mute list: request timed out", e.stackTraceToString())
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                if (signer.value === identity) AppMessages.show("Mute list: ${e.message}", e.stackTraceToString())
-            } finally { if (signer.value === identity) muteWordBusy.value = false }
+                if (signer.value === identity) {
+                    muteWordEdits.update { it.filterNot { edit -> edit.id == id } }
+                    AppMessages.show("Mute list: ${e.message}", e.stackTraceToString())
+                }
+            } finally { muteWordJobs.remove(id) }
         }
+        muteWordJobs[id] = job
+        job.start()
+        return true
+    }
+
+    private fun reconcileMutedWords() {
+        val words = state.value.mutedWords
+        muteWordEdits.update { edits -> edits.filterNot { it.complete && ((it.word in words) == it.add) } }
     }
     private val paymentMutex = Mutex()
     private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()
@@ -165,7 +198,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         return false
     }
     private fun cancelActions() {
-        muteWordJob?.cancel(); muteWordJob = null; muteWordBusy.value = false
+        muteWordJobs.values.toList().forEach { it.cancel() }; muteWordJobs.clear(); muteWordEdits.value = emptyList()
         followJobs.values.toList().forEach { it.cancel() }; followJobs.clear()
         followBusy.value = emptySet(); firstFollow.value = null
         issues.accountChanged()
@@ -300,6 +333,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
+        viewModelScope.launch { state.map { it.mutedWords }.distinctUntilChanged().collect { reconcileMutedWords() } }
         viewModelScope.launch {
             state.map { it.publicKey }.distinctUntilChanged().collectLatest { owner ->
                 notificationFilters.value = null

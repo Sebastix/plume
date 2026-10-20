@@ -1595,22 +1595,25 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
     var showMutedWords by rememberSaveable { mutableStateOf(false) }
     var mutedWordInput by rememberSaveable(state.publicKey) { mutableStateOf("") }
-    val muteWordBusy by vm.muteWordBusy.collectAsStateWithLifecycle()
+    val muteWordEdits by vm.muteWordEdits.collectAsStateWithLifecycle()
     if (showMutedWords) ModalBottomSheet(onDismissRequest = { showMutedWords = false },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        val words = remember(state.mutedWords) { state.mutedWords.sorted() }
+        val words = remember(state.mutedWords, muteWordEdits) {
+            state.mutedWords.toMutableSet().apply {
+                muteWordEdits.forEach { if (it.add) add(it.word) else remove(it.word) }
+            }.sorted()
+        }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding()) {
             Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_muted_words),
                 Modifier.padding(bottom = 16.dp), tint = MaterialTheme.colorScheme.primary)
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(value = mutedWordInput, onValueChange = { if (it.length <= 256) mutedWordInput = it },
-                    modifier = Modifier.weight(1f), singleLine = true, enabled = !muteWordBusy,
+                    modifier = Modifier.weight(1f), singleLine = true,
                     placeholder = { Text(stringResource(R.string.ui_mute_word_input)) }, shape = RoundedCornerShape(24.dp))
-                IconButton(enabled = !muteWordBusy && mutedWordInput.isNotBlank(), onClick = {
-                    vm.changeMutedWord(mutedWordInput, true) { mutedWordInput = "" }
+                IconButton(enabled = mutedWordInput.isNotBlank(), onClick = {
+                    if (vm.changeMutedWord(mutedWordInput, true)) mutedWordInput = ""
                 }) {
-                    if (muteWordBusy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Default.Add, stringResource(R.string.ui_add_muted_word))
+                    Icon(Icons.Default.Add, stringResource(R.string.ui_add_muted_word))
                 }
             }
             if (words.isEmpty() && state.pendingMuteList == null) Text(stringResource(R.string.ui_no_muted_words),
@@ -1620,7 +1623,7 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         SelectionContainer(Modifier.weight(1f)) { Text(word, Modifier.padding(vertical = 10.dp),
                             style = MaterialTheme.typography.bodyLarge) }
-                        IconButton(enabled = !muteWordBusy, onClick = { vm.changeMutedWord(word, false) }) {
+                        IconButton(onClick = { vm.changeMutedWord(word, false) }) {
                             Icon(Icons.Default.Close, stringResource(R.string.ui_remove_muted_word, word),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
