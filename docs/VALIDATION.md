@@ -1734,3 +1734,15 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 24s. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
 - APK SHA-256 `5fd8567b339f7afca15ea038ffa14e625c226a2409938d4f00807ef84ec1808d`; 15,920,156 bytes. GitHub digest matches; GitHub and both GRASP mirrors match the release source and tag.
 - Zapstore release `21cbf1cb99c334510510c45b09e7b6ceba3bebd7376a9e868cdc47282fc74b61` and asset `73c4d4e553a4d8c9f764bc38e12f2945b163fdd8b298b38cf1b3f8745354b138` retrieved on retry; publisher, hash, size, versionCode and certificate match. CDN HTTP 200. No website deployment.
+
+
+## 2026-10-20 — 0.92.0 release
+
+- Version 0.92.0 (184), source `66b88d396fce13efc5c0bf4fddc33553256b5a8a`. Persistent observed relay provenance, independent details loading, split recipient displays and NIP-57 payment allocation with per-recipient journals. Visible author metadata takes priority over optional participants.
+- Final signed build passed in 1m 6s. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `0368b0763d877462e2246b835989a4ad5eeb31fbd935926f139e600033d11780`; 15,937,588 bytes. GitHub digest matches. GitHub and both GRASP mirrors matched release source and tag.
+- Zapstore release `920e5fd1b4af92772bef131f698e13d20c5276f24ff51ba5a77a2bdc2b243b5a` and asset `5ac889e262944520de71d7736831e5f786f349721b7487060f6b746fecab35f4` retrieved; publisher, hash, size, versionCode and certificate match. CDN HTTP 200.
+
+## 2026-10-20 — Website NIP-05 identity
+
+- Separate explicit website request: deployed `/.well-known/nostr.json`, mapping `_` to Feather’s public key. Live endpoint returned HTTP 200 without redirects, JSON content type, and `Access-Control-Allow-Origin: *`.
