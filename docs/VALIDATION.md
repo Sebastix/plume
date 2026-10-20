@@ -1746,3 +1746,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 ## 2026-10-20 — Website NIP-05 identity
 
 - Separate explicit website request: deployed `/.well-known/nostr.json`, mapping `_` to Feather’s public key. Live endpoint returned HTTP 200 without redirects, JSON content type, and `Access-Control-Allow-Origin: *`.
+
+## 2026-10-20 — 0.92.1 release
+
+- Version 0.92.1 (185), source `37bfa565ffe152ebb9739c522d3664d3160b0ec9`. Approved zap split icon combines a bolt and sideways branching arrows with a clear gap, in note details and the zap picker.
+- Signed release build passed in 1m 17s. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `0a8d5a1ce7b7098aaf81b99064d9b99d43a9732a3fbee92d16b5bc2878733625`; 15,937,812 bytes. GitHub digest matches. GitHub and both GRASP mirrors match the release source and tag.
+- Zapstore release `614eb82fece13cfe59fb95405f183a126b20dc42ccabbbf17235fe1ca8ab897c` and asset `97cd77425853e4854ee3e6c739a6e538d03d80e6ea0952f9df0a646a0f445fcb` retrieved; publisher, hash, size, versionCode and certificate match. CDN HTTP 200. No website deployment.
