@@ -1005,7 +1005,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             Column(threadViewport?.rowModifier(row.key) ?: Modifier) {
                                 ProfileTabRow(tabSpace, row.key, profileViewport) {
                                     if (note == null) {
-                                        ConversationGap(row, onOpen = { reference -> openReference(reference) },
+                                        ConversationGap(row, profiles = s.profiles, onProfile = ::openProfile, onOpen = { reference -> openReference(reference) },
                                             onInfo = { title, detail -> statusTitle = title; statusReport = detail },
                                             onMore = (row.deletedCopy ?: row.mutedCopy)?.takeIf { screen == "thread" && row.more }?.let { cached -> ({
                                                 entry.expandedThreadParents = (entry.expandedThreadParents + cached.id).distinct().takeLast(64)
@@ -1377,10 +1377,10 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
 }
 
 @Composable
-private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit,
+private fun ConversationGap(row: ConversationRow, profiles: Map<String, Profile>, onProfile: (String) -> Unit, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit,
     loading: Boolean = false, onLoadParent: (() -> Unit)? = null, onMore: (() -> Unit)? = null) {
     if (row.gap in listOf(ThreadGap.DELETED, ThreadGap.MUTED)) {
-        ConcealedConversationNote(row, onInfo, onMore)
+        ConcealedConversationNote(row, profiles, onProfile, onInfo, onMore)
         return
     }
     val rail = MaterialTheme.colorScheme.outlineVariant
@@ -1421,7 +1421,7 @@ private fun ConversationGap(row: ConversationRow, onOpen: (NostrContent.Referenc
 }
 
 @Composable
-private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, String) -> Unit, onMore: (() -> Unit)?) {
+private fun ConcealedConversationNote(row: ConversationRow, profiles: Map<String, Profile>, onProfile: (String) -> Unit, onInfo: (String, String) -> Unit, onMore: (() -> Unit)?) {
     val muted = row.gap == ThreadGap.MUTED
     val source = if (muted) row.mutedCopy else row.deletedCopy
     val currentFilter = LocalContentFilter.current
@@ -1442,10 +1442,11 @@ private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, Str
         if (row.below) drawLine(rail, Offset(x, 52.dp.toPx()), Offset(x, size.height), strokeWidth = 2.dp.toPx())
     }) {
         Row(Modifier.padding(start = 18.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onInfo(label, if (muted) "Reveal only this reply. The account stays muted everywhere else."
-                else "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
-                if (muted) Icon(painterResource(R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
-                else Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (muted) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+            } else IconButton(onClick = { onInfo(label,
+                "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
+                Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (copy != null) IconToggleButton(checked = revealed, onCheckedChange = { revealed = it }) {
                 Icon(painterResource(R.drawable.reveal), if (muted) { if (revealed) stringResource(R.string.ui_hide_this_reply) else stringResource(R.string.ui_show_this_reply) } else { if (revealed) stringResource(R.string.ui_hide_cached_version) else stringResource(R.string.ui_show_cached_version) },
@@ -1458,8 +1459,12 @@ private fun ConcealedConversationNote(row: ConversationRow, onInfo: (String, Str
         AnimatedVisibility(revealed && copy != null, enter = fadeIn(tween(140)) + expandVertically(tween(180)),
             exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
             Column(Modifier.padding(start = 72.dp, end = 24.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (muted) stringResource(R.string.ui_muted_account_shown_only_here) else stringResource(R.string.ui_cached_version_deleted_by_author), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (muted) profiles[copy?.pubKey]?.name ?: FeatherRepository.shortKey(copy?.pubKey.orEmpty())
+                    else stringResource(R.string.ui_cached_version_deleted_by_author),
+                    modifier = if (muted && copy != null) Modifier.clickable { onProfile(copy.pubKey) } else Modifier,
+                    style = if (muted) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (muted) .65f else 1f))
                 // Plain selectable text deliberately has no media loads, links or note actions.
                 SelectionContainer { Text(copy?.content.orEmpty(), style = MaterialTheme.typography.bodyLarge) }
             }

@@ -32,6 +32,10 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
     private val verified = object : LinkedHashMap<String, BigDecimal>(256, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BigDecimal>?) = size > 1024
     }
+    // Successful validation is evidence about immutable signed events, not provider freshness.
+    private val confirmed = object : LinkedHashMap<String, BigDecimal>(256, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BigDecimal>?) = size > 4096
+    }
     private data class Validation(val receipt: ZapReceiptEvent, val target: Event, val recipient: String, val lnurl: String, val provider: String, val cacheKey: String)
     private val validationQueue = Channel<Validation>(capacity = 64)
     private val pending = mutableSetOf<String>()
@@ -49,7 +53,10 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
                     // Quartz derives this exact satoshi amount from the validated BOLT11 invoice.
                     if (valid) work.receipt.amount?.takeIf { it.signum() > 0 } ?: BigDecimal.ZERO else BigDecimal.ZERO
                 }.getOrDefault(BigDecimal.ZERO)
-                synchronized(this@ZapVerification) { verified[work.cacheKey] = result }
+                synchronized(this@ZapVerification) {
+                    verified[work.cacheKey] = result
+                    if (result.signum() > 0) confirmed["${work.receipt.id}:${work.target.id}"] = result
+                }
             }
             synchronized(this@ZapVerification) { pending.remove(work.cacheKey) }
             if (enabled) changed()
@@ -65,6 +72,7 @@ internal class ZapVerification(private val scope: CoroutineScope, private val ch
         val recipient = receipt.tagValue("p") ?: return BigDecimal.ZERO
         val splitRecipients = target.tags.filter { it.size > 1 && it[0] == "zap" }.map { it[1] }
         if (recipient != target.pubKey && recipient !in splitRecipients) return BigDecimal.ZERO
+        confirmed["${receipt.id}:${target.id}"]?.let { return it }
         val lnurl = profile?.lightning ?: return BigDecimal.ZERO
         val url = runCatching { LnurlForm.toUrl(lnurl)?.let(MediaContent::secureUrl) }.getOrNull() ?: return BigDecimal.ZERO
         val now = android.os.SystemClock.elapsedRealtime()

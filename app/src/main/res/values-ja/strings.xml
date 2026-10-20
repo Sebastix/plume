@@ -51,7 +51,6 @@
     <string name="ui_mention_search_error">メンション検索エラー</string>
     <string name="ui_more_image_actions">画像のその他の操作</string>
     <string name="ui_mute_video">動画をミュート</string>
-    <string name="ui_muted_account_shown_only_here">ミュートしたアカウント・ここだけ表示</string>
     <string name="ui_muted_replies">ミュートした返信</string>
     <string name="ui_next_image">次の画像</string>
     <string name="ui_no_gifs_found">GIFが見つかりません</string>

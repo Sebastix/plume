@@ -1190,24 +1190,21 @@ class FeatherRepository(context: Context) {
         }
         engagementIds = countTargets.map { it.id }
         engagementApps = countTargets.mapNotNull { it.appAddress() }
-        val activity = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
-            db.query<Event>(listOf(Filter(kinds = listOf(1, 1111, 1244, 6, 16, 7, 9735), tags = mapOf("e" to engagementIds), limit = 3000)) +
-                engagementApps.map { Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(it)), limit = 200) }).distinctBy { it.id }
-        }
         val countedActivity = cachedCountActivity(countTargets)
+        val activity = countedActivity.values.flatten().distinctBy { it.id }
         val authors = (pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
         val profiles = cachedProfiles(authors)
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
-            val replies = activity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
             val stableActivity = countedActivity[target.id].orEmpty()
+            val replies = stableActivity.count { !contentFilter.hides(it) && ThreadRelations.repliesTo(it, target) }
             val reactions = stableActivity.filter { it.kind == 7 && !engagementDeleted(it) && it.pubKey !in mutedAuthors && reactionTarget(it)?.id == target.id }.distinctBy { it.pubKey to it.content }.size
             val repostAuthors = stableActivity.asSequence().filter {
                 it.kind in listOf(6, 16) && !engagementDeleted(it) && it.pubKey !in mutedAuthors && repostTarget(it)?.id == target.id
             }.map { it.pubKey }.toSet()
-            val zapSats = activity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
+            val zapSats = stableActivity.asSequence().filter { it.kind == 9735 && it.tagValue("e") == target.id }
                 .mapNotNull { receipt ->
                     val amount = zapVerification.amountInSats(receipt, target, profiles[receipt.tagValue("p")] ?: state.value.profiles[receipt.tagValue("p")], active)
                     if (amount.signum() > 0 && key != null && (receipt as? ZapReceiptEvent)?.zapRequest?.pubKey == key) {
@@ -1275,11 +1272,17 @@ class FeatherRepository(context: Context) {
                 val retained = recentEngagement.remove(target.id).orEmpty()
                 retainedEngagementEvents -= retained.size
                 val discovered = db.query<Event>(Filter(kinds = listOf(7), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
-                    db.query<Event>(Filter(kinds = listOf(6, 16), tags = mapOf("e" to listOf(target.id)), limit = 2000))
+                    db.query<Event>(Filter(kinds = listOf(6, 16), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
+                    db.query<Event>(Filter(kinds = listOf(1, 1111, 1244), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
+                    db.query<Event>(Filter(kinds = listOf(9735), tags = mapOf("e" to listOf(target.id)), limit = 2000)) +
+                    target.appAddress()?.let { address ->
+                        db.query<Event>(Filter(kinds = listOf(1111), tags = mapOf("A" to listOf(address)), limit = 200))
+                    }.orEmpty()
                 val missingFromWindow = retained - discovered.map { it.id }.toSet()
                 val events = (cachedEventsLocked(missingFromWindow.toList()).values + discovered).distinctBy { it.id }
-                    .filter { (it.kind == 7 && reactionTarget(it)?.id == target.id) || (it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id) }
-                    .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(4000)
+                    .filter { (it.kind == 7 && reactionTarget(it)?.id == target.id) || (it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id) ||
+                        ThreadRelations.repliesTo(it, target) || (it.kind == 9735 && it.tagValue("e") == target.id) }
+                    .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(8200)
                 val ids = events.map { it.id }.toSet()
                 recentEngagement[target.id] = ids
                 retainedEngagementEvents += ids.size

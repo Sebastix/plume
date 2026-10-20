@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.85.3] - 2026-10-20
+
+### Fixed
+- Retain cached reply and zap evidence per note so counts do not disappear as the visible query window changes; preserve successful zap verification across provider refreshes.
+
+### Changed
+- Remove the explanation popup from the muted-account indicator in threads.
+- Show a subdued, tappable author name on revealed muted replies instead of an explanatory label; tapping opens their profile.
+
 ## [0.85.2] - 2026-10-20
 
 ### Changed
