@@ -416,11 +416,11 @@ class FeatherRepository(context: Context) {
     private suspend fun refreshMuteState(owner: String) {
         val event = followEvent(owner, 10000) ?: followEvent(owner, 30000)
         val encrypted = event?.takeIf { it.content.isNotBlank() }
-        val private = encrypted?.let(muteCache::read)
-        val authors = mutedPublicKeys(event) + (private ?: encrypted?.let { muteCache.read(it, exact = false) }.orEmpty())
+        val privateAuthors = encrypted?.let(muteCache::read)
+        val authors = mutedPublicKeys(event) + (privateAuthors ?: encrypted?.let { muteCache.read(it, exact = false) }.orEmpty())
         val words = mutedWords(event) + encrypted?.let(muteCache::readWords).orEmpty()
         _state.update { if (it.publicKey == owner) it.copy(mutedAuthors = authors, mutedWords = words,
-            pendingMuteList = encrypted?.takeIf { private == null }) else it }
+            pendingMuteList = encrypted?.takeIf { privateAuthors == null }) else it }
     }
 
     fun foreground() {
