@@ -148,7 +148,7 @@ class VisibleVideoPlayer(
     val url: String,
     mime: String?,
     internal val sourceNote: com.vitorpamplona.quartz.nip01Core.core.Event?,
-    preview: String?,
+    internal val preview: String?,
     private val onFullscreen: (VisibleVideoPlayer, Boolean) -> Unit,
     private val onAudible: (VisibleVideoPlayer) -> Unit,
     private val onError: (String) -> Unit,
@@ -262,6 +262,32 @@ class VisibleVideoPlayer(
         if (muted) VideoPlaybackService.detach(this)
         onFullscreen(this, false)
     }
+    /** Copy the frame already decoded for playback; never download the video for artwork. */
+    internal suspend fun artworkFrame(): android.graphics.Bitmap? {
+        val view = (if (fullscreen) fullscreenView else inlineView)?.videoSurfaceView as? android.view.SurfaceView
+            ?: return null
+        if (!view.holder.surface.isValid || view.width <= 0 || view.height <= 0) return null
+        val ratio = view.width.toFloat() / view.height
+        val width = if (ratio >= 1f) 512 else (512 * ratio).toInt().coerceAtLeast(1)
+        val height = if (ratio >= 1f) (512 / ratio).toInt().coerceAtLeast(1) else 512
+        val bitmap = withContext(Dispatchers.Default) { android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888) }
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                android.view.PixelCopy.request(view, bitmap, { result ->
+                    if (result == android.view.PixelCopy.SUCCESS && continuation.isActive) {
+                        continuation.resumeWith(Result.success(bitmap))
+                    } else {
+                        bitmap.recycle()
+                        if (continuation.isActive) continuation.resumeWith(Result.success(null))
+                    }
+                }, android.os.Handler(android.os.Looper.getMainLooper()))
+            } catch (_: IllegalArgumentException) {
+                bitmap.recycle()
+                if (continuation.isActive) continuation.resumeWith(Result.success(null))
+            }
+        }
+    }
+
     fun bindInline(view: PlayerView) {
         inlineView = view
         if (!fullscreen) {

@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.90.1] - 2026-10-20
+
+### Fixed
+- Add video lock-screen artwork: use the advertised thumbnail or a cached playback frame, then the author’s avatar, with Feather artwork as the final fallback.
+
 ## [0.90.0] - 2026-10-20
 
 ### Added

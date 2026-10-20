@@ -119,6 +119,8 @@ A change belongs in Feather when it makes reading simpler, faster, or more beaut
 
 ## Video interaction
 
+Video system artwork prefers the advertised thumbnail, then a frame copied from the already-decoded playback surface, then the author’s avatar. A theme-aware Feather image fills any remaining gap. Capture bounded 512px frames without downloading or decoding a second video; encode off the UI thread and cache derivatives in the existing image LRU. Artwork failure must not affect playback.
+
 Fullscreen and audible videos expose the existing player through a Media3 session service, without a second decoder or a timeline reset. Keep only the selected clip active when the app backgrounds or the screen locks; stop it when its reader destination is removed. Muted inline autoplay previews do not create notifications. Audio and video sessions hand off playback so only one is audible. System controls provide play/pause, ±10-second seeking, speed cycling through 3x, the Feather icon, and a source-note intent. Release the session before releasing its clip. Speed icons use real font outlines with one size, weight, and baseline across all values.
 
 Retain the last playback position and volume for up to 64 video URLs in process memory. Restore sound only when the clip starts, keeping prepared neighbors silent and using the existing single-audible-clip policy. Save when a watched player is deactivated or released and restore before preparing its replacement, so moving between feed and note detail preserves progress. Prepared, unwatched neighbors must not overwrite resume points; live streams keep their default live position.

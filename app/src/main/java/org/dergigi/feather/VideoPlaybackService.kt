@@ -2,6 +2,8 @@
 
 package org.dergigi.feather
 
+import kotlinx.coroutines.*
+import androidx.media3.common.MediaMetadata
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -20,6 +22,8 @@ import com.google.common.util.concurrent.ListenableFuture
 /** Exposes the selected visible player, without creating another decoder or restarting it. */
 class VideoPlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private val artworkScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var artworkJob: Job? = null
     private val speedCommand = SessionCommand("org.dergigi.feather.video.CYCLE_SPEED", Bundle.EMPTY)
     private val backCommand = SessionCommand("org.dergigi.feather.video.SEEK_BACK", Bundle.EMPTY)
     private val forwardCommand = SessionCommand("org.dergigi.feather.video.SEEK_FORWARD", Bundle.EMPTY)
@@ -83,6 +87,20 @@ class VideoPlaybackService : MediaSessionService() {
             }).build().also { addSession(it) }
         player.addListener(listener)
         refreshControls()
+        artworkJob = artworkScope.launch {
+            fun show(bytes: ByteArray) {
+                if (session?.player !== player || selected !== clip) return
+                val index = player.currentMediaItemIndex
+                val item = player.currentMediaItem ?: return
+                player.replaceMediaItem(index, item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon()
+                    .setArtworkUri(null).setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER).build()).build())
+            }
+            try {
+                show(VideoArtwork.fallback(this@VideoPlaybackService))
+                VideoArtwork.load(this@VideoPlaybackService, clip, ::show)?.let(::show)
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { /* Optional artwork must never interrupt playback. */ }
+        }
     }
 
     private fun refreshControls() {
@@ -104,6 +122,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     private fun clearSession() {
+        artworkJob?.cancel(); artworkJob = null
         session?.let { it.player.removeListener(listener); removeSession(it); it.release() }
         session = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -117,6 +136,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        artworkScope.cancel()
         clearSession()
         if (instance === this) {
             instance = null
