@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.85.4] - 2026-10-20
+
+### Changed
+- Make all scroll-hidden reader bars and home controls follow scroll distance, including flings, and retain partially hidden positions across navigation.
+
 ## [0.85.3] - 2026-10-20
 
 ### Fixed

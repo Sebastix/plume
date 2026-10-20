@@ -31,7 +31,18 @@ internal class ReaderEntry(
     var requestedFeedTab by mutableStateOf<FeedTabRequest?>(null)
     var requestSearchFocus by mutableStateOf(false)
     var tab by mutableStateOf(tab)
-    var toolbar by mutableStateOf(toolbar)
+    var toolbarFraction by mutableStateOf(if (toolbar) 1f else 0f)
+    var toolbar: Boolean
+        get() = toolbarFraction > 0f
+        set(value) { toolbarFraction = if (value) 1f else 0f }
+    var toolbarTravelPx by mutableStateOf(0)
+    fun scrollToolbar(delta: Float, height: Int = toolbarTravelPx): Float {
+        if (height <= 0) return 0f
+        val before = toolbarFraction * height
+        val after = (before + delta).coerceIn(0f, height.toFloat())
+        toolbarFraction = after / height
+        return after - before
+    }
     var reference: NostrContent.Reference? = null
     var hashtagAuthor: String? = null
     // Event objects are shared with the repository, never serialized into saved instance state.
@@ -71,7 +82,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
             save = { navigation -> ArrayList(navigation.entries.map { entry -> Bundle().apply {
                 putString("screen", entry.screen); putString("target", entry.target); putString("key", entry.key)
                 putInt("index", entry.list.firstVisibleItemIndex); putInt("offset", entry.list.firstVisibleItemScrollOffset)
-                putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar)
+                putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar); putFloat("toolbarFraction", entry.toolbarFraction)
                 putBoolean("threadPositioned", entry.threadPositioned)
                 putStringArrayList("threadExpanded", ArrayList(entry.expandedThreadParents))
                 putInt("threadAncestorLimit", entry.threadAncestorLimit)
@@ -83,7 +94,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 putStringArrayList("feedTabs", ArrayList(entry.tabs.map { it.name }))
                 entry.feedPages.forEach { (category, page) -> putBundle("feed:${category.name}", Bundle().apply {
                     putString("key", page.key); putInt("index", page.list.firstVisibleItemIndex)
-                    putInt("offset", page.list.firstVisibleItemScrollOffset); putBoolean("toolbar", page.toolbar)
+                    putInt("offset", page.list.firstVisibleItemScrollOffset); putBoolean("toolbar", page.toolbar); putFloat("toolbarFraction", page.toolbarFraction)
                 }) }
                 putStringArrayList("relays", ArrayList(entry.reference?.relays.orEmpty()))
                 putString("author", entry.reference?.author)
@@ -97,6 +108,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                 ReaderEntry(bundle.getString("screen")!!, bundle.getString("target"), bundle.getString("key")!!,
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
+                    entry.toolbarFraction = bundle.getFloat("toolbarFraction", entry.toolbarFraction).coerceIn(0f, 1f)
                     entry.hashtagAuthor = bundle.getString("hashtagAuthor")
                     if (entry.screen == "hashtag") hashtagTabs.forEach { category ->
                         bundle.getBundle("hashtag-list:${category.name}")?.let { saved ->
@@ -112,7 +124,9 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     if (entry.screen == "feed") ProfileTab.entries.forEach { category ->
                         bundle.getBundle("feed:${category.name}")?.let { page ->
                             entry.feedPages[category] = ReaderEntry("feed", key = page.getString("key") ?: UUID.randomUUID().toString(),
-                                index = page.getInt("index"), offset = page.getInt("offset"), tab = category, toolbar = page.getBoolean("toolbar"))
+                                index = page.getInt("index"), offset = page.getInt("offset"), tab = category, toolbar = page.getBoolean("toolbar")).also {
+                                    it.toolbarFraction = page.getFloat("toolbarFraction", it.toolbarFraction).coerceIn(0f, 1f)
+                                }
                         }
                     }
                     if (entry.screen == "profile" || entry.screen == "thread") entry.reference =

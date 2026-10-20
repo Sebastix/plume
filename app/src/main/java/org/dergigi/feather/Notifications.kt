@@ -21,7 +21,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -142,17 +141,11 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
             vm.repo.openReference(null); vm.repo.viewProfile(null); vm.repo.viewThread(null); vm.repo.viewHashtag(null)
         }
     }
-    val threshold = with(LocalDensity.current) { 32.dp.toPx() }
-    val toolbarScroll = remember(entry, home, threshold) {
+    val toolbarScroll = remember(entry, home) {
         object : NestedScrollConnection {
-            private var distance = 0f
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput) return Offset.Zero
-                if (!entry.list.canScrollBackward) { home.toolbar = true; distance = 0f; return Offset.Zero }
-                if (distance * consumed.y < 0f) distance = 0f
-                distance += consumed.y
-                if (distance <= -threshold) { home.toolbar = false; distance = 0f }
-                else if (distance >= threshold) { home.toolbar = true; distance = 0f }
+                home.scrollToolbar(consumed.y)
+                if (!entry.list.canScrollBackward && available.y > 0) home.toolbar = true
                 return Offset.Zero
             }
         }

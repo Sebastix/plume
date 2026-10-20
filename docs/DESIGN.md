@@ -350,3 +350,5 @@ Follow controls track pending state per profile. Accept up to 16 distinct profil
 Enabled NIP-13 proof of work targets 21 bits for posts and replies, and 12 bits for emoji reactions, before signing. Mining stays on one background CPU worker, with no cancellation UI; the account-scoped PoW toggle remains enabled by default.
 
 Reply and zap counts use per-target cache queries and retained event evidence, just like reactions and reposts. Keep cache bounds and deletion/mute filtering; a changing visible-target window must not erase known engagement. Successful zap verification for immutable receipt/target pairs survives provider refreshes in a bounded cache.
+
+All scroll-hidden navigation chrome follows vertical scroll distance, including flings, with no visibility threshold or timed hide/show animation. In-layout reader bars consume only the distance used to collapse or expand them; floating home controls follow the content’s consumed scroll. Retain fractional visibility across navigation and saved state. Horizontal home swipes temporarily reveal the tab switcher without resetting vertical visibility.

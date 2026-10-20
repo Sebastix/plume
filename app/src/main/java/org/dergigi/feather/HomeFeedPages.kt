@@ -10,10 +10,6 @@ import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -232,14 +228,14 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             activePage = category == home.tab, homeToolbar = home)
     }
     // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
-    AnimatedVisibility(home.toolbar || pager.isScrollInProgress, modifier = Modifier.align(Alignment.BottomCenter),
-        enter = slideInVertically(tween(220)) { it }, exit = slideOutVertically(tween(180)) { it }) {
+    Box(Modifier.align(Alignment.BottomCenter)
+        .scrollAway(if (pager.isScrollInProgress) 1f else home.toolbarFraction, fromBottom = true) {
+            home.toolbarTravelPx = it
+        }) {
         feedSwitcher(pager, true)
     }
-    AnimatedVisibility(home.toolbar,
-        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = AccountControlEndPadding),
-        enter = scaleIn(tween(220), initialScale = 0.1f) + fadeIn(tween(220)),
-        exit = scaleOut(tween(180), targetScale = 0.1f) + fadeOut(tween(180))) {
+    Box(Modifier.align(Alignment.TopEnd).scrollAway(home.toolbarFraction)
+        .statusBarsPadding().padding(top = 8.dp, end = AccountControlEndPadding)) {
     Box(modifier = Modifier.size(RoundControlSize).clip(CircleShape).combinedClickable(
         role = Role.Button,
         onClick = {
