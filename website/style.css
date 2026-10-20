@@ -50,3 +50,5 @@ feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
 @media(max-width:480px){.feed-pill{width:254px}}
 
 .feature-note{grid-column:1/-1;margin:0;color:var(--muted)}.feature-note a:hover{color:var(--blue)}
+
+feather-video-demo,feather-composer-demo{display:block;min-width:0}

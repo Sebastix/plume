@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- “Let people play”: a second Feather interview, with shared interactive feed, video, and GIF composer demos.
+
 ## [0.88.1] - 2026-10-20
 
 ### Fixed

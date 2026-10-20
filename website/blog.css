@@ -18,3 +18,10 @@
 @media(max-width:480px){.blog-main{margin-top:36px}.blog-prose{font-size:17px}.blog-prose blockquote{font-size:20px;padding-inline-start:18px}.blog-back{margin-bottom:30px}.blog-intro{margin-bottom:36px}}
 
 .blog-feed-demo{margin:36px 0 44px;overflow:hidden;padding-bottom:4px}.blog-feed-demo .feed-demo{width:100%;max-width:600px;margin:auto}.blog-feed-demo .demo-caption{font-size:12px;margin-bottom:0;line-height:1.65}
+
+.blog-interactive{display:block;margin:36px 0 44px;font-size:14px;line-height:1.5}
+.blog-interactive p{line-height:1.5}.blog-interactive .composer-status{margin:18px 0 0}
+.blog-interactive .player{color:#e6f0f4;box-shadow:0 15px 45px #0002}
+.blog-interactive .player-tools .fine{margin:0}
+.blog-interactive .composer-demo{width:min(500px,100%);margin:auto}
+.blog-interactive .gif-attribution{text-decoration:none;color:var(--muted)}
