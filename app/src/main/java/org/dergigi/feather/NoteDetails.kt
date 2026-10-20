@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -55,7 +53,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                                 } else Modifier), horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center) {
                                 if (person.pubkey != null) Avatar(name, size = 28, picture = profile?.picture)
-                                else Icon(Icons.Outlined.PersonOutline, label, Modifier.size(28.dp), tint = muted)
+                                else Icon(Icons.Default.Person, label, Modifier.size(28.dp), tint = muted)
                                 person.amount?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = muted,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) }
                             }
@@ -78,7 +76,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                 Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_note_zaps), Modifier.size(16.dp), tint = muted)
             }
             if (data.relays.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Dns, stringResource(R.string.ui_seen_on_relays), Modifier.size(16.dp), tint = muted)
+                Icon(painterResource(R.drawable.storage), stringResource(R.string.ui_seen_on_relays), Modifier.size(16.dp), tint = muted)
                 LazyRow(Modifier.weight(1f).padding(start = 8.dp)) {
                     items(data.relays, key = { it }) { relay ->
                         Text(relay.removePrefix("wss://").removePrefix("ws://").trimEnd('/'),
@@ -90,7 +88,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
             }
             if (data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.MoreHoriz, stringResource(R.string.ui_no_note_details), Modifier.size(18.dp), tint = muted)
+                    Icon(painterResource(R.drawable.people), stringResource(R.string.ui_no_note_details), Modifier.size(18.dp), tint = muted)
                 }
             }
         }
