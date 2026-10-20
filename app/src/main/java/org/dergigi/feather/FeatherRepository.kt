@@ -1493,12 +1493,12 @@ class FeatherRepository(context: Context) {
         val authors = splits.map { it.pubkey }
         val cached = cachedProfiles(authors)
         val missing = splits.filter { cached[it.pubkey]?.lightning.isNullOrBlank() }
-        for (recipient in missing) {
-            val filter = Filter(kinds = listOf(0), authors = listOf(recipient.pubkey), limit = 1)
-            val routes = (recipient.relays + relayLists[recipient.pubkey]?.write.orEmpty() + state.value.relays + RelayDefaults.seeds.take(2))
-                .distinct().take(8)
-            profileQueries.fetch(routes, listOf(filter.toJson())) { relay, event ->
-                filter.match(event) && accept(event, seenAt = relay)
+        if (missing.isNotEmpty()) {
+            val filters = missing.map { Filter(kinds = listOf(0), authors = listOf(it.pubkey), limit = 1) }
+            val routes = (missing.flatMap { it.relays } + missing.flatMap { relayLists[it.pubkey]?.write.orEmpty() } +
+                state.value.relays + RelayDefaults.seeds.take(2)).distinct().take(16)
+            accountQueries.completed(routes, filters.map { it.toJson() }) { relay, event ->
+                filters.any { it.match(event) } && accept(event, seenAt = relay)
             }
         }
         cached + cachedProfiles(authors)
