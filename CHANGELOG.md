@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Compact declared zap-split recipient avatars and percentages in expanded note details and the long-press amount picker; tap recipients to open their profiles.
+
+### Fixed
+- Persist verified relay observations across restarts, including finite profile/history reads. Show known relays independently of engagement loading and retain details after transient read failures.
+
 ## [0.91.2] - 2026-10-20
 
 ### Fixed

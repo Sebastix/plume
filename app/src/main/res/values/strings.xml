@@ -178,4 +178,5 @@
     <string name="ui_collapse_note">Collapse note</string>
     <string name="ui_hide_note_details">Hide note details</string>
     <string name="ui_show_note_details">Show note details</string>
+    <string name="ui_zap_split">Declared zap split</string>
 </resources>

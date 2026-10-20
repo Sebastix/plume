@@ -14,11 +14,11 @@ internal class ProfileRelayQuery {
     private val http = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).build()
     private val slots = Semaphore(4)
 
-    suspend fun fetch(relays: List<String>, filters: List<String>, accept: suspend (Event) -> Boolean): Boolean {
+    suspend fun fetch(relays: List<String>, filters: List<String>, accept: suspend (String, Event) -> Boolean): Boolean {
         var found = false
         for (batch in relays.distinct().chunked(4)) {
             currentCoroutineContext().ensureActive()
-            val received = coroutineScope { batch.map { url -> async { slots.withPermit { fetchOne(url, filters, accept = accept) } } }.awaitAll() }
+            val received = coroutineScope { batch.map { url -> async { slots.withPermit { fetchOne(url, filters) { event -> accept(url, event) } } } }.awaitAll() }
             found = found || received.any { it.found }
         }
         return found

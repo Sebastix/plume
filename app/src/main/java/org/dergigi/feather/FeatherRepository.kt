@@ -143,16 +143,10 @@ class FeatherRepository(context: Context) {
     private val muteCache = MuteCache(context)
     private val foregroundActive = MutableStateFlow(false)
     @Volatile private var publishingAuthor: String? = null
-    // Observations, never inferred from relay hints. Bounded to this process's recent events.
-    private val observedRelays = linkedMapOf<String, LinkedHashSet<String>>() // guarded by mutex
+    private val eventRelays = EventRelays(context)
     private val detailAuthors = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
     private fun recordRelayLocked(id: String, relay: String?) {
-        val url = relay?.let(Protocol::relay) ?: return
-        val seen = observedRelays.remove(id) ?: linkedSetOf()
-        val added = seen.size < 12 && seen.add(url)
-        observedRelays[id] = seen
-        while (observedRelays.size > 1024) observedRelays.remove(observedRelays.keys.first())
-        if (added) changed.tryEmit(Unit)
+        if (relay != null && eventRelays.record(id, relay)) changed.tryEmit(Unit)
     }
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
@@ -397,9 +391,9 @@ class FeatherRepository(context: Context) {
                 fun current() = check(state.value.publicKey == owner) { "Account changed" }
                 val known = followEvent(owner, 10002)?.let(Outbox::parse)
                 val bootstrap = (known?.write.orEmpty() + known?.read.orEmpty() + RelayDefaults.seeds.take(3) + "wss://purplepag.es").distinct().take(32)
-                accountQueries.completed(bootstrap, listOf(Filter(authors = listOf(owner), kinds = listOf(10002), limit = 1).toJson())) { _, event ->
+                accountQueries.completed(bootstrap, listOf(Filter(authors = listOf(owner), kinds = listOf(10002), limit = 1).toJson())) { relay, event ->
                     current()
-                    event.pubKey == owner && event.kind == 10002 && accept(event)
+                    event.pubKey == owner && event.kind == 10002 && accept(event, seenAt = relay)
                 }
                 current()
                 val relays = followEvent(owner, 10002)?.let(Outbox::parse)
@@ -408,12 +402,12 @@ class FeatherRepository(context: Context) {
                 val filters = kinds.map { Filter(authors = listOf(owner), kinds = listOf(it), limit = 1) } +
                     Filter(authors = listOf(owner), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1) +
                     Filter(authors = listOf(owner), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1)
-                val completed = accountQueries.completed(routes, filters.map { it.toJson() }) { _, event ->
+                val completed = accountQueries.completed(routes, filters.map { it.toJson() }) { relay, event ->
                     current()
                     val allowed = event.pubKey == owner && (event.kind in kinds ||
                         (event.kind == 30000 && event.tagValue("d") == "mute") ||
                         (event.kind == 30078 && event.tagValue("d") == SETTINGS_D))
-                    if (allowed && accept(event)) {
+                    if (allowed && accept(event, seenAt = relay)) {
                         if (event.kind == 10000 || event.kind == 30000) refreshMuteState(owner)
                         true
                     } else false
@@ -878,7 +872,7 @@ class FeatherRepository(context: Context) {
             // A repeated claimed ID is not proof that this payload is the verified copy.
             // Discard duplicates; never promote their unchecked contents into the lookup cache.
             if (cached == true && !history && !requested) {
-                if (seenAt != null && observedRelays[event.id]?.contains(Protocol.relay(seenAt)) != true && event.verify())
+                if (seenAt != null && Protocol.relay(seenAt) !in eventRelays.read(event.id) && event.verify())
                     recordRelayLocked(event.id, seenAt)
                 return true
             }
@@ -1429,45 +1423,81 @@ class FeatherRepository(context: Context) {
     /** Opening details reads existing discovery/cache data; it never re-fetches the note. */
     internal fun noteDetails(target: Event): Flow<NoteDetails?> = flow {
         val token = java.util.UUID.randomUUID().toString()
+        var last: NoteDetails? = null
         try {
             changed.onStart { emit(Unit) }.conflate().collect {
+                val relays = eventRelays.read(target.id)
+                if (relays.isNotEmpty() || last != null) {
+                    last = (last ?: NoteDetails()).copy(relays = relays.ifEmpty { last?.relays.orEmpty() })
+                    emit(last)
+                }
                 delay(400)
-                val current = state.value
-                val events = cachedCountActivity(listOf(target))[target.id].orEmpty()
-                    .filterNot { engagementDeleted(it) || it.pubKey in current.mutedAuthors }
-                val reposts = events.filter { it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id }
-                    .distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) }
-                val reactions = events.filter { it.kind == 7 && reactionTarget(it)?.id == target.id }
-                    .groupBy { reactionChoice(it)?.key ?: it.content }.values.take(16).map { group ->
-                        DetailReaction(group.first(), group.distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) })
+                val updated = try {
+                    val current = state.value
+                    val events = cachedCountActivity(listOf(target))[target.id].orEmpty()
+                        .filterNot { engagementDeleted(it) || it.pubKey in current.mutedAuthors }
+                    val reposts = events.filter { it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id }
+                        .distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) }
+                    val reactions = events.filter { it.kind == 7 && reactionTarget(it)?.id == target.id }
+                        .groupBy { reactionChoice(it)?.key ?: it.content }.values.take(16).map { group ->
+                            DetailReaction(group.first(), group.distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) })
+                        }
+                    val receipts = events.filter { it.kind == 9735 && it.tagValue("e") == target.id }
+                        .distinctBy { it.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) ?: it.id }
+                    val recipientProfiles = cachedProfiles(receipts.mapNotNull { it.tagValue("p") }.distinct().take(64))
+                    val totals = linkedMapOf<String?, java.math.BigDecimal>()
+                    for (receipt in receipts) {
+                        val preview = zapActivity(receipt) ?: continue
+                        if (preview.sender in current.mutedAuthors) continue
+                        val amount = zapVerification.amountInSats(receipt, target,
+                            recipientProfiles[preview.recipient] ?: current.profiles[preview.recipient], active)
+                        if (amount.signum() > 0) totals[preview.sender] = (totals[preview.sender] ?: java.math.BigDecimal.ZERO) + amount
                     }
-                val receipts = events.filter { it.kind == 9735 && it.tagValue("e") == target.id }
-                    .distinctBy { it.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) ?: it.id }
-                val recipientProfiles = cachedProfiles(receipts.mapNotNull { it.tagValue("p") }.distinct().take(64))
-                val totals = linkedMapOf<String?, java.math.BigDecimal>()
-                for (receipt in receipts) {
-                    val preview = zapActivity(receipt) ?: continue
-                    if (preview.sender in current.mutedAuthors) continue
-                    val amount = zapVerification.amountInSats(receipt, target,
-                        recipientProfiles[preview.recipient] ?: current.profiles[preview.recipient], active)
-                    if (amount.signum() > 0) totals[preview.sender] = (totals[preview.sender] ?: java.math.BigDecimal.ZERO) + amount
+                    val zaps = totals.entries.sortedByDescending { it.value }.take(64)
+                        .map { DetailPerson(it.key, it.value.stripTrailingZeros().toPlainString()) }
+                    val authors = (reposts + reactions.flatMap { it.people } + zaps).mapNotNull { it.pubkey }.distinct().take(192)
+                    val profiles = cachedProfiles(authors)
+                    val needed = authors.filter { it !in profiles && it !in current.profiles }.take(64)
+                    if ((detailAuthors.containsKey(token) || detailAuthors.size < 8) && detailAuthors[token] != needed) {
+                        detailAuthors[token] = needed
+                        subscribeReadingData()
+                    }
+                    NoteDetails(reposts, reactions, zaps, profiles, relays.ifEmpty { last?.relays.orEmpty() })
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    android.util.Log.w("FeatherRepository", "Could not load note engagement details", e)
+                    last ?: NoteDetails(relays = relays)
                 }
-                val zaps = totals.entries.sortedByDescending { it.value }.take(64)
-                    .map { DetailPerson(it.key, it.value.stripTrailingZeros().toPlainString()) }
-                val authors = (reposts + reactions.flatMap { it.people } + zaps).mapNotNull { it.pubkey }.distinct().take(192)
-                val profiles = cachedProfiles(authors)
-                emit(NoteDetails(reposts, reactions, zaps, profiles, mutex.withLock { observedRelays[target.id]?.toList().orEmpty() }))
-                val needed = authors.filter { it !in profiles && it !in current.profiles }.take(64)
-                if ((detailAuthors.containsKey(token) || detailAuthors.size < 8) && detailAuthors[token] != needed) {
-                    detailAuthors[token] = needed
-                    subscribeReadingData()
-                }
+                last = updated
+                emit(updated)
             }
         } finally {
             detailAuthors.remove(token)
             subscribeReadingData()
         }
-    }.catch { emit(NoteDetails()) }.flowOn(Dispatchers.IO)
+    }.flowOn(Dispatchers.IO)
+
+    internal fun zapSplitProfiles(note: Event): Flow<Map<String, Profile>> = flow {
+        val token = java.util.UUID.randomUUID().toString()
+        val authors = zapSplits(note).map { it.pubkey }
+        try {
+            changed.onStart { emit(Unit) }.conflate().collect {
+                val profiles = try { cachedProfiles(authors) }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    android.util.Log.w("FeatherRepository", "Could not read zap recipient profiles", e)
+                    state.value.profiles.filterKeys { it in authors }
+                }
+                emit(profiles)
+                val needed = authors.filter { it !in profiles }.take(64)
+                if ((detailAuthors.containsKey(token) || detailAuthors.size < 8) && detailAuthors[token] != needed) {
+                    detailAuthors[token] = needed
+                    subscribeReadingData()
+                }
+                delay(400)
+            }
+        } finally { detailAuthors.remove(token); subscribeReadingData() }
+    }.flowOn(Dispatchers.IO)
 
     private suspend fun cachedProfiles(authors: List<String>): Map<String, Profile> = if (authors.isEmpty()) emptyMap() else mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
@@ -1620,10 +1650,10 @@ class FeatherRepository(context: Context) {
         mutex.withLock { db.query<Event>(Filter(kinds = listOf(kind), authors = listOf(owner), tags = if (kind == 30000) mapOf("d" to listOf("mute")) else null, limit = 1)).firstOrNull() }
     }
 
-    internal suspend fun cacheFollowEvent(event: Event) {
+    internal suspend fun cacheFollowEvent(event: Event, relay: String? = null) {
         require(event.kind in listOf(3, 10002, 10015, 10000, 30000) && event.pubKey == state.value.publicKey)
         require(event.kind != 30000 || event.tagValue("d") == "mute")
-        accept(event)
+        accept(event, seenAt = relay)
         if (event.kind == 3) {
             // Use the database winner, in case a newer replacement arrived during publication.
             val latest = followEvent(event.pubKey, 3)
@@ -1751,8 +1781,8 @@ class FeatherRepository(context: Context) {
         var list = cached()
         if (list == null) {
             val relays = (relayLists[owner]?.write.orEmpty() + state.value.relays).distinct()
-            profileQueries.fetch(relays, listOf(filter.toJson())) { event ->
-                event.kind == 10063 && event.pubKey == owner && accept(event)
+            profileQueries.fetch(relays, listOf(filter.toJson())) { relay, event ->
+                event.kind == 10063 && event.pubKey == owner && accept(event, seenAt = relay)
             }
             list = cached()
         }
@@ -2064,8 +2094,8 @@ class FeatherRepository(context: Context) {
                 }
                 val podcastFilters = Filter(authors = listOf(key), kinds = listOf(1, 1111), limit = if (tab == ProfileTab.PODCASTS) 80 else 1).podcastTagFilters()
                 val requests = filters + podcastFilters
-                profileQueries.fetch(allRelays, requests.map { it.toJson() }) { event ->
-                    active && viewedProfile == key && profileTab == tab && requests.any { it.match(event) } && accept(event)
+                profileQueries.fetch(allRelays, requests.map { it.toJson() }) { relay, event ->
+                    active && viewedProfile == key && profileTab == tab && requests.any { it.match(event) } && accept(event, seenAt = relay)
                 }
             }
         }
@@ -2334,8 +2364,8 @@ class FeatherRepository(context: Context) {
                     // Local history is not evidence that every write relay was queried.
                     val filters = kinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = listOf(author), limit = 80, until = oldest - 1).activityFilters() } +
                         if (tab == ProfileTab.PODCASTS) Filter(kinds = listOf(1, 1111), authors = listOf(author), limit = 80, until = oldest - 1).podcastTagFilters() else emptyList()
-                    val received = profileQueries.fetch(profileReadRelays(author, tab), filters.map { it.toJson() }) { event ->
-                        sameScreen() && historySequence.get() == sequence && filters.any { it.match(event) } && accept(event, history = true)
+                    val received = profileQueries.fetch(profileReadRelays(author, tab), filters.map { it.toJson() }) { relay, event ->
+                        sameScreen() && historySequence.get() == sequence && filters.any { it.match(event) } && accept(event, history = true, seenAt = relay)
                     }
                     found = found || received
                 } else if (!found) {

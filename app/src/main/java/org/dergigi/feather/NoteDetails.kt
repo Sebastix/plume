@@ -35,6 +35,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
     val clipboard = LocalClipboardManager.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f)
     Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        ZapSplitRow(note) { onReference(NostrContent.Reference(it, profile = true)) }
         if (data == null) Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp, color = muted)
         } else {
@@ -86,7 +87,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                     }
                 }
             }
-            if (data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
+            if (zapSplits(note).isEmpty() && data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
                     Icon(painterResource(R.drawable.people), stringResource(R.string.ui_no_note_details), Modifier.size(18.dp), tint = muted)
                 }

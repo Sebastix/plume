@@ -54,7 +54,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                                 received.getOrPut(relay) { mutableSetOf() }.add(event.id)
                                 latest = listOfNotNull(latest, event).sortedWith(newest).firstOrNull()
                             }
-                            repo.cacheFollowEvent(event)
+                            repo.cacheFollowEvent(event, relay)
                             true
                         }
                     }

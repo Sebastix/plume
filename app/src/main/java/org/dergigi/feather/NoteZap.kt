@@ -44,6 +44,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, iconOnly: Boolean = false, enabled: Boolean = true, onPickerVisibilityChanged: (Boolean) -> Unit = {}) {
     val zapAmount = remember(counts.zapSats) { counts.zapSats.stripTrailingZeros().toPlainString() }
     val zapActions = LocalZapActions.current
+    val openSplitProfile = LocalZapSplitProfile.current
     val celebration = zapActions.celebrations[note.id] ?: 0L
     var picker by remember(note.id) { mutableStateOf(false) }
     var custom by remember(note.id) { mutableStateOf(false) }
@@ -76,6 +77,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
             val rows = (amounts.size + 4) / 3
             val actionStart = rows * 3 - 2
             Column(Modifier.width(288.dp).padding(horizontal = 8.dp)) {
+                ZapSplitRow(note) { key -> picker = false; openSplitProfile(key) }
                 repeat(rows) { row ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         repeat(3) { column ->
@@ -110,6 +112,7 @@ internal fun NoteZap(note: Event, counts: Engagement, publicKey: String?,
         AlertDialog(onDismissRequest = { custom = false },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ZapSplitRow(note) { key -> custom = false; openSplitProfile(key) }
                 OutlinedTextField(value = input, onValueChange = { value ->
                     if (value.length <= 16 && value.all { it in '0'..'9' }) input = value
                 }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
