@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.85.5] - 2026-10-20
+
+### Fixed
+- Show incoming hashtag/profile posts through a dedicated cache update path, without waiting for home discovery and engagement processing. Request the selected hashtag category first and defer optional tab discovery.
+
 ## [0.85.4] - 2026-10-20
 
 ### Changed

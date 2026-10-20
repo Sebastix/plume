@@ -125,6 +125,8 @@ class FeatherRepository(context: Context) {
     private var retainedEngagementEvents = 0
     private val threadMutex = Mutex()
     private val recentThreads = RecentThreads(context, scope)
+    private val scopedContentChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    private var hashtagDiscoveryJob: Job? = null
     private val threadChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val threadGeneration = java.util.concurrent.atomic.AtomicLong()
     private var threadRestoreJob: Job? = null
@@ -330,6 +332,14 @@ class FeatherRepository(context: Context) {
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
         scope.launch { ready.await(); changed.sample(250).collect { snapshot() } }
+        scope.launch {
+            ready.await()
+            scopedContentChanges.sample(150).collect {
+                // Display arrivals independently of optional discovery and engagement work.
+                if (viewedHashtag != null) { restoreHashtagCache(); hashtagRestoreJob?.join() }
+                else if (viewedProfile != null) { restoreProfileCache(); profileRestoreJob?.join() }
+            }
+        }
         scope.launch { ready.await(); threadChanges.sample(150).collect { refreshConversation() } }
         scope.launch {
             ready.await()
@@ -518,6 +528,7 @@ class FeatherRepository(context: Context) {
     private fun subscribeFeed() {
         if (!active) return
         updateRoutingPool()
+        viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it, author = viewedHashtagAuthor, tab = selectedHashtagTab), listener) }
         val s = _state.value
         discoverRelays()
         s.publicKey?.let { key ->
@@ -565,7 +576,6 @@ class FeatherRepository(context: Context) {
         }, listener)
         viewedProfile?.let { subscribeProfile(it) }
         viewedThread?.let { subscribeThread(it) }
-        viewedHashtag?.let { client.subscribe("hashtag", hashtagFilters(it, author = viewedHashtagAuthor, tab = selectedHashtagTab), listener) }
         subscribeReadingData()
         subscribeNotifications()
         if (refreshTimeout?.isActive == true) return
@@ -843,6 +853,8 @@ class FeatherRepository(context: Context) {
             // Independently validate the enclosed original on IO before storing/displaying it.
             if (original != null) accept(original)
         }
+        if (viewedHashtag?.let { tag -> event.tags.any { it.firstOrNull() == "t" && it.getOrNull(1) == tag } } == true ||
+            viewedProfile?.let { it == event.pubKey } == true) scopedContentChanges.tryEmit(Unit)
         changed.tryEmit(Unit)
         if (viewedThread != null && event.kind in (readableKinds + 5)) threadChanges.tryEmit(Unit)
         return true
@@ -1261,11 +1273,23 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = hashtagNotes, hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = profileEvents, profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
+        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = mergeHashtagSnapshot(it, hashtagNotes, hashtag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount), hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = mergeProfileSnapshot(it, profileEvents, profile, tab, profileCeiling, profileCount), profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
     }
+
+    private fun mergeHashtagSnapshot(previous: FeedState, notes: List<Event>, tag: String?, author: String?, tab: ProfileTab,
+        ceiling: Long?, limit: Int): List<Event> =
+        (notes + previous.hashtagNotes.takeIf { previous.hashtagFor == tag && previous.hashtagAuthor == author && previous.hashtagTab == tab }.orEmpty())
+            .distinctBy { it.id }.filter { ceiling == null || it.createdAt <= ceiling }
+            .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(limit)
+
+    private fun mergeProfileSnapshot(previous: FeedState, notes: List<Event>, author: String?, tab: ProfileTab,
+        ceiling: Long?, limit: Int): List<Event> =
+        latestProfileEvents(notes + previous.profileEvents.filter {
+            it.pubKey == author && it.kind in tab.kinds && (ceiling == null || it.createdAt <= ceiling)
+        }).take(limit)
 
     private suspend fun cachedCountActivity(countTargets: List<Event>): Map<String, List<Event>> = mutex.withLock {
             countTargets.associate { target ->
@@ -2068,6 +2092,20 @@ class FeatherRepository(context: Context) {
         visibleIds = emptyList()
         _state.update { it.copy(error = null) }
         restoreHashtagCache()
+        hashtagDiscoveryJob?.cancel()
+        client.unsubscribe("hashtag-discovery")
+        if (tag != null) hashtagDiscoveryJob = scope.launch {
+            ready.await()
+            delay(750)
+            if (active && viewedHashtag == tag && viewedHashtagAuthor == scopedAuthor && selectedHashtagTab == selected) {
+                val discovery = hashtagDiscoveryKinds.filter { it !in selected.kinds }.map { kind ->
+                    Filter(kinds = listOf(kind), authors = scopedAuthor?.let(::listOf),
+                        tags = mapOf("t" to listOf(tag)), limit = 8)
+                }.flatMap { it.activityFilters() }
+                client.subscribe("hashtag-discovery",
+                    hashtagFilters(tag, author = scopedAuthor, tab = selected).keys.associateWith { discovery }, listener)
+            }
+        }
         changed.tryEmit(Unit)
         scope.launch {
             ready.await()
@@ -2092,13 +2130,7 @@ class FeatherRepository(context: Context) {
             else authorFilters(listOf(author), listOf(1), 80, until).keys.toList()
         val filters = listOf(Filter(kinds = tab.hashtagKinds(), authors = author?.let(::listOf),
             tags = mapOf("t" to listOf(tag)), limit = 80, until = until))
-        // Small per-kind samples discover other tabs without a busy kind-1 feed hiding them.
-        // History requests remain restricted to the selected category.
-        val discovery = if (until == null) hashtagDiscoveryKinds.filter { it !in tab.kinds }.map { kind ->
-            Filter(kinds = listOf(kind), authors = author?.let(::listOf),
-                tags = mapOf("t" to listOf(tag)), limit = 8)
-        } else emptyList()
-        return relays.associateWith { (filters + discovery).flatMap { it.activityFilters() } }
+        return relays.associateWith { filters.flatMap { it.activityFilters() } }
     }
     @Synchronized
     fun older(author: String? = null): Boolean {
