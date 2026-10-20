@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Link the Feather origin interview to Gigi’s “Taste and Values” post beside the discussion of taste.
+
 ## [0.85.1] - 2026-10-20
 
 ### Changed
