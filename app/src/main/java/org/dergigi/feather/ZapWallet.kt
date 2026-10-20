@@ -167,7 +167,82 @@ internal class ZapWallet(context: Context) {
         } finally { connection?.secret?.fill(0) }
     }
     /** True only when this call newly confirms payment; false for an already-paid journal entry. */
-    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long, comment: String = ""): Boolean = withContext(Dispatchers.IO) {
+    suspend fun zap(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal,
+        signerRequests: SignerRequests, amountSats: Long, comment: String = "",
+        splitProfiles: suspend () -> Map<String, Profile> = { emptyMap() }): Boolean = withContext(Dispatchers.IO) {
+        val declared = note.tags.any { it.firstOrNull() == "zap" }
+        val splits = zapSplits(note)
+        if (!declared) return@withContext zapRecipient(note, lightning, relays, signer, signerRequests, amountSats, comment)
+        require(splits.isNotEmpty()) { "Invalid zap split; no payment sent" }
+        val amounts = allocateZap(splits, amountSats)
+        val message = comment.trimEnd()
+        require(message.codePointCount(0, message.length) <= 280) { "Zap message is too long" }
+        val messageHash = sha256(message.toByteArray(Charsets.UTF_8))
+        val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
+        val batchId = try { sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray()) }
+            finally { connection.secret.fill(0) }
+        var batch = store.payment(batchId)
+        if (batch != null && !batch.optBoolean("split")) {
+            if (batch.optString("status") != "paid") {
+                zapRecipient(note, lightning, relays, signer, signerRequests, batch.getLong("sats"), comment)
+                throw WalletFailure("Previous author-only zap checked. No split payment sent; submit again to send the split.")
+            }
+            store.savePayment(sha256(batch.getString("invoice").toByteArray()), batch)
+            batch = null
+        }
+        if (batch?.optBoolean("split") == true) {
+            val same = batch.optLong("sats") == amountSats && batch.optString("messageHash") == messageHash
+            if (batch.optString("status") == "paid" && same) return@withContext false
+            require(batch.optString("status") == "paid" || same) {
+                "Finish the previous split zap with its original amount and message before sending a different zap"
+            }
+            if (batch.optString("status") == "paid") {
+                store.savePayment(sha256(batch.getString("batch").toByteArray()), batch)
+                batch = null
+            }
+        }
+        // Resolve every endpoint before sending the first payment. An unavailable recipient
+        // never silently redirects their share to the author or other recipients.
+        val profiles = splitProfiles()
+        val addresses = splits.map { profiles[it.pubkey]?.lightning }
+        val record = batch ?: JSONObject().put("split", true).put("batch", java.util.UUID.randomUUID().toString())
+            .put("status", "split_pending").put("sats", amountSats).put("messageHash", messageHash)
+            .put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
+            .put("completed", org.json.JSONArray())
+        val completed = record.getJSONArray("completed")
+        val done = (0 until completed.length()).map { completed.getString(it) }.toMutableSet()
+        require(splits.indices.all { index ->
+            val child = sha256("${record.getString("batch")}:${splits[index].pubkey}".toByteArray())
+            splits[index].pubkey in done || store.payment(child) != null ||
+                addresses[index]?.let { LnurlForm.toUrl(it) } != null
+        }) { "A split recipient has no Lightning address; no new payment sent" }
+        store.savePayment(batchId, record)
+        try {
+            for ((index, recipient) in splits.withIndex()) {
+                currentCoroutineContext().ensureActive()
+                if (recipient.pubkey in done) continue
+                val child = sha256("${record.getString("batch")}:${recipient.pubkey}".toByteArray())
+                zapRecipient(note, addresses[index], (recipient.relays + relays).distinct(), signer, signerRequests,
+                    amounts[index], message, recipient.pubkey, child, batchId)
+                // Even a false result means this exact child is already confirmed in the journal.
+                done.add(recipient.pubkey)
+                completed.put(recipient.pubkey)
+                store.savePayment(batchId, record)
+            }
+            store.savePayment(batchId, record.put("status", "paid"))
+            // The durable batch tracks completion; settled child journals are now redundant.
+            splits.forEach { runCatching { store.forgetPayment(sha256("${record.getString("batch")}:${it.pubkey}".toByteArray())) } }
+            true
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            val progress = "Split zap: ${done.size}/${splits.size} recipients confirmed"
+            val report = (e as? WalletFailure)?.report ?: walletErrorText(e.stackTraceToString())
+            throw WalletFailure("$progress. ${walletErrorReason(e)}", (e as? WalletFailure)?.code,
+                "$progress\nTotal: $amountSats sats\n$report")
+        }
+    }
+
+    private suspend fun zapRecipient(note: Event, lightning: String?, relays: List<String>, signer: NostrSignerExternal, signerRequests: SignerRequests, amountSats: Long, comment: String = "", recipient: String = note.pubKey, journalId: String? = null, splitBatch: String? = null): Boolean = withContext(Dispatchers.IO) {
         require(amountSats in 1..MAX_ZAP_SATS) { "Invalid zap amount" }
         val message = comment.trimEnd()
         require(message.codePointCount(0, message.length) <= 280) { "Zap message is too long" }
@@ -175,7 +250,7 @@ internal class ZapWallet(context: Context) {
         val connection = store.connection(signer.pubKey) ?: error("Connect a wallet in settings")
         var step = "Loading payment history"
         var paymentUncertain = false
-        val diagnostics = linkedMapOf("Amount" to "$amountSats sats", "Note" to note.id.take(12), "Recipient" to note.pubKey.take(12))
+        val diagnostics = linkedMapOf("Amount" to "$amountSats sats", "Note" to note.id.take(12), "Recipient" to recipient.take(12))
         // Only pre-payment HTTP requests and status lookups retry; never resend pay_invoice.
         suspend fun lightningGet(url: String, label: String): JSONObject {
             val failures = mutableListOf<java.io.IOException>()
@@ -217,7 +292,7 @@ internal class ZapWallet(context: Context) {
             error("Unreachable lookup attempt")
         }
         try {
-            val paymentId = sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
+            val paymentId = journalId ?: sha256("${connection.pubkey}:${signer.pubKey}:${note.id}".toByteArray())
             val existing = store.payment(paymentId)
             if (existing?.optString("status") == "paid" && existing.optLong("sats", DEFAULT_ZAP_SATS) == amountSats &&
                 existing.optString("messageHash", sha256(ByteArray(0))) == messageHash) {
@@ -245,7 +320,7 @@ internal class ZapWallet(context: Context) {
                 throw WalletFailure("Payment not confirmed. Check your wallet; no new payment was sent.")
             }
             step = "Loading Lightning address"
-            val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This author has no Lightning address")
+            val endpoint = lightning?.let(LnurlForm::toUrl) ?: error("This recipient has no Lightning address")
             val lnurl = LnurlForm.urlToBech32(endpoint)
             diagnostics["Provider"] = endpoint.toHttpUrl().host
             val params = lightningGet(endpoint, "Address")
@@ -255,7 +330,7 @@ internal class ZapWallet(context: Context) {
             val callback = params.getString("callback")
             require(MediaContent.secureUrl(callback) != null) { "Invalid Lightning callback" }
             val tags = buildList {
-                add(arrayOf("p", note.pubKey)); add(arrayOf("e", note.id)); add(arrayOf("k", note.kind.toString()))
+                add(arrayOf("p", recipient)); add(arrayOf("e", note.id)); add(arrayOf("k", note.kind.toString()))
                 add(arrayOf("amount", msats.toString()))
                 add(arrayOf("lnurl", lnurl))
                 add((listOf("relays") + relays.mapNotNull(Protocol::relay).distinct().take(6)).toTypedArray())
@@ -289,6 +364,7 @@ internal class ZapWallet(context: Context) {
             diagnostics["Payment hash prefix"] = hash.take(12)
             require((LnInvoiceUtil.parseDetails(invoice)?.expiresAt() ?: 0L) > System.currentTimeMillis() / 1000) { "Invoice expired" }
             val record = JSONObject().put("invoice", invoice).put("hash", hash).put("status", "pending").put("messageHash", messageHash).put("sats", amountSats).put("time", System.currentTimeMillis()).put("author", signer.pubKey).put("note", note.id)
+            if (splitBatch != null) record.put("splitBatch", splitBatch)
             step = "Saving payment"
             store.savePayment(paymentId, record)
             // Persist before sending: process death or timeout must never cause a duplicate payment.

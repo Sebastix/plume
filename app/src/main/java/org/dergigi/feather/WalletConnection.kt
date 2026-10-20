@@ -43,7 +43,7 @@ internal class WalletStore(context: Context) {
     val confirmedPayments = MutableStateFlow<Map<String, Pair<String, String>>>(emptyMap())
     val recentAmounts = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
     private fun confirmed(value: org.json.JSONObject): Pair<String, String>? {
-        if (value.optString("status") != "paid") return null
+        if (value.optString("status") != "paid" || value.has("splitBatch")) return null
         val author = Protocol.publicKey(value.optString("author")) ?: return null
         val note = Protocol.publicKey(value.optString("note")) ?: return null
         return author to note
@@ -123,7 +123,10 @@ internal class WalletStore(context: Context) {
         val entries = prefs.all.keys.filter { it.startsWith("payment:") }
         if (entries.size >= 512 && "payment:$id" !in entries) {
             val settled = entries.firstOrNull { entry -> runCatching {
-                org.json.JSONObject(open(prefs.getString(entry, null)!!)).optString("status") == "paid"
+                org.json.JSONObject(open(prefs.getString(entry, null)!!)).let { value ->
+                    value.optString("status") == "paid" && (!value.has("splitBatch") ||
+                        payment(value.getString("splitBatch"))?.optString("status") == "paid")
+                }
             }.getOrDefault(false) }
             if (settled != null) {
                 check(prefs.edit().remove(settled).commit())

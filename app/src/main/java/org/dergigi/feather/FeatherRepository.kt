@@ -717,7 +717,7 @@ class FeatherRepository(context: Context) {
             client.subscribe("visible-deletions", routes.associate { it.normalizeRelayUrl() to filters }, listener)
         }
 
-        val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + detailAuthors.values.flatten().distinct().take(64) + profileAuthors).distinct().take(160)
+        val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + profileAuthors + detailAuthors.values.flatten().distinct().take(64)).distinct().take(160)
         val metadata = routingPool.associate { url ->
             url.normalizeRelayUrl() to targets.chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) }
         }.filterValues { it.isNotEmpty() }
@@ -1180,6 +1180,16 @@ class FeatherRepository(context: Context) {
             if (!feedCurrent()) previous else previous.copy(notes = all.filterNot(contentFilter::hides), feedTab = feed,
                 loading = if (viewedThread == null && viewedProfile == null && viewedHashtag == null && all.isNotEmpty()) false else previous.loading)
         }
+        if (!initialFeedOnly && feedCurrent() && viewedThread == null && viewedProfile == null && viewedHashtag == null) {
+            val viewport = all.filter { it.id in visibleIds }.ifEmpty { all.take(24) }.take(40)
+            val visibleAuthors = (listOfNotNull(key) + viewport.map { it.pubKey }).distinct()
+            val cached = cachedProfiles(visibleAuthors)
+            if (feedCurrent()) {
+                _state.update { if (it.publicKey == key) it.copy(profiles = it.profiles + cached) else it }
+                val prioritized = (visibleAuthors + profileAuthors).distinct().take(160)
+                if (prioritized != profileAuthors) { profileAuthors = prioritized; subscribeReadingData() }
+            }
+        }
         val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
         val notifications = if ((viewingNotifications || initialFeedOnly) && key != null) (retainedNotifications + mutex.withLock {
             // Independent per-kind windows must not replace previously discovered rows.
@@ -1304,9 +1314,9 @@ class FeatherRepository(context: Context) {
         engagementApps = countTargets.mapNotNull { it.appAddress() }
         val countedActivity = cachedCountActivity(countTargets)
         val activity = countedActivity.values.flatten().distinctBy { it.id }
-        val authors = (detailAuthors.values.flatten().distinct().take(64) + pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
+        val authors = (listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
-            embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
+            embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id } + detailAuthors.values.flatten().distinct().take(64) + pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24)).distinct().take(160)
         val profiles = cachedProfiles(authors)
         val counts = countTargets.associate { target ->
             var zappedByAccount: String? = null
@@ -1476,6 +1486,23 @@ class FeatherRepository(context: Context) {
             subscribeReadingData()
         }
     }.flowOn(Dispatchers.IO)
+
+    internal suspend fun zapRecipientProfiles(note: Event): Map<String, Profile> = withContext(Dispatchers.IO) {
+        ready.await()
+        val splits = zapSplits(note)
+        val authors = splits.map { it.pubkey }
+        val cached = cachedProfiles(authors)
+        val missing = splits.filter { cached[it.pubkey]?.lightning.isNullOrBlank() }
+        for (recipient in missing) {
+            val filter = Filter(kinds = listOf(0), authors = listOf(recipient.pubkey), limit = 1)
+            val routes = (recipient.relays + relayLists[recipient.pubkey]?.write.orEmpty() + state.value.relays + RelayDefaults.seeds.take(2))
+                .distinct().take(8)
+            profileQueries.fetch(routes, listOf(filter.toJson())) { relay, event ->
+                filter.match(event) && accept(event, seenAt = relay)
+            }
+        }
+        cached + cachedProfiles(authors)
+    }
 
     internal fun zapSplitProfiles(note: Event): Flow<Map<String, Profile>> = flow {
         val token = java.util.UUID.randomUUID().toString()

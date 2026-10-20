@@ -246,7 +246,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 paymentMutex.withLock {
                     check(signer.value === connected) { "Account changed" }
-                    val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats, comment)
+                    val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats, comment) { repo.zapRecipientProfiles(note) }
                     if (signer.value === connected && newlyConfirmed) {
                         val sequence = ++zapCelebrationSequence
                         zapCelebrations.update { previous -> (previous - note.id).entries.toList().takeLast(63)

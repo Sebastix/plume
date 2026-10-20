@@ -4,10 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.92.0] - 2026-10-20
+
 ### Added
+- Honor NIP-57 zap splits when paying, preserve the selected total with deterministic rounding, and journal recipient payments so partial or uncertain payments can be recovered without duplicate sends.
 - Compact declared zap-split recipient avatars and percentages in expanded note details and the long-press amount picker; tap recipients to open their profiles.
 
 ### Fixed
+- Prioritize visible authors over optional detail-panel participants and restore cached names before engagement work.
 - Persist verified relay observations across restarts, including finite profile/history reads. Show known relays independently of engagement loading and retain details after transient read failures.
 
 ## [0.91.2] - 2026-10-20

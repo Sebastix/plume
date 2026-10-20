@@ -30,6 +30,7 @@ internal fun zapSplits(event: Event): List<ZapSplit> {
     val recipients = linkedMapOf<String, Pair<BigDecimal, List<String>>>()
     for (tag in tags) {
         val key = tag.getOrNull(1)?.takeIf { it.length == 64 && it.all { ch -> ch in '0'..'9' || ch in 'a'..'f' } } ?: return emptyList()
+        if (tag.size > 3 && (tag[3].length > 32 || !tag[3].matches(Regex("[0-9]+(\\.[0-9]+)?")))) return emptyList()
         val weight = if (!weighted) BigDecimal.ONE else tag.getOrNull(3)?.takeIf { it.length <= 32 && it.matches(Regex("[0-9]+(\\.[0-9]+)?")) }?.toBigDecimalOrNull() ?: BigDecimal.ZERO
         if (weight.signum() <= 0) continue
         val relay = tag.getOrNull(2)?.let(Protocol::relay)
@@ -67,4 +68,19 @@ internal fun ZapSplitRow(note: Event, onProfile: (String) -> Unit = LocalZapSpli
             }
         }
     }
+}
+
+/** Largest remainders preserve the exact user-selected total, with stable tag-order ties. */
+internal fun allocateZap(splits: List<ZapSplit>, sats: Long): List<Long> {
+    require(splits.isNotEmpty() && sats in 1..MAX_ZAP_SATS)
+    val products = splits.map { it.weight.multiply(BigDecimal.valueOf(sats)) }
+    val total = splits.first().total
+    val amounts = products.map { it.divide(total, 0, RoundingMode.DOWN).longValueExact() }.toMutableList()
+    val remaining = (sats - amounts.sum()).toInt()
+    val order = products.indices.sortedWith(compareByDescending<Int> {
+        products[it].subtract(total.multiply(BigDecimal.valueOf(amounts[it])))
+    }.thenBy { it })
+    order.take(remaining).forEach { amounts[it]++ }
+    require(amounts.all { it > 0 }) { "Increase the zap amount so every split recipient receives at least one sat" }
+    return amounts
 }
