@@ -143,6 +143,17 @@ class FeatherRepository(context: Context) {
     private val muteCache = MuteCache(context)
     private val foregroundActive = MutableStateFlow(false)
     @Volatile private var publishingAuthor: String? = null
+    // Observations, never inferred from relay hints. Bounded to this process's recent events.
+    private val observedRelays = linkedMapOf<String, LinkedHashSet<String>>() // guarded by mutex
+    private val detailAuthors = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+    private fun recordRelayLocked(id: String, relay: String?) {
+        val url = relay?.let(Protocol::relay) ?: return
+        val seen = observedRelays.remove(id) ?: linkedSetOf()
+        val added = seen.size < 12 && seen.add(url)
+        observedRelays[id] = seen
+        while (observedRelays.size > 1024) observedRelays.remove(observedRelays.keys.first())
+        if (added) changed.tryEmit(Unit)
+    }
     private val changed = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val zapVerification = ZapVerification(scope) { changed.tryEmit(Unit) }
     @Volatile private var pollVoterAuthors: List<String> = emptyList()
@@ -285,7 +296,7 @@ class FeatherRepository(context: Context) {
     private var inserts = 0
     private val listener = object : SubscriptionListener {
         override suspend fun onEvent(event: Event, isLive: Boolean, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
-            if (forFilters?.any { it.match(event) } == true) accept(event)
+            if (forFilters?.any { it.match(event) } == true) accept(event, seenAt = relay.url)
         }
         override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
             threadProgress.completed(relay.url, forFilters)
@@ -705,7 +716,7 @@ class FeatherRepository(context: Context) {
             client.subscribe("visible-deletions", routes.associate { it.normalizeRelayUrl() to filters }, listener)
         }
 
-        val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + profileAuthors).distinct().take(160)
+        val targets = (listOfNotNull(state.value.publicKey, viewedProfile) + detailAuthors.values.flatten().distinct().take(64) + profileAuthors).distinct().take(160)
         val metadata = routingPool.associate { url ->
             url.normalizeRelayUrl() to targets.chunked(16).map { Filter(authors = it, kinds = listOf(0), limit = it.size) }
         }.filterValues { it.isNotEmpty() }
@@ -844,11 +855,11 @@ class FeatherRepository(context: Context) {
         if (event.kind == 1621) { accept(event); feedDiscoveryAt = 0; changed.tryEmit(Unit) }
     }
 
-    private suspend fun accept(event: Event, history: Boolean = false): Boolean = withContext(Dispatchers.IO) {
-        acceptOnIo(event, history)
+    private suspend fun accept(event: Event, history: Boolean = false, seenAt: String? = null): Boolean = withContext(Dispatchers.IO) {
+        acceptOnIo(event, history, seenAt)
     }
 
-    private suspend fun acceptOnIo(event: Event, history: Boolean): Boolean {
+    private suspend fun acceptOnIo(event: Event, history: Boolean, seenAt: String?): Boolean {
         if (event.kind == 5 && event.tags.count { it.firstOrNull() == "e" } > 256) return false
         if (event.kind == 30078 && (event.pubKey != state.value.publicKey || event.tagValue("d") != SETTINGS_D || event.content.length > 8192)) return false
         if (event.kind !in (profileKinds + listOf(0, 3, 5, 6, 1018, 9735, 10015, 10000, 10002, 10030, 10063, 30030, 30078)) || event.content.length > (if (event.kind in listOf(1621, 30023, 10000, 10015) || (event.kind == 30000 && event.tagValue("d") == "mute")) 262_144 else 32_768) || event.tags.size > 5000 || event.createdAt > System.currentTimeMillis() / 1000 + 600) return false
@@ -859,8 +870,13 @@ class FeatherRepository(context: Context) {
             val requested = synchronized(this) { event.id in pendingEventLookups }
             // A repeated claimed ID is not proof that this payload is the verified copy.
             // Discard duplicates; never promote their unchecked contents into the lookup cache.
-            if (cached == true && !history && !requested) return true
+            if (cached == true && !history && !requested) {
+                if (seenAt != null && observedRelays[event.id]?.contains(Protocol.relay(seenAt)) != true && event.verify())
+                    recordRelayLocked(event.id, seenAt)
+                return true
+            }
             if (!event.verify()) return false
+            recordRelayLocked(event.id, seenAt)
             if (event.kind == 5) {
                 noteDeletions.put(event)
                 val originals = cachedEventsLocked(event.tags.filter { it.size > 1 && it[0] == "e" }.map { it[1] }).values
@@ -1277,7 +1293,7 @@ class FeatherRepository(context: Context) {
         engagementApps = countTargets.mapNotNull { it.appAddress() }
         val countedActivity = cachedCountActivity(countTargets)
         val activity = countedActivity.values.flatten().distinctBy { it.id }
-        val authors = (pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
+        val authors = (detailAuthors.values.flatten().distinct().take(64) + pollVoterAuthors + activity.filter { it.kind == 9735 }.mapNotNull { it.tagValue("p") }.take(24) + listOfNotNull(key, viewedProfile) + visible.map { it.pubKey } +
             refs.filter { it.profile }.map { it.id } + refs.mapNotNull { it.author } + embedded.values.map { it.pubKey } +
             embedded.values.flatMap(NostrContent::references).filter { it.profile }.map { it.id }).distinct().take(160)
         val profiles = cachedProfiles(authors)
@@ -1392,6 +1408,49 @@ class FeatherRepository(context: Context) {
                 target.id to events
             }
         }
+
+    /** Opening details reads existing discovery/cache data; it never re-fetches the note. */
+    internal fun noteDetails(target: Event): Flow<NoteDetails?> = flow {
+        val token = java.util.UUID.randomUUID().toString()
+        try {
+            changed.onStart { emit(Unit) }.conflate().collect {
+                delay(400)
+                val current = state.value
+                val events = cachedCountActivity(listOf(target))[target.id].orEmpty()
+                    .filterNot { engagementDeleted(it) || it.pubKey in current.mutedAuthors }
+                val reposts = events.filter { it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id }
+                    .distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) }
+                val reactions = events.filter { it.kind == 7 && reactionTarget(it)?.id == target.id }
+                    .groupBy { reactionChoice(it)?.key ?: it.content }.values.take(16).map { group ->
+                        DetailReaction(group.first(), group.distinctBy { it.pubKey }.take(64).map { DetailPerson(it.pubKey) })
+                    }
+                val receipts = events.filter { it.kind == 9735 && it.tagValue("e") == target.id }
+                    .distinctBy { it.tagValue("bolt11")?.lowercase(java.util.Locale.ROOT) ?: it.id }
+                val recipientProfiles = cachedProfiles(receipts.mapNotNull { it.tagValue("p") }.distinct().take(64))
+                val totals = linkedMapOf<String?, java.math.BigDecimal>()
+                for (receipt in receipts) {
+                    val preview = zapActivity(receipt) ?: continue
+                    if (preview.sender in current.mutedAuthors) continue
+                    val amount = zapVerification.amountInSats(receipt, target,
+                        recipientProfiles[preview.recipient] ?: current.profiles[preview.recipient], active)
+                    if (amount.signum() > 0) totals[preview.sender] = (totals[preview.sender] ?: java.math.BigDecimal.ZERO) + amount
+                }
+                val zaps = totals.entries.sortedByDescending { it.value }.take(64)
+                    .map { DetailPerson(it.key, it.value.stripTrailingZeros().toPlainString()) }
+                val authors = (reposts + reactions.flatMap { it.people } + zaps).mapNotNull { it.pubkey }.distinct().take(192)
+                val profiles = cachedProfiles(authors)
+                emit(NoteDetails(reposts, reactions, zaps, profiles, mutex.withLock { observedRelays[target.id]?.toList().orEmpty() }))
+                val needed = authors.filter { it !in profiles && it !in current.profiles }.take(64)
+                if ((detailAuthors.containsKey(token) || detailAuthors.size < 8) && detailAuthors[token] != needed) {
+                    detailAuthors[token] = needed
+                    subscribeReadingData()
+                }
+            }
+        } finally {
+            detailAuthors.remove(token)
+            subscribeReadingData()
+        }
+    }.catch { emit(NoteDetails()) }.flowOn(Dispatchers.IO)
 
     private suspend fun cachedProfiles(authors: List<String>): Map<String, Profile> = if (authors.isEmpty()) emptyMap() else mutex.withLock {
             db.query<Event>(Filter(kinds = listOf(0), authors = authors, limit = authors.size))
@@ -2270,7 +2329,7 @@ class FeatherRepository(context: Context) {
                     val received = java.util.concurrent.atomic.AtomicBoolean()
                     val pageListener = object : SubscriptionListener {
                         override suspend fun onEvent(event: Event, isLive: Boolean, relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
-                            if (sameScreen() && historySequence.get() == sequence && forFilters?.any { it.match(event) } == true && accept(event, history = true)) received.set(true)
+                            if (sameScreen() && historySequence.get() == sequence && forFilters?.any { it.match(event) } == true && accept(event, history = true, seenAt = relay.url)) received.set(true)
                         }
                         override fun onEose(relay: NormalizedRelayUrl, forFilters: List<Filter>?) {
                             ended.add(relay)

@@ -1212,7 +1212,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         return
     }
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
-    var truncated by remember(note.id) { mutableStateOf(false) }
+    var detailsExpanded by rememberSaveable(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
     val articleDetail = note.kind == 30023 && !compact
     val threaded = threadRow != null && note.kind in listOf(1, 1111, 1244, 1222)
@@ -1285,14 +1285,16 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
         val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
-        val overflowingParts = remember(note.id, body) { mutableStateMapOf<String, Boolean>() }
         LinkPreviewContent(body, event = note) { part ->
-            DisposableEffect(part) {
-                onDispose { overflowingParts.remove(part); if (!expanded) truncated = overflowingParts.values.any { it } }
-            }
             val richContent = richNoteText(part, note, state.profiles, onReference, quotes.map { it.id }.toSet())
             val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
-            if (content.isNotBlank()) NoteSelection(note) { LinkText(content, style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp, lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp), maxLines = if (expanded || !compact) Int.MAX_VALUE else 12, overflow = TextOverflow.Ellipsis, onTextLayout = { if (!expanded) { overflowingParts[part] = it.hasVisualOverflow; truncated = overflowingParts.values.any { overflow -> overflow } } }) }
+            if (content.isNotBlank()) NoteSelection(note) {
+                val style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp,
+                    lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp)
+                if (compact) InlineExpandableText(content, 12, expanded, { expanded = !expanded }, style,
+                    stringResource(R.string.ui_expand_note), stringResource(R.string.ui_collapse_note))
+                else LinkText(content, style = style)
+            }
         }
         quotes.forEachIndexed { index, reference ->
             if (body.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
@@ -1325,11 +1327,20 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             RepostButton(note, note.id in state.sentReposts, counts.reposts,
                 ownCounted = state.publicKey != null && counts.repostedByAccount == state.publicKey)
             }
-            val expandAction: @Composable () -> Unit = {
-            if (compact && (expanded || truncated)) IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {
-                Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    if (expanded) "Show less" else "Read more", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Keep the details above the action row so thread continuations remain anchored to it.
+            AnimatedVisibility(detailsExpanded, enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))) {
+                Box(Modifier.padding(start = if (inset || more) 48.dp else if (articleDetail) 24.dp else 0.dp,
+                    end = if (articleDetail) 24.dp else 0.dp)) {
+                    NoteDetailsPanel(note, state, onReference)
+                }
             }
+            val expandAction: @Composable () -> Unit = {
+                IconButton(onClick = { detailsExpanded = !detailsExpanded }, modifier = Modifier.size(48.dp)) {
+                    Icon(if (detailsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        stringResource(if (detailsExpanded) R.string.ui_hide_note_details else R.string.ui_show_note_details),
+                        Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f))
+                }
             }
             val rightActions: @Composable () -> Unit = {
                 OrangeHeart(note, counts.reactions, state.sentReactions[note.id].orEmpty())

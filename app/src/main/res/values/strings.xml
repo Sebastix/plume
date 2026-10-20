@@ -169,4 +169,13 @@
     <string name="ui_retry">Retry</string>
     <string name="ui_reopen_draft">Reopen draft</string>
     <string name="ui_video">Video</string>
+    <string name="ui_anonymous_zap">Anonymous zap</string>
+    <string name="ui_note_reposts">Reposted by</string>
+    <string name="ui_note_zaps">Zapped by</string>
+    <string name="ui_seen_on_relays">Observed on relays</string>
+    <string name="ui_no_note_details">No cached details yet</string>
+    <string name="ui_expand_note">Expand note</string>
+    <string name="ui_collapse_note">Collapse note</string>
+    <string name="ui_hide_note_details">Hide note details</string>
+    <string name="ui_show_note_details">Show note details</string>
 </resources>

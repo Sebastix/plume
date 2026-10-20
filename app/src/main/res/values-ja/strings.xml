@@ -169,4 +169,13 @@
     <string name="ui_retry">再試行</string>
     <string name="ui_reopen_draft">下書きを開く</string>
     <string name="ui_video">動画</string>
+    <string name="ui_anonymous_zap">匿名のZap</string>
+    <string name="ui_note_reposts">リポストした人</string>
+    <string name="ui_note_zaps">Zapした人</string>
+    <string name="ui_seen_on_relays">確認したリレー</string>
+    <string name="ui_no_note_details">詳細はまだキャッシュされていません</string>
+    <string name="ui_expand_note">ノートを展開</string>
+    <string name="ui_collapse_note">ノートを折りたたむ</string>
+    <string name="ui_hide_note_details">ノートの詳細を閉じる</string>
+    <string name="ui_show_note_details">ノートの詳細を表示</string>
 </resources>

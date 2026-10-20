@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-10-20
+
+### Changed
+- Move long-note expansion beside the text ellipsis, matching profile biographies; collapse expanded text inline.
+
+### Added
+- Subtle action-bar chevron opens compact, tappable avatar rows for reposts, emoji reactions, and verified zaps, plus observed relay hostnames. Read existing cached activity, group repeated zaps by sender, and preserve thread layout.
+
 ## [0.90.1] - 2026-10-20
 
 ### Fixed
