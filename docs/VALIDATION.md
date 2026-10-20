@@ -1719,3 +1719,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Final signed release build passed in 1m 24s after replacing unavailable Material icons with existing Feather resources. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
 - APK SHA-256 `a84fdbcc77d270f1ec6fe1329ce852ba8a05447a1f763c4f8ecf88fbb860d370`; 15,920,156 bytes. GitHub asset digest matches. GitHub and both GRASP mirrors report the release source for master and v0.91.0.
 - Zapstore release `b2c4fa8e8f6afa58160ed7a612dc8bb6d63f99230e0a1409b315c6da26e05eac` and asset `3f8f50a7d229dabf1ea442e9296e74e0d36498e6656432c198f26d71d6beb3b7` retrieved; hash, size, versionCode and certificate match. CDN HTTP 200. No website deployment.
+
+## 2026-10-20 — 0.91.1 release
+
+- Version 0.91.1 (182), source `34f0498470af3d49d7f8a781e83f84e1f966769d`. Home starts with Photos and Videos available; note detail avatar cells and row spacing are tighter. Zapstore screenshots are dark-first, feather gallery second, light-last.
+- Final signed release build passed in 1m 14s. No tests or emulators run. Package/version and signing certificate verified; mapping archived.
+- APK SHA-256 `e3fe0637a219551026f7fc04ba7a267ea265a8818c7784da1bb49d481314d45a`; 15,920,152 bytes. GitHub asset digest matches. GitHub and both GRASP mirrors report the release source for master and v0.91.1.
+- Zapstore release `b7b20d7a311fc4cad2062e091f047f7de87e4b5861ee5553612f7d56c5fc94cc` and asset `beb28fdc8ec54bcc7108961cdb922f961ca308021031a9fc16328ee11bc9a52e` retrieved; hash, size, versionCode and certificate match. CDN HTTP 200. Listing image order matches all 16 local screenshot hashes. No website deployment.
