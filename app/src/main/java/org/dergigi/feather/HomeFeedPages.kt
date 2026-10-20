@@ -78,8 +78,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         catch (_: Exception) { AppMessages.show("Install an Android signer such as Amber first.") }
     }
     var tabs by remember(home.key) {
-        mutableStateOf((listOf(ProfileTab.SEARCH, ProfileTab.NOTIFICATIONS) +
-            home.tabs.ifEmpty { listOf(ProfileTab.POSTS) }).distinct()
+        // Seed the two media neighbors before cache/relay discovery completes. A bounded
+        // discovery result cannot prove a media category is empty, so retain these pages.
+        mutableStateOf((listOf(ProfileTab.SEARCH, ProfileTab.NOTIFICATIONS,
+            ProfileTab.POSTS, ProfileTab.PHOTOS, ProfileTab.VIDEOS) + home.tabs).distinct()
             .sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })

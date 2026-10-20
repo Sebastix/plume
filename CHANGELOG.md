@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.91.1] - 2026-10-20
+
+### Fixed
+- Show Photos and Videos beside Home immediately at startup, keeping the main tab switcher stable while content loads.
+
+### Changed
+- Group Zapstore screenshots by theme: dark first, with the feather gallery second, and light screenshots last.
+
 ## [0.91.0] - 2026-10-20
 
 ### Changed
