@@ -44,6 +44,9 @@ enum class ProfileTab(val kinds: List<Int>, val label: String) {
             EMOJI_PACKS -> 18
         }
 
+    internal val profileOrderPriority: Int
+        get() = if (this == REPLIES) 1 else orderPriority * 2
+
     fun matches(event: Event): Boolean = event.kind in kinds && when (this) {
         HASHTAGS -> event.tags.any { it.size >= 2 && it[0] == "t" && normalizeFollowedTag(it[1]) != null }
         POSTS -> if (event.kind == 1) !Protocol.isReply(event) else repostTarget(event) != null

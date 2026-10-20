@@ -53,6 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
@@ -362,13 +364,19 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     } else if (s.profileTabsFor == profileKey && profileKey != null) {
         // Discovery samples are bounded, not evidence that a previously found category is empty.
         // Keep this visit's tabs when returning after another profile replaced repository state.
-        (listOf(ProfileTab.POSTS) + s.profileTabs + entry.tabs).distinct().sortedBy { it.orderPriority }.also { entry.tabs = it }
-    } else (listOf(ProfileTab.POSTS) + entry.tabs).distinct().sortedBy { it.orderPriority }
+        (listOf(ProfileTab.POSTS) + s.profileTabs + entry.tabs).distinct().sortedBy { it.profileOrderPriority }.also { entry.tabs = it }
+    } else (listOf(ProfileTab.POSTS) + entry.tabs).distinct().sortedBy { it.profileOrderPriority }
     LaunchedEffect(entry.key, visibleProfileTabs) {
         if (screen in listOf("profile", "hashtag") && visibleProfileTabs.isNotEmpty() && profileTab !in visibleProfileTabs) profileTab = visibleProfileTabs.first()
     }
     var topBarVisible by (homeToolbar ?: entry)::toolbar
     val scrollThreshold = with(LocalDensity.current) { 32.dp.toPx() }
+    var profileBarFraction by rememberSaveable(entry.key) { mutableFloatStateOf(1f) }
+    var profileToolbarHeight by remember(entry.key) { mutableIntStateOf(0) }
+    var profileTabsHeight by remember(entry.key) { mutableIntStateOf(0) }
+    LaunchedEffect(topBarVisible) {
+        if (screen == "profile") profileBarFraction = if (topBarVisible) 1f else 0f
+    }
     val activeListState = if (screen == "hashtag") entry.hashtagList(profileTab) else entry.list
     val savedScreens = rememberSaveableStateHolder()
     var profileNameBottom by remember(entry.key) { mutableStateOf<Float?>(null) }
@@ -505,6 +513,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 if (activeListState.firstVisibleItemIndex > 20) activeListState.scrollToItem(0)
                                 else activeListState.animateScrollToItem(0)
                                 topBarVisible = true
+                                profileBarFraction = 1f
                             } else selectProfileTab(tab)
                         }, icon = {
                             FeedCategoryIcon(tab)
@@ -516,7 +525,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     Scaffold(
         topBar = {
-            AnimatedVisibility(homeToolbar == null && topBarVisible, enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+            AnimatedVisibility(homeToolbar == null && (screen == "profile" || topBarVisible), enter = expandVertically(tween(180)), exit = shrinkVertically(tween(180))) {
+            Box(if (screen == "profile") Modifier.scrollAway(profileBarFraction) { profileToolbarHeight = it } else Modifier) {
             Column {
             TopAppBar(title = {
                 if (screen == "profile" && profileKey != null && showProfileToolbarName) {
@@ -593,6 +603,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 containerColor = if (transparentToolbar) Color.Transparent else MaterialTheme.colorScheme.surface,
                 actionIconContentColor = MaterialTheme.colorScheme.primary, navigationIconContentColor = MaterialTheme.colorScheme.primary))
             if (screen == "hashtag") categoryTabs()
+            }
             }
             }
         },
@@ -698,7 +709,17 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 val toolbarScroll = remember(screen, activeListState, scrollThreshold) {
                     object : NestedScrollConnection {
                         private var distance = 0f
+                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                            if (screen != "profile") return Offset.Zero
+                            val height = profileToolbarHeight + profileTabsHeight
+                            if (height <= 0 || (available.y < 0 && !activeListState.canScrollBackward)) return Offset.Zero
+                            val before = profileBarFraction * height
+                            val after = (before + available.y).coerceIn(0f, height.toFloat())
+                            profileBarFraction = after / height
+                            return Offset(0f, after - before)
+                        }
                         override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                            if (screen == "profile") return Offset.Zero
                             if (source != NestedScrollSource.UserInput) return Offset.Zero
                             if (!activeListState.canScrollBackward) {
                                 topBarVisible = true; distance = 0f
@@ -835,7 +856,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         .profileTabSwipes(screen in listOf("profile", "hashtag"), visibleProfileTabs, profileTab, ::selectProfileTab).semantics {
                         customActions = listOf(
                             CustomAccessibilityAction("Refresh") { if (s.loading) false else { refresh(); true } },
-                            CustomAccessibilityAction("Show toolbar") { topBarVisible = true; true },
+                            CustomAccessibilityAction("Show toolbar") { topBarVisible = true; profileBarFraction = 1f; true },
                         )
                     },
                 ) {
@@ -902,7 +923,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             }
                         }
                         if (screen == "profile") stickyHeader(key = "profile-tabs") {
-                            categoryTabs()
+                            Box(Modifier.scrollAway(profileBarFraction) { profileTabsHeight = it }) {
+                                categoryTabs()
+                            }
                         }
                         if (s.error == null && !hiddenContent && !refreshing && (emptyLoading || (visibleNotes.isEmpty() && activePage && s.loading)) && (screen != "thread" || displayRows.isEmpty())) item("progress") {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -1741,3 +1764,14 @@ private fun cacheSizeLabel(bytes: Long): String = when {
     bytes < 1024L * 1024 * 1024 -> "${bytes / (1024L * 1024)} MB"
     else -> String.format(java.util.Locale.getDefault(), "%.1f GB", bytes.toDouble() / (1024L * 1024 * 1024))
 }
+
+/** Measure at full size, then slide and clip the bar by the actual scroll distance. */
+private fun Modifier.scrollAway(fraction: Float, onHeight: (Int) -> Unit): Modifier =
+    clipToBounds().layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints.copy(minHeight = 0))
+        onHeight(placeable.height)
+        val visibleHeight = (placeable.height * fraction).toInt().coerceIn(0, placeable.height)
+        layout(placeable.width, visibleHeight) {
+            placeable.placeRelative(0, visibleHeight - placeable.height)
+        }
+    }

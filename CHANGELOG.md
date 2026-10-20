@@ -4,7 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.85.2] - 2026-10-20
+
 ### Changed
+- Make profile bars slide away and return at the speed of vertical scrolling instead of snapping after a threshold.
+- Hide sticky profile tabs together with the toolbar when scrolling down, and restore them when scrolling up.
+- Place Replies immediately after Posts in profile views.
 - Link the Feather origin interview to Gigi’s “Taste and Values” post beside the discussion of taste.
 
 ## [0.85.1] - 2026-10-20

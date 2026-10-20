@@ -1126,7 +1126,7 @@ class FeatherRepository(context: Context) {
                 .filterNot(ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)::hides)
             val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }
             (listOf(ProfileTab.POSTS) + found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
-                .distinct().sortedBy { it.orderPriority }
+                .distinct().sortedBy { it.profileOrderPriority }
         }.orEmpty()
         val hashtag = viewedHashtag
         val hashtagAuthor = viewedHashtagAuthor
@@ -1831,7 +1831,7 @@ class FeatherRepository(context: Context) {
                     profileTabsFor = author,
                     profileTabs = (listOf(ProfileTab.POSTS) +
                         previous.profileTabs.takeIf { previous.profileTabsFor == author }.orEmpty() +
-                        listOfNotNull(tab.takeIf { events.any(tab::matches) })).distinct().sortedBy { it.orderPriority })
+                        listOfNotNull(tab.takeIf { events.any(tab::matches) })).distinct().sortedBy { it.profileOrderPriority })
             }
             // Author metadata is optional: make cached content visible before querying it.
             val profiles = cachedProfiles((listOf(author) + events.take(24).map { it.pubKey }).distinct())
