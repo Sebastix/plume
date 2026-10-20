@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Link to the homepage directly in the Zapstore description.
+
 ## [0.91.1] - 2026-10-20
 
 ### Fixed

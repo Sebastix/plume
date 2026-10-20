@@ -5,6 +5,8 @@ name: Feather
 summary: Nostr with nothing in the way.
 description: |
   A minimal nostr client for Android. Opinionated, lightweight, and fast enough. Feather aims to be pleasant to use with a focus on simplicity and discoverability.
+
+  https://feather.dergigi.com/
 license: MIT
 website: https://feather.dergigi.com/
 icon: ./zapstore-icon.png
