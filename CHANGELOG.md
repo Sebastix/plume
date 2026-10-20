@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.92.1] - 2026-10-20
+
 ### Changed
 - Use a lightning bolt with sideways branching arrows for zap splits.
 
