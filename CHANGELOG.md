@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Use a lightning bolt with sideways branching arrows for zap splits.
+
 ### Added
 - Website NIP-05 identity for Feather at `_@feather.dergigi.com`.
 
