@@ -34,7 +34,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
     val data = details
     val clipboard = LocalClipboardManager.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f)
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (data == null) Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp, color = muted)
         } else {
@@ -47,7 +47,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                             val name = profile?.name ?: person.pubkey?.let(FeatherRepository::shortKey)
                                 ?: stringResource(R.string.ui_anonymous_zap)
                             val label = if (person.amount == null) name else "$name · ${person.amount} sats"
-                            Column(Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp).semantics { contentDescription = label }
+                            Column(Modifier.widthIn(min = 34.dp).heightIn(min = 34.dp).semantics { contentDescription = label }
                                 .then(if (person.pubkey != null) Modifier.clickable(onClickLabel = label) {
                                     onReference(NostrContent.Reference(person.pubkey, profile = true))
                                 } else Modifier), horizontalAlignment = Alignment.CenterHorizontally,
@@ -55,7 +55,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                                 if (person.pubkey != null) Avatar(name, size = 28, picture = profile?.picture)
                                 else Icon(Icons.Default.Person, label, Modifier.size(28.dp), tint = muted)
                                 person.amount?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = muted,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) }
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 2.dp)) }
                             }
                         }
                     }
@@ -82,7 +82,7 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                         Text(relay.removePrefix("wss://").removePrefix("ws://").trimEnd('/'),
                             style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1,
                             modifier = Modifier.clickable(onClickLabel = relay) { clipboard.setText(AnnotatedString(relay)) }
-                                .padding(horizontal = 6.dp, vertical = 10.dp))
+                                .padding(horizontal = 6.dp, vertical = 4.dp))
                     }
                 }
             }
