@@ -1476,6 +1476,7 @@ class FeatherRepository(context: Context) {
 
     internal suspend fun cacheFollowEvent(event: Event) {
         require(event.kind in listOf(3, 10002, 10015, 10000, 30000) && event.pubKey == state.value.publicKey)
+        require(event.kind != 30000 || event.tagValue("d") == "mute")
         accept(event)
         if (event.kind == 3) {
             // Use the database winner, in case a newer replacement arrived during publication.

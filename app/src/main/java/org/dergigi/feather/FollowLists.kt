@@ -46,7 +46,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                     val filter = Filter(kinds = listOf(kind), authors = listOf(owner), tags = if (kind == 30000) mapOf("d" to listOf("mute")) else null, limit = 1)
                     val completed = withTimeout(45_000) {
                         queries.completed(routes, listOf(filter.toJson())) { relay, event ->
-                            require(event.kind == kind && event.pubKey == owner && event.verify() &&
+                            require(event.kind == kind && (kind != 30000 || event.tagValue("d") == "mute") && event.pubKey == owner && event.verify() &&
                                 event.tags.size <= 5000 && event.content.length <= (if (kind in listOf(10015, 10000, 30000)) 262_144 else 32_768) &&
                                 event.createdAt <= System.currentTimeMillis() / 1000 + 600) { "Invalid follow-list response" }
                             current()
