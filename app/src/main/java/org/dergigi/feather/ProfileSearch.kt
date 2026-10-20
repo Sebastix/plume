@@ -117,7 +117,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 val reference = withContext(Dispatchers.Default) { NostrContent.searchReference(query) }
                 if (reference == null) { AppMessages.show(invalidReference); return@launch }
                 val latest = vm.state.value
-                if (ContentFilter(latest.mutedAuthors, latest.embedded, latest.deletedReactions, latest.showSensitive, latest.deletedNotes).hides(reference)) return@launch
+                if (ContentFilter(latest.mutedAuthors, latest.embedded, latest.deletedReactions, latest.showSensitive, latest.deletedNotes, latest.mutedWords).hides(reference)) return@launch
                 if (reference.external != null) {
                     context.openWebLink("https://njump.to/${reference.external}")
                 } else {

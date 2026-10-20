@@ -127,9 +127,9 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     fun resolve(ref: NostrContent.Reference) = byId[ref.id] ?: byAddress[ref.id]
     fun blocked(e: Event) = filter.hides(e) || e.id in deleted
     val revealFilter = filter.copy(deletedNotes = emptySet())
-    val chainFilter = filter.copy(authors = emptySet())
+    val chainFilter = filter.copy(authors = emptySet(), words = emptySet())
     val candidateFilter = chainFilter.copy(deletedNotes = emptySet())
-    fun muted(e: Event) = e.pubKey in filter.authors
+    fun muted(e: Event) = e.pubKey in filter.authors || filter.mutedText(e)
     fun boundary(e: Event) = chainFilter.hides(e) || e.id in deleted
     fun cachedCopy(e: Event?) = e?.takeUnless(revealFilter::hides)?.takeUnless {
         it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true

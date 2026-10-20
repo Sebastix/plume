@@ -94,8 +94,8 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
         NotificationType.entries.filter { it != NotificationType.ALL && selectedTypes and (1 shl it.ordinal) != 0 }
     }
     val events = state.notifications.takeIf { state.notificationsFor == owner }.orEmpty()
-    val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions, state.deletedNotes) {
-        ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes)
+    val filter = remember(state.mutedAuthors, state.embedded, state.showSensitive, state.deletedReactions, state.deletedNotes, state.mutedWords) {
+        ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes, state.mutedWords)
     }
     // Keep rows alongside the retained LazyListState. Mounting a temporary empty list
     // on Back would clamp its saved index before the background previews are ready.

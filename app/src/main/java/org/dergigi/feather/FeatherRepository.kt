@@ -81,6 +81,7 @@ data class FeedState(
     val showSensitive: Boolean = false,
     val proofOfWork: Boolean = true,
     val pendingMuteList: Event? = null,
+    val mutedWords: Set<String> = emptySet(),
     val publicKey: String? = null,
     val signerPackage: String? = null,
     val relays: List<String> = RelayDefaults.seeds.take(4),
@@ -886,13 +887,13 @@ class FeatherRepository(context: Context) {
     }
     private suspend fun snapshot(initialFeedOnly: Boolean = false) = snapshotMutex.withLock { snapshotContents(initialFeedOnly) }
 
-    private data class ThreadRequest(val id: String, val generation: Long, val account: String?, val sensitive: Boolean, val muted: Set<String>,
+    private data class ThreadRequest(val id: String, val generation: Long, val account: String?, val sensitive: Boolean, val muted: Set<String>, val words: Set<String>,
         val ancestors: Int, val expanded: Set<String>, val requestedParent: NostrContent.Reference?,
         val reference: NostrContent.Reference?, val parents: List<String>)
 
     @Synchronized
     private fun threadRequest(): ThreadRequest? = viewedThread?.let {
-        ThreadRequest(it, threadGeneration.get(), state.value.publicKey, state.value.showSensitive, state.value.mutedAuthors,
+        ThreadRequest(it, threadGeneration.get(), state.value.publicKey, state.value.showSensitive, state.value.mutedAuthors, state.value.mutedWords,
             threadAncestorLimit, threadExpanded, threadRequestedParent, openedReference?.takeIf { ref -> ref.id == it }, threadParents)
     }
 
@@ -967,7 +968,7 @@ class FeatherRepository(context: Context) {
             if (addressFilter != null) db.query<Event>(addressFilter).firstOrNull()
             else cachedEventsLocked(listOf(id))[id]?.takeIf { it.kind in readableKinds }
         } ?: (state.value.threadNotes + remembered).find { it.matchesThread(id) } ?: return Triple(emptyList(), null, emptyList())
-        val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = request.sensitive, deletedNotes = state.value.deletedNotes)
+        val filter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = request.sensitive, deletedNotes = state.value.deletedNotes, words = request.words)
         val chainFilter = filter.copy(authors = emptySet())
         val ancestors = linkedMapOf(focus.id to focus)
         var cursor = focus
@@ -1063,6 +1064,8 @@ class FeatherRepository(context: Context) {
         // Preserve already-known private blocks while a replacement awaits signer approval.
         val cachedPrivateMutes = if (muteList?.content?.isNotBlank() == true) muteCache.read(muteList, exact = false).orEmpty() else emptySet()
         val mutedAuthors = mutedPublicKeys(muteList) + (privateMutes ?: cachedPrivateMutes)
+        val previousMutedWords = state.value.mutedWords
+        val mutedWords = mutedWords(muteList) + muteList?.takeIf { it.content.isNotBlank() }?.let(muteCache::readWords).orEmpty()
         val pendingMuteList = muteList?.takeIf { it.content.isNotBlank() && privateMutes == null }
         val following = Protocol.follows(contact) - mutedAuthors
         val feedCeiling = feedUntil
@@ -1089,7 +1092,7 @@ class FeatherRepository(context: Context) {
             val profiles = cachedProfiles(authors)
             if (key == state.value.publicKey && feed == selectedFeed && feedCeiling == feedUntil) {
                 _state.update { it.copy(notes = all, feedTab = feed, following = following,
-                    mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList,
+                    mutedAuthors = mutedAuthors, mutedWords = mutedWords, pendingMuteList = pendingMuteList,
                     deletedReactions = deletedReactions, profiles = it.profiles + profiles,
                     loading = all.isEmpty()).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
             }
@@ -1102,7 +1105,7 @@ class FeatherRepository(context: Context) {
                 db.query<Event>(profileKinds.flatMap { kind -> Filter(kinds = listOf(kind), authors = feedAuthors, limit = 80).activityFilters() } +
                     Filter(kinds = listOf(1, 1111), authors = feedAuthors, limit = 80).podcastTagFilters())
             }
-            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
+            val feedFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes, words = mutedWords)
             val discoveryEvents = latestProfileEvents(discoveredFeed).filterNot(noteDeletions::hides).filterNot(::engagementDeleted).filterNot(feedFilter::hides)
             val recentTopics = timeline(Filter(kinds = listOf(1), since = topicSince(), limit = 600), emptyList(), 600)
                 .filterNot(feedFilter::hides)
@@ -1135,7 +1138,7 @@ class FeatherRepository(context: Context) {
                 } + Filter(kinds = listOf(1, 1111), authors = listOf(author), limit = 80).podcastTagFilters())
             }
             val events = latestProfileEvents(discovered + profileEvents + olderEvents.filter { it.involves(author) })
-                .filterNot(ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)::hides)
+                .filterNot(ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes, words = mutedWords)::hides)
             val found = ProfileTab.entries.filter { candidate -> events.any(candidate::matches) }
             (listOf(ProfileTab.POSTS) + found + state.value.profileTabs.takeIf { state.value.profileTabsFor == author }.orEmpty())
                 .distinct().sortedBy { it.profileOrderPriority }
@@ -1148,7 +1151,7 @@ class FeatherRepository(context: Context) {
         val hashtagNotes = hashtag?.let { tag ->
             hashtagTimeline(tag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount)
         }.orEmpty()
-        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes)
+        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes, words = mutedWords)
         val hashtagCategories = discoverHashtagCategories(hashtag, hashtagAuthor, hashtagNotes, contentFilter)
         val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
         val notifications = if (viewingNotifications && key != null) (retainedNotifications + mutex.withLock {
@@ -1273,10 +1276,11 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = mergeHashtagSnapshot(it, hashtagNotes, hashtag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount), hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = mergeProfileSnapshot(it, profileEvents, profile, tab, profileCeiling, profileCount), profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
+        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = mergeHashtagSnapshot(it, hashtagNotes, hashtag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount), hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = mergeProfileSnapshot(it, profileEvents, profile, tab, profileCeiling, profileCount), profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, mutedWords = mutedWords, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
+        if (previousMutedWords != mutedWords && viewedThread != null) threadChanges.tryEmit(Unit)
     }
 
     private fun mergeHashtagSnapshot(previous: FeedState, notes: List<Event>, tag: String?, author: String?, tab: ProfileTab,
@@ -1802,6 +1806,7 @@ class FeatherRepository(context: Context) {
         if (event.pubKey != state.value.publicKey || event.id != state.value.pendingMuteList?.id) return@withContext
         muteCache.write(event, plaintext)
         snapshot()
+        threadChanges.tryEmit(Unit)
     }
 
     suspend fun account(pubkey: String, signer: String) = withContext(Dispatchers.IO) {
@@ -1810,7 +1815,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(pollResults = emptyMap(), publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null, loading = true) }
+        _state.update { it.copy(pollResults = emptyMap(), publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), mutedWords = emptySet(), pendingMuteList = null, loading = true) }
         ready.await(); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
@@ -1818,7 +1823,7 @@ class FeatherRepository(context: Context) {
         emojiPackRequests = emptyList()
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
-        _state.update { it.copy(pollResults = emptyMap(), publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), pendingMuteList = null) }
+        _state.update { it.copy(pollResults = emptyMap(), publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), mutedWords = emptySet(), pendingMuteList = null) }
         threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     fun feedTab(tab: ProfileTab) {

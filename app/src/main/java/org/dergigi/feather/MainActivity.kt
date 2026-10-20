@@ -298,7 +298,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
         val request = incomingLink ?: return@LaunchedEffect
         val ref = request.second
         val state = vm.state.value
-        if (!ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes).hides(ref)) {
+        if (!ContentFilter(state.mutedAuthors, state.embedded, state.deletedReactions, state.showSensitive, state.deletedNotes, state.mutedWords).hides(ref)) {
             if (ref.external != null) {
                 // Unsupported event/address types use HTTPS, never launch our own scheme again.
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://njump.to/${ref.external}"))) }
@@ -339,7 +339,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         confirmedPayments.values.filter { it.first == s.publicKey }.map { it.second }.toSet()
     }
     val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
-    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes) }
+    val contentFilter = remember(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes, s.mutedWords) { ContentFilter(s.mutedAuthors, s.embedded, s.deletedReactions, s.showSensitive, s.deletedNotes, s.mutedWords) }
     val context = LocalContext.current
     val scrollScope = rememberCoroutineScope()
     val mediaStore = (context.applicationContext as FeatherApplication).media
@@ -1410,7 +1410,7 @@ private fun ConcealedConversationNote(row: ConversationRow, profiles: Map<String
     val muted = row.gap == ThreadGap.MUTED
     val source = if (muted) row.mutedCopy else row.deletedCopy
     val currentFilter = LocalContentFilter.current
-    val filter = if (muted) currentFilter.copy(authors = source?.pubKey?.let { currentFilter.authors - it } ?: currentFilter.authors)
+    val filter = if (muted) currentFilter.copy(authors = source?.pubKey?.let { currentFilter.authors - it } ?: currentFilter.authors, words = emptySet())
         else currentFilter.copy(deletedNotes = emptySet())
     val copy = source?.takeUnless(filter::hides)?.takeUnless {
         it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
@@ -1428,7 +1428,7 @@ private fun ConcealedConversationNote(row: ConversationRow, profiles: Map<String
     }) {
         Row(Modifier.padding(start = 18.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (muted) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+                Icon(painterResource(if (source != null && source.pubKey !in currentFilter.authors) R.drawable.muted_words else R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
             } else IconButton(onClick = { onInfo(label,
                 "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
                 Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1590,8 +1590,27 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
+    var showMutedWords by rememberSaveable { mutableStateOf(false) }
+    if (showMutedWords) ModalBottomSheet(onDismissRequest = { showMutedWords = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        val words = remember(state.mutedWords) { state.mutedWords.sorted() }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding()) {
+            Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_muted_words),
+                Modifier.padding(bottom = 16.dp), tint = MaterialTheme.colorScheme.primary)
+            if (words.isEmpty() && state.pendingMuteList == null) Text(stringResource(R.string.ui_no_muted_words),
+                Modifier.padding(bottom = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (words.isNotEmpty()) LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+                items(words, key = { it }) { word ->
+                    SelectionContainer { Text(word, Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        style = MaterialTheme.typography.bodyLarge) }
+                }
+            }
+            if (state.pendingMuteList != null) CircularProgressIndicator(Modifier.padding(bottom = 16.dp).size(20.dp), strokeWidth = 2.dp)
+        }
+    }
     val context = LocalContext.current
     val mediaStore = (context.applicationContext as FeatherApplication).media
     val budget by mediaStore.budgetMb.collectAsStateWithLifecycle()
@@ -1656,6 +1675,11 @@ private fun Settings(state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, o
                 onSelect = { selectedBudget = it },
                 onFinished = { index -> scope.launch { mediaStore.setBudget(MediaContent.cacheOptionsMb[index]) } })
             mediaError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = { showMutedWords = true }, modifier = Modifier.size(RoundControlSize)) {
+                Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_muted_words), tint = MaterialTheme.colorScheme.primary)
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { onIssue(IssueType.BUG) }, modifier = Modifier.size(RoundControlSize)) {

@@ -159,4 +159,6 @@
     <string name="ui_unfollow_hashtag">Unfollow hashtag</string>
     <string name="ui_first_hashtag_title">Create interests list?</string>
     <string name="ui_first_hashtag_body">No existing interests list was found on your relays. Create a new list with this hashtag? If you already follow hashtags in another app, cancel and check your relay connections first.</string>
+    <string name="ui_muted_words">Muted words</string>
+    <string name="ui_no_muted_words">No muted words</string>
 </resources>

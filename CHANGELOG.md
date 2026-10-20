@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-10-20
+
+### Added
+- Honor existing public/private NIP-51 muted words with case-insensitive text matching in feeds and notifications and per-reply reveal in threads.
+- Read-only muted-words sheet in Settings, opened by a speech-bubble-with-slash icon.
+
 ## [0.85.5] - 2026-10-20
 
 ### Fixed

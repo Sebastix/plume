@@ -11,6 +11,11 @@ internal fun mutedPublicKeys(event: Event?): Set<String> = event?.tags.orEmpty()
     .filter { it.size >= 2 && it[0] == "p" }
     .mapNotNull { Protocol.publicKey(it[1]) }.toSet()
 
+internal fun mutedWords(event: Event?): Set<String> = event?.tags.orEmpty().asSequence()
+    .filter { it.size >= 2 && it[0] == "word" }
+    .map { it[1].trim().lowercase(java.util.Locale.ROOT) }.filter { it.isNotEmpty() }
+    .take(5000).toSet()
+
 private val sensitiveHashtags = setOf("nsfw", "porn", "pornography")
 
 /** NIP-36 and explicit author-supplied labels; no content guessing or remote classifier. */
@@ -29,20 +34,24 @@ internal data class ContentFilter(
     val deletedReactions: Set<Pair<String, String>> = emptySet(),
     val showSensitive: Boolean = false,
     val deletedNotes: Set<String> = emptySet(),
+    val words: Set<String> = emptySet(),
 ) {
     fun hides(reference: NostrContent.Reference): Boolean =
         reference.id in deletedNotes || reference.author in authors || (reference.profile && reference.id in authors) || embedded[reference.id]?.let(::hides) == true
+
+    fun mutedText(event: Event): Boolean = words.isNotEmpty() && event.kind in readableKinds &&
+        words.any { event.content.contains(it, ignoreCase = true) || event.tagValue("title")?.contains(it, ignoreCase = true) == true }
 
     fun hides(event: Event): Boolean {
         if (event.id in deletedNotes) return true
         if (!showSensitive && event.isSensitive()) return true
         if (event.kind in listOf(6, 7, 16) && (event.pubKey to event.id) in deletedReactions) return true
-        if (event.pubKey in authors) return true
+        if (event.pubKey in authors || mutedText(event)) return true
         if (event.kind !in listOf(6, 16, 7, 9735, 9321)) return false
         // Tags are already decoded. Avoid URI/NIP-19 parsing during the final render guard.
         val author = event.tags.lastOrNull { it.size >= 2 && it[0] == "p" }?.get(1)
         val id = event.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)
-        return id in deletedNotes || author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.let { it.id in deletedNotes || it.pubKey in authors || (!showSensitive && it.isSensitive()) } == true
+        return id in deletedNotes || author in authors || (event.kind == 9735 && event.tagValue("P") in authors) || embedded[id]?.let { it.id in deletedNotes || it.pubKey in authors || mutedText(it) || (!showSensitive && it.isSensitive()) } == true
     }
 }
 internal val LocalContentFilter = staticCompositionLocalOf { ContentFilter() }
@@ -52,17 +61,37 @@ internal class MuteCache(context: Context) {
     private val prefs = context.getSharedPreferences("private-mutes", Context.MODE_PRIVATE)
     fun read(event: Event, exact: Boolean = true): Set<String>? = runCatching {
         val data = JSONObject(prefs.getString(event.pubKey, null) ?: return null)
-        if (exact && data.getString("id") != event.id) return null
+        if (exact && (data.getString("id") != event.id || data.optInt("version") != 2)) return null
         keys(data.getJSONArray("tags"))
     }.getOrNull()
 
     fun write(event: Event, plaintext: String) {
         require(plaintext.length <= 262_144)
-        val keys = keys(JSONArray(plaintext))
-        val tags = JSONArray().apply { keys.forEach { put(JSONArray().put("p").put(it)) } }
-        val edit = prefs.edit().putString(event.pubKey, JSONObject().put("id", event.id).put("tags", tags).toString())
+        val parsed = JSONArray(plaintext)
+        val keys = keys(parsed)
+        val words = words(parsed)
+        val tags = JSONArray().apply {
+            keys.forEach { put(JSONArray().put("p").put(it)) }
+            words.forEach { put(JSONArray().put("word").put(it)) }
+        }
+        val edit = prefs.edit().putString(event.pubKey, JSONObject().put("version", 2).put("id", event.id).put("tags", tags).toString())
         prefs.all.keys.filter { it != event.pubKey }.drop(7).forEach(edit::remove)
         check(edit.commit())
+    }
+
+    fun readWords(event: Event): Set<String> = runCatching {
+        words(JSONObject(prefs.getString(event.pubKey, null) ?: return emptySet()).getJSONArray("tags"))
+    }.getOrDefault(emptySet())
+
+    private fun words(tags: JSONArray): Set<String> {
+        require(tags.length() <= 5000)
+        return buildSet {
+            for (i in 0 until tags.length()) {
+                val tag = tags.optJSONArray(i) ?: continue
+                if (tag.optString(0) == "word") tag.optString(1).trim().lowercase(java.util.Locale.ROOT)
+                    .takeIf { it.isNotEmpty() }?.let(::add)
+            }
+        }
     }
 
     private fun keys(tags: JSONArray): Set<String> {
