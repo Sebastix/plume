@@ -3,5 +3,5 @@
     <group android:translateX="-5">
         <path android:fillColor="#FF000000" android:pathData="M11,21h-1l1,-7H7.5c-0.58,0 -0.57,-0.32 -0.38,-0.66C7.31,13 7.17,13.26 7.19,13.22 8.48,10.94 10.42,7.54 13,3h1l-1,7h3.5c0.49,0 0.56,0.33 0.47,0.51l-0.07,0.15C12.96,17.55 11,21 11,21z" />
     </group>
-    <path android:pathData="M12,12H14Q17,12 17,9V8Q17,6 19,6H22M20,4L22,6L20,8M14,12Q17,12 17,15V16Q17,18 19,18H22M20,16L22,18L20,20" android:strokeWidth="1.6" android:strokeColor="#FF000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M13.5,12H14Q17,12 17,9V8Q17,6 19,6H22M20,4L22,6L20,8M14,12Q17,12 17,15V16Q17,18 19,18H22M20,16L22,18L20,20" android:strokeWidth="1.6" android:strokeColor="#FF000000" android:strokeLineCap="round" android:strokeLineJoin="round" />
 </vector>
