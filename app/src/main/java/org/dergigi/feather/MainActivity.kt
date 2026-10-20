@@ -637,7 +637,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             .filter { it.matchesHashtagFeed(hashtag.orEmpty(), entry.hashtagAuthor, profileTab) }).take(600)
                     "profile" -> latestProfileEvents(s.profileEvents.filter { it.involves(profileKey) } + retained).filter(profileTab::matches).take(600)
                     "thread" -> emptyList()
-                    else -> (if (s.feedTab == profileTab) s.notes else latestProfileEvents(s.feedPreviews[profileTab].orEmpty() + retained))
+                    else -> latestProfileEvents((if (s.feedTab == profileTab) s.notes else s.feedPreviews[profileTab].orEmpty()) + retained)
                         .filter { profileTab.matchesFeed(it) && (if (profileTab == ProfileTab.HASHTAGS) true else (s.publicKey == null || (profileTab == ProfileTab.POSTS && it.matchesHashtags(s.followedHashtags)) || it.involves(s.publicKey) || it.pubKey in s.following || (it.kind == 9321 && it.tagValue("p") in s.following) || (it.kind == 9735 && (it.tagValue("p") in s.following || it.tagValue("P") in s.following)))) }.take(600)
                     }
                     filtered

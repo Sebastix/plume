@@ -343,7 +343,14 @@ class FeatherRepository(context: Context) {
             }
             catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not open the local cache.") }; ready.completeExceptionally(e) }
         }
-        scope.launch { ready.await(); changed.sample(250).collect { snapshot() } }
+        scope.launch { ready.await(); changed.sample(250).collect {
+            try { snapshot() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                // One failed optional read must not permanently stop cached view updates.
+                android.util.Log.w("FeatherRepository", "Could not refresh cached views", e)
+            }
+        } }
         scope.launch {
             ready.await()
             scopedContentChanges.sample(150).collect {
@@ -1171,6 +1178,25 @@ class FeatherRepository(context: Context) {
             }
             else -> latestProfileEvents(timeline(Filter(kinds = feed.feedKinds(), authors = feedAuthors, limit = feedLimit, until = feedCeiling), previousFeed, feedLimit))
         }
+        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes, words = mutedWords)
+        // Publish local rows before optional category, metadata, engagement and routing work.
+        // Keep the old view intact if navigation/account changed during a disk read.
+        fun feedCurrent() = key == state.value.publicKey && feed == selectedFeed && feedCeiling == feedUntil
+        if (feedCurrent()) _state.update { previous ->
+            if (!feedCurrent()) previous else previous.copy(notes = all.filterNot(contentFilter::hides), feedTab = feed,
+                loading = if (viewedThread == null && viewedProfile == null && viewedHashtag == null && all.isNotEmpty()) false else previous.loading)
+        }
+        val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
+        val notifications = if ((viewingNotifications || initialFeedOnly) && key != null) (retainedNotifications + mutex.withLock {
+            // Independent per-kind windows must not replace previously discovered rows.
+            notificationKinds.flatMap { kind -> db.query<Event>(Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100)) }
+        }).distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
+            .filter { event -> event.kind !in listOf(9735, 9321) || zapActivity(event)?.let { it.sender != key && it.sender !in mutedAuthors } == true }
+            .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(1000)
+        else state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
+        if (key == state.value.publicKey) _state.update {
+            if (it.publicKey == key) it.copy(notifications = notifications, notificationsFor = key) else it
+        }
         if (initialFeedOnly) {
             // Same account/filter rules as the complete snapshot, with no relay work.
             // Metadata is bounded to the initial viewport; the rest fills in independently.
@@ -1237,16 +1263,7 @@ class FeatherRepository(context: Context) {
         val hashtagNotes = hashtag?.let { tag ->
             hashtagTimeline(tag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount)
         }.orEmpty()
-        val contentFilter = ContentFilter(mutedAuthors, state.value.embedded, showSensitive = state.value.showSensitive, deletedNotes = state.value.deletedNotes, words = mutedWords)
         val hashtagCategories = discoverHashtagCategories(hashtag, hashtagAuthor, hashtagNotes, contentFilter)
-        val retainedNotifications = state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
-        val notifications = if (viewingNotifications && key != null) (retainedNotifications + mutex.withLock {
-            // Independent per-kind windows must not replace previously discovered rows.
-            notificationKinds.flatMap { kind -> db.query<Event>(Filter(kinds = listOf(kind), tags = mapOf("p" to listOf(key)), limit = 100)) }
-        }).distinctBy { it.id }.filterNot { it.pubKey == key || engagementDeleted(it) || contentFilter.hides(it) }
-            .filter { event -> event.kind !in listOf(9735, 9321) || zapActivity(event)?.let { it.sender != key && it.sender !in mutedAuthors } == true }
-            .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).take(1000)
-        else state.value.notifications.takeIf { key != null && state.value.notificationsFor == key }.orEmpty()
         val readingPool = (threadNotes + hashtagNotes + profileEvents + (if (viewingNotifications) notifications else all)).filterNot(contentFilter::hides).distinctBy { it.id }
         val visible = (galleryNote?.let { listOf(it) } ?: visibleIds.mapNotNull { id -> readingPool.find { it.id == id } }.ifEmpty {
             if (viewingNotifications) notifications.take(12) else if (thread != null) threadNotes.take(12) else if (hashtag != null) hashtagNotes.take(12) else if (profile != null) profileEvents.filter(tab::matches).take(12) else all.filter(feed::matchesFeed).take(12)

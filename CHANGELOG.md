@@ -4,6 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Preserve the current feed visit’s retained posts when a smaller cache window is restored, keeping back-navigation scroll anchors available.
+- Display cached feed and notification rows before optional discovery and engagement work; restore notifications during startup before cache pruning. Keep cached-view updates alive after a transient cache read failure.
+
 ### Changed
 - Link to the homepage directly in the Zapstore description.
 
