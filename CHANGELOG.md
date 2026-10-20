@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.90.0] - 2026-10-20
+
 ### Added
 - Android lock-screen and notification controls for fullscreen or unmuted videos, with play/pause, 10-second seeking, playback speed, and a link back to the source note. Keep the selected video playing when the screen locks; muted feed previews stay out of system controls.
 
