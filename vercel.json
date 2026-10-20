@@ -20,6 +20,19 @@
           "value": "default-src 'self'; img-src 'self' blob: https://gifs.nostr.build; media-src 'self' blob: https://gifs.nostr.build; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
         }
       ]
+    },
+    {
+      "source": "/.well-known/nostr.json",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        }
+      ]
     }
   ]
 }

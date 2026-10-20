@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Website NIP-05 identity for Feather at `_@feather.dergigi.com`.
+
 ## [0.92.0] - 2026-10-20
 
 ### Added
