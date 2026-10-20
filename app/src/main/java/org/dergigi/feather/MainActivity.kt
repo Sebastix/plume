@@ -457,7 +457,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         if (s.publicKey == null) showSettings = false
     }
     LaunchedEffect(showSettings) {
-        if (showSettings && s.publicKey != null) vm.accountSettings.retry()
+        if (showSettings && s.publicKey != null) {
+            vm.repo.refreshAccountData(force = true)
+            vm.accountSettings.retry()
+            vm.retryMutes()
+        }
     }
     LaunchedEffect(s.pendingHashtagList?.id, connectedSigner, activePage) {
         if (activePage) vm.loadHashtags(s.pendingHashtagList)
@@ -1596,6 +1600,12 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
     var showMutedWords by rememberSaveable { mutableStateOf(false) }
     var mutedWordInput by rememberSaveable(state.publicKey) { mutableStateOf("") }
     val muteWordEdits by vm.muteWordEdits.collectAsStateWithLifecycle()
+    val refreshingAccount by vm.repo.accountDataLoading.collectAsStateWithLifecycle()
+    val accountRefreshError by vm.repo.accountDataError.collectAsStateWithLifecycle()
+    val decryptingMutes by vm.decryptingMutes.collectAsStateWithLifecycle()
+    LaunchedEffect(showMutedWords) {
+        if (showMutedWords) { vm.repo.refreshAccountData(force = true); vm.retryMutes() }
+    }
     if (showMutedWords) ModalBottomSheet(onDismissRequest = { showMutedWords = false },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         val words = remember(state.mutedWords, muteWordEdits) {
@@ -1616,9 +1626,12 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
                     Icon(Icons.Default.Add, stringResource(R.string.ui_add_muted_word))
                 }
             }
-            if (words.isEmpty() && state.pendingMuteList == null) Text(stringResource(R.string.ui_no_muted_words),
-                Modifier.padding(bottom = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else if (words.isNotEmpty()) LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (words.isEmpty() && state.pendingMuteList == null && refreshingAccount != state.publicKey && accountRefreshError?.first != state.publicKey)
+                Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_no_muted_words),
+                        Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                }
+            if (words.isNotEmpty()) LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(words, key = { it }) { word ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         SelectionContainer(Modifier.weight(1f)) { Text(word, Modifier.padding(vertical = 10.dp),
@@ -1630,7 +1643,12 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
                     }
                 }
             }
-            if (state.pendingMuteList != null) CircularProgressIndicator(Modifier.padding(bottom = 16.dp).size(20.dp), strokeWidth = 2.dp)
+            if (refreshingAccount == state.publicKey || decryptingMutes)
+                CircularProgressIndicator(Modifier.padding(bottom = 16.dp).size(20.dp), strokeWidth = 2.dp)
+            else if (state.pendingMuteList != null || accountRefreshError?.first == state.publicKey)
+                IconButton(onClick = { vm.repo.refreshAccountData(force = true); vm.retryMutes() }) {
+                    Icon(Icons.Default.Refresh, stringResource(R.string.ui_retry), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
         }
     }
     val context = LocalContext.current

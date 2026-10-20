@@ -166,4 +166,5 @@
     <string name="ui_remove_muted_word">%1$s を削除</string>
     <string name="ui_search_notifications">通知を検索</string>
     <string name="ui_no_notification_matches">一致する通知はありません</string>
+    <string name="ui_retry">再試行</string>
 </resources>

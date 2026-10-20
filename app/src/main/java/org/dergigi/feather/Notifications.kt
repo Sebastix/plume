@@ -272,13 +272,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                                decorationBox = { field ->
-                                    Box {
-                                        if (search.isEmpty()) Text(hint, style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        field()
-                                    }
-                                })
+                                decorationBox = { field -> field() })
                             if (search.isNotEmpty()) IconButton(onClick = { entry.notificationSearch = "" }, modifier = Modifier.size(40.dp)) {
                                 Icon(Icons.Default.Close, stringResource(R.string.ui_clear_search), Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)

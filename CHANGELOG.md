@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.88.1] - 2026-10-20
+
+### Fixed
+- Refresh account metadata and lists independently from feed routing on launch and when opening Settings or your own profile. Discover account relays first, then fetch current lists from those relays and bootstrap relays.
+- Show cached muted words immediately, update them after private-list decryption, and distinguish loading/retry from an empty list using icons.
+
+### Changed
+- Remove the notification search placeholder; retain the search icon and accessibility label.
+
 ## [0.88.0] - 2026-10-20
 
 ### Added

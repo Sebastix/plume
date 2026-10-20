@@ -166,4 +166,5 @@
     <string name="ui_remove_muted_word">Remove %1$s</string>
     <string name="ui_search_notifications">Search notifications</string>
     <string name="ui_no_notification_matches">No matching notifications</string>
+    <string name="ui_retry">Retry</string>
 </resources>

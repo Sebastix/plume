@@ -354,8 +354,78 @@ class FeatherRepository(context: Context) {
             }
         }
     }
+    internal val accountDataLoading = MutableStateFlow<String?>(null)
+    internal val accountDataError = MutableStateFlow<Pair<String, String>?>(null)
+    private val accountQueries = ProfileRelayQuery()
+    private var accountRefreshJob: Job? = null
+    private var accountRefreshOwner: String? = null
+    private var accountRefreshedAt = 0L
+
+    /** Replaceable account discovery, independent of the small feed routing pool. */
+    @Synchronized
+    fun refreshAccountData(force: Boolean = false) {
+        val owner = state.value.publicKey ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (accountRefreshOwner == owner && (accountRefreshJob?.isActive == true ||
+                (!force && now - accountRefreshedAt < 60_000))) return
+        accountRefreshJob?.cancel()
+        accountRefreshOwner = owner
+        accountDataLoading.value = owner
+        accountDataError.value = null
+        accountRefreshJob = scope.launch(Dispatchers.IO) {
+            try {
+                ready.await()
+                refreshMuteState(owner)
+                fun current() = check(state.value.publicKey == owner) { "Account changed" }
+                val known = followEvent(owner, 10002)?.let(Outbox::parse)
+                val bootstrap = (known?.write.orEmpty() + known?.read.orEmpty() + RelayDefaults.seeds.take(3) + "wss://purplepag.es").distinct().take(32)
+                accountQueries.completed(bootstrap, listOf(Filter(authors = listOf(owner), kinds = listOf(10002), limit = 1).toJson())) { _, event ->
+                    current()
+                    event.pubKey == owner && event.kind == 10002 && accept(event)
+                }
+                current()
+                val relays = followEvent(owner, 10002)?.let(Outbox::parse)
+                val routes = (relays?.write.orEmpty() + relays?.read.orEmpty() + bootstrap).distinct().take(32)
+                val kinds = listOf(0, 3, 10000, 10015, 10030, 10063)
+                val filters = kinds.map { Filter(authors = listOf(owner), kinds = listOf(it), limit = 1) } +
+                    Filter(authors = listOf(owner), kinds = listOf(30000), tags = mapOf("d" to listOf("mute")), limit = 1) +
+                    Filter(authors = listOf(owner), kinds = listOf(30078), tags = mapOf("d" to listOf(SETTINGS_D)), limit = 1)
+                val completed = accountQueries.completed(routes, filters.map { it.toJson() }) { _, event ->
+                    current()
+                    val allowed = event.pubKey == owner && (event.kind in kinds ||
+                        (event.kind == 30000 && event.tagValue("d") == "mute") ||
+                        (event.kind == 30078 && event.tagValue("d") == SETTINGS_D))
+                    if (allowed && accept(event)) {
+                        if (event.kind == 10000 || event.kind == 30000) refreshMuteState(owner)
+                        true
+                    } else false
+                }
+                current()
+                check(completed.isNotEmpty()) { "Could not refresh account data. Cached lists are still available." }
+                accountRefreshedAt = android.os.SystemClock.elapsedRealtime()
+                changed.tryEmit(Unit)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (state.value.publicKey == owner) accountDataError.value = owner to (e.message ?: "Could not refresh account data")
+            } finally {
+                if (accountRefreshOwner == owner) accountDataLoading.value = null
+            }
+        }
+    }
+
+    private suspend fun refreshMuteState(owner: String) {
+        val event = followEvent(owner, 10000) ?: followEvent(owner, 30000)
+        val encrypted = event?.takeIf { it.content.isNotBlank() }
+        val private = encrypted?.let(muteCache::read)
+        val authors = mutedPublicKeys(event) + (private ?: encrypted?.let { muteCache.read(it, exact = false) }.orEmpty())
+        val words = mutedWords(event) + encrypted?.let(muteCache::readWords).orEmpty()
+        _state.update { if (it.publicKey == owner) it.copy(mutedAuthors = authors, mutedWords = words,
+            pendingMuteList = encrypted?.takeIf { private == null }) else it }
+    }
+
     fun foreground() {
         active = true
+        refreshAccountData()
         foregroundActive.value = true
         threadChanges.tryEmit(Unit)
         scope.launch { ready.await(); if (active) { changed.tryEmit(Unit); subscribeFeed(); client.connect() } }
@@ -1817,7 +1887,8 @@ class FeatherRepository(context: Context) {
         ensureActive()
         if (event.pubKey != state.value.publicKey || event.id != state.value.pendingMuteList?.id) return@withContext
         muteCache.write(event, plaintext)
-        snapshot()
+        refreshMuteState(event.pubKey)
+        changed.tryEmit(Unit)
         threadChanges.tryEmit(Unit)
     }
 
@@ -1828,7 +1899,7 @@ class FeatherRepository(context: Context) {
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
         _state.update { it.copy(pollResults = emptyMap(), publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), mutedWords = emptySet(), pendingMuteList = null, loading = true) }
-        ready.await(); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
+        ready.await(); refreshAccountData(force = true); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
@@ -1884,7 +1955,7 @@ class FeatherRepository(context: Context) {
         }
     }
 
-    fun viewProfile(key: String?) { if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; restoreProfileCache(); changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps"); client.unsubscribe("profile-issues") }; if (active) subscribeFeed() }
+    fun viewProfile(key: String?) { if (key != null && key == state.value.publicKey) refreshAccountData(); if (viewedProfile == key) return; stopProfileSweep(); historyJob?.cancel(); profileLimit = 100; profileUntil = null; profileTab = ProfileTab.POSTS; viewedProfile = key; restoreProfileCache(); changed.tryEmit(Unit); if (key == null) { client.unsubscribe("profile"); client.unsubscribe("profile-activity"); client.unsubscribe("profile-apps"); client.unsubscribe("profile-issues") }; if (active) subscribeFeed() }
     fun profileTab(tab: ProfileTab) {
         if (profileTab == tab) return
         historyJob?.cancel()
