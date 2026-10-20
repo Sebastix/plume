@@ -41,16 +41,7 @@ class AudioPlaybackService : MediaSessionService() {
     private val app get() = application as FeatherApplication
 
     private fun controls(player: Player): List<CommandButton> {
-        val speedIcon = when (player.playbackParameters.speed) {
-            .75f -> R.drawable.audio_speed_075
-            1.25f -> R.drawable.audio_speed_125
-            1.5f -> R.drawable.audio_speed_15
-            1.75f -> R.drawable.audio_speed_175
-            2f -> R.drawable.audio_speed_2
-            2.5f -> R.drawable.audio_speed_25
-            3f -> R.drawable.audio_speed_3
-            else -> R.drawable.audio_speed_1
-        }
+        val speedIcon = audioSpeedIcon(player.playbackParameters.speed)
         val note = app.audio.sourceNote
         val state = app.repository.state.value
         val reacted = note?.id?.let { id -> state.sentReactions[id].orEmpty().any { it.content == "🧡" } } == true
@@ -116,7 +107,10 @@ class AudioPlaybackService : MediaSessionService() {
                 if (events.containsAny(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
                         Player.EVENT_MEDIA_ITEM_TRANSITION)) refreshControls()
             }
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { media.audioActive = playWhenReady }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (playWhenReady) VideoPlaybackService.stopPlayback()
+                media.audioActive = playWhenReady
+            }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) player.pause()
             }

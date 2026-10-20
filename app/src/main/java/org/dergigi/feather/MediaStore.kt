@@ -65,7 +65,7 @@ class MediaStore(private val context: Context) {
     private suspend fun rebuild(mb: Int) = withContext(Dispatchers.IO) {
         mutex.withLock {
             _error.value = null
-            withContext(Dispatchers.Main.immediate) { AudioPlaybackService.beforeCacheChange() }
+            withContext(Dispatchers.Main.immediate) { VideoPlaybackService.stopPlayback(); AudioPlaybackService.beforeCacheChange() }
             val previous = _resources.value
             _resources.value = null
             http.dispatcher.cancelAll()
@@ -110,5 +110,5 @@ class MediaStore(private val context: Context) {
             }
         }
     }
-    fun background() { if (!audioActive) http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll(); videoPrefetchHttp.dispatcher.cancelAll() }
+    fun background() { if (!audioActive && !VideoPlaybackService.active) http.dispatcher.cancelAll(); prefetchHttp.dispatcher.cancelAll(); videoPrefetchHttp.dispatcher.cancelAll() }
 }

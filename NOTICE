@@ -7,3 +7,5 @@ The Highlights tab uses Google's Material Symbols ink_highlighter icon, adapted
 from SVG to Android VectorDrawable. Copyright Google LLC, Apache License 2.0.
 Source: https://github.com/google/material-design-icons
 License: https://www.apache.org/licenses/LICENSE-2.0
+
+Notification playback-speed icons use Roboto SemiBold glyph outlines (Google / the Roboto Project Authors), under the SIL Open Font License 1.1. See app/src/main/assets/ROBOTO-LICENSE.txt.

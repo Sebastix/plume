@@ -31,7 +31,7 @@ private object VideoResumeStates {
 
 /** A bounded window of visible clips: prepare neighbors, start the center, retain playing edges. */
 class VisibleVideos(private val context: Context, private val resources: MediaStore.Resources) {
-    private data class Candidate(val url: String, val bounds: Rect, val height: Float, val mime: String?)
+    private data class Candidate(val url: String, val bounds: Rect, val height: Float, val mime: String?, val note: com.vitorpamplona.quartz.nip01Core.core.Event?, val preview: String?)
     private val candidates = mutableMapOf<String, Candidate>()
     private val clips = mutableStateMapOf<String, VisibleVideoPlayer>()
     private val failedUntil = linkedMapOf<String, Long>()
@@ -40,6 +40,7 @@ class VisibleVideos(private val context: Context, private val resources: MediaSt
     private var planned: List<String> = emptyList()
     private var enabled = true
     private var closed = false
+    private var backgroundPlayback = false
     var viewport = Rect.Zero
         set(value) { if (field != value) { field = value; choose() } }
     var fullscreenPlayer by mutableStateOf<VisibleVideoPlayer?>(null)
@@ -48,16 +49,17 @@ class VisibleVideos(private val context: Context, private val resources: MediaSt
     val preparedUrls get() = clips.values.map { it.url }.toSet()
     fun clip(key: String): VisibleVideoPlayer? = clips[key]
 
-    fun report(key: String, url: String, bounds: Rect, height: Float, mime: String? = null) {
+    fun report(key: String, url: String, bounds: Rect, height: Float, mime: String? = null, note: com.vitorpamplona.quartz.nip01Core.core.Event? = null, preview: String? = null) {
         if (closed) return
-        candidates[key] = Candidate(url, bounds, height, mime)
+        candidates[key] = Candidate(url, bounds, height, mime, note, preview)
         choose()
     }
     fun remove(key: String) { candidates.remove(key); choose() }
-    fun enabled(value: Boolean) {
-        if (closed || enabled == value) return
+    fun enabled(value: Boolean, keepSelected: Boolean = false) {
+        if (closed || (enabled == value && backgroundPlayback == keepSelected)) return
         enabled = value
-        clips.values.forEach { it.setActive(value && (!fullscreen || it === fullscreenPlayer)) }
+        backgroundPlayback = keepSelected
+        clips.values.forEach { it.setActive((value && (!fullscreen || it === fullscreenPlayer)) || (keepSelected && VideoPlaybackService.owns(it))) }
         choose()
     }
     private fun visible(): List<String> = candidates.entries.mapNotNull { (key, candidate) ->
@@ -68,10 +70,10 @@ class VisibleVideos(private val context: Context, private val resources: MediaSt
 
     private fun choose() {
         if (closed || fullscreen) return
+        if (!enabled) { selectionJob?.cancel(); planned = emptyList(); return }
         val visible = visible()
         // No decoder or network activity for clips that have completely left the viewport.
         clips.keys.filter { it !in visible }.forEach { clips.remove(it)?.close() }
-        if (!enabled) { selectionJob?.cancel(); planned = emptyList(); return }
         val now = SystemClock.elapsedRealtime()
         val available = visible.filter { (failedUntil[candidates[it]?.url] ?: 0L) <= now }
         // Playing edge clips retain their decoder until fully out of view. Three slots cover
@@ -94,7 +96,7 @@ class VisibleVideos(private val context: Context, private val resources: MediaSt
                 if (key !in clips) {
                     val candidate = candidates[key] ?: return@forEach
                     runCatching {
-                        VisibleVideoPlayer(context, resources, candidate.url, candidate.mime,
+                        VisibleVideoPlayer(context, resources, candidate.url, candidate.mime, candidate.note, candidate.preview,
                             onFullscreen = ::setFullscreen, onAudible = ::makeAudible,
                             onError = { failure -> failed(key, failure) })
                     }.onSuccess { clips[key] = it }.onFailure { failed(key, candidate.url) }
@@ -141,10 +143,12 @@ class VisibleVideos(private val context: Context, private val resources: MediaSt
 
 /** One clip's native controls and timeline, shared by inline and fullscreen views. */
 class VisibleVideoPlayer(
-    context: Context,
+    private val context: Context,
     resources: MediaStore.Resources,
     val url: String,
     mime: String?,
+    internal val sourceNote: com.vitorpamplona.quartz.nip01Core.core.Event?,
+    preview: String?,
     private val onFullscreen: (VisibleVideoPlayer, Boolean) -> Unit,
     private val onAudible: (VisibleVideoPlayer) -> Unit,
     private val onError: (String) -> Unit,
@@ -184,11 +188,20 @@ class VisibleVideoPlayer(
                     if (active && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
                         if (!started && playWhenReady) restoreVolume()
                         started = true
+                        if (playWhenReady && (fullscreen || !muted)) VideoPlaybackService.select(context, this@VisibleVideoPlayer)
                     }
                 }
                 override fun onPlayerError(error: PlaybackException) { onError(url) }
             })
-            setMediaItem(MediaItem.Builder().setUri(url).setMimeType(mime).build())
+            val app = context.applicationContext as FeatherApplication
+            val author = sourceNote?.let { app.repository.state.value.profiles[it.pubKey]?.name ?: FeatherRepository.shortKey(it.pubKey) }
+            val title = sourceNote?.tagValue("title")?.take(160)
+                ?: sourceNote?.content?.take(2048)?.lineSequence()?.firstOrNull { it.isNotBlank() && !it.trim().startsWith("https://") }?.take(160)
+                ?: context.getString(R.string.ui_video)
+            setMediaItem(MediaItem.Builder().setMediaId(sourceNote?.id ?: url).setUri(url).setMimeType(mime)
+                .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(title).setArtist(author)
+                    .setArtworkUri(preview?.let(android.net.Uri::parse)).build()).build())
+            setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
             VideoResumeStates.get(url)?.position?.let { seekTo(it) }
             prepare() // Media3 renders the first frame even with playWhenReady=false.
         }
@@ -208,6 +221,7 @@ class VisibleVideoPlayer(
         if (!value) rememberPlayback()
         active = value
         if (!value) {
+            VideoPlaybackService.detach(this)
             resume = player?.playWhenReady == true
             player?.pause()
             player?.stop() // Release decoder/loading while covered or backgrounded; retain position.
@@ -234,6 +248,8 @@ class VisibleVideoPlayer(
     }
     fun enterFullscreen() {
         if (player == null || fullscreen) return
+        VideoPlaybackService.select(context, this)
+        setActive(true)
         promote()
         fullscreen = true
         onFullscreen(this, true)
@@ -243,6 +259,7 @@ class VisibleVideoPlayer(
         player?.let { PlayerView.switchTargetView(it, fullscreenView, inlineView) }
         fullscreenView = null
         fullscreen = false
+        if (muted) VideoPlaybackService.detach(this)
         onFullscreen(this, false)
     }
     fun bindInline(view: PlayerView) {
@@ -267,13 +284,15 @@ class VisibleVideoPlayer(
     fun setVolume(value: Float) {
         pendingVolume = null
         val nextMuted = value <= 0f
-        if (!nextMuted) onAudible(this)
+        if (!nextMuted) { onAudible(this); VideoPlaybackService.select(context, this) }
+        else if (!fullscreen) VideoPlaybackService.detach(this)
         if (muted != nextMuted) player?.setAudioAttributes(AudioAttributes.DEFAULT, !nextMuted)
         player?.volume = value.coerceIn(0f, 1f)
         muted = nextMuted
     }
     fun toggleMute() { setVolume(if (muted) 1f else 0f) }
     fun close() {
+        VideoPlaybackService.detach(this)
         rememberPlayback()
         inlineView?.player = null; fullscreenView?.player = null
         inlineView = null; fullscreenView = null

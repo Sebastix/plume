@@ -168,4 +168,5 @@
     <string name="ui_no_notification_matches">No matching notifications</string>
     <string name="ui_retry">Retry</string>
     <string name="ui_reopen_draft">Reopen draft</string>
+    <string name="ui_video">Video</string>
 </resources>

@@ -60,7 +60,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     val audio = (context.applicationContext as FeatherApplication).audio
     DisposableEffect(playback, audio, lifecycle, galleryVisible) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) { playback?.enabled(false); store.background() }
+            if (event == Lifecycle.Event.ON_STOP) { playback?.enabled(false, keepSelected = !galleryVisible && audio?.requested != true); store.background() }
             if (event == Lifecycle.Event.ON_START) playback?.enabled(!galleryVisible && audio?.requested != true)
         }
         lifecycle.addObserver(observer)
@@ -68,7 +68,7 @@ fun MediaHost(store: MediaStore, reading: Boolean, content: @Composable () -> Un
     }
     DisposableEffect(playback) { onDispose { playback?.close() } }
     val audioRequested = audio?.requested == true
-    SideEffect { playback?.enabled(active && !audioRequested) }
+    SideEffect { playback?.enabled(active && !audioRequested, keepSelected = !lifecycleState.isAtLeast(Lifecycle.State.STARTED) && !galleryVisible && !audioRequested) }
     CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, active, playback, audio)) {
         content()
         playback?.fullscreenPlayer?.let { FullscreenVideo(it) }
@@ -130,7 +130,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                     InlineImage(attachment) { openGallery(gallery, gallery.indexOf(attachment.url), note) }
                 } else Box(Modifier.fillMaxWidth().aspectRatio(videoRatios[attachment.url] ?: attachment.ratio).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
                     .onGloballyPositioned { coordinates ->
-                        if (attachment.kind == MediaContent.Kind.VIDEO) videos?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime)
+                        if (attachment.kind == MediaContent.Kind.VIDEO) videos?.report(identity, attachment.url, coordinates.boundsInWindow(), coordinates.size.height.toFloat(), attachment.mime, note, attachment.preview)
                     }) {
                         attachment.preview?.let { RemoteImage(it, Modifier.fillMaxSize(), attachment.alt ?: "Video preview") }
                         if (playback != null && playback.player != null) key(playback) {

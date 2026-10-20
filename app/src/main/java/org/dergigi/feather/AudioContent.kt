@@ -32,6 +32,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 internal val audioSpeeds = listOf(.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f)
+internal fun audioSpeedIcon(speed: Float) = when (speed) {
+    .75f -> R.drawable.audio_speed_075
+    1.25f -> R.drawable.audio_speed_125
+    1.5f -> R.drawable.audio_speed_15
+    1.75f -> R.drawable.audio_speed_175
+    2f -> R.drawable.audio_speed_2
+    2.5f -> R.drawable.audio_speed_25
+    3f -> R.drawable.audio_speed_3
+    else -> R.drawable.audio_speed_1
+}
 internal fun audioSpeedLabel(speed: Float) = "${speed.toString().removeSuffix(".0")}×"
 
 internal val voiceKinds = listOf(1222, 1244)
