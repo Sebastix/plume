@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /** One transient message, never an unbounded queue of stale errors. */
 internal object AppMessages {
-    data class Message(val id: Long, val text: String, val details: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)
+    data class Message(val id: Long, val text: String, val details: String, val actionLabel: String? = null, val action: (() -> Unit)? = null, val tapLabel: String? = null, val onTap: (() -> Unit)? = null)
     val current = MutableStateFlow<Message?>(null)
     val topHost = MutableStateFlow<Any?>(null)
     private val hosts = mutableListOf<Any>()
@@ -38,6 +38,11 @@ internal object AppMessages {
     }
     @Synchronized fun showAction(text: String, label: String, action: () -> Unit) {
         current.value = Message(++sequence, text, text, label, action)
+    }
+    @Synchronized fun showTappable(text: String, details: String, label: String, onTap: () -> Unit): Long {
+        val id = ++sequence
+        current.value = Message(id, text, details, tapLabel = label, onTap = onTap)
+        return id
     }
     @Synchronized fun dismiss(id: Long) {
         if (current.value?.id == id) current.value = null
@@ -77,7 +82,11 @@ internal fun CopyableMessageHost() {
     Popup(alignment = Alignment.BottomCenter,
         properties = PopupProperties(focusable = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
         Snackbar(modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
-            .padding(16.dp).widthIn(max = 560.dp).clickable(onClickLabel = "Copy message", onClick = ::copy),
+            .padding(16.dp).widthIn(max = 560.dp).clickable(onClickLabel = shown.tapLabel ?: stringResource(R.string.ui_copy_message)) {
+                val onTap = shown.onTap
+                if (onTap == null) copy()
+                else { AppMessages.dismiss(shown.id); onTap() }
+            },
             action = {
                 if (shown.action != null) TextButton(onClick = {
                     AppMessages.dismiss(shown.id)

@@ -582,11 +582,31 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (e: Exception) { message.value = "Could not save draft: ${e.message}" }
         }
     }
+    private var publicationFailureMessage: Long? = null
+
+    private fun showPublicationFailure(draft: ReplyDraft, text: String, error: Exception) {
+        if (signer.value?.pubKey != draft.owner) return
+        publicationFailureMessage = AppMessages.showTappable(text, "$text\n\n${error.stackTraceToString()}",
+            getApplication<Application>().getString(R.string.ui_reopen_draft)) {
+            if (signer.value?.pubKey == draft.owner) {
+                val open = replyDraft.value
+                // Keep any newer edits in the already-open composer. Save a different
+                // draft before switching back to the failed post or reply.
+                if (open?.owner != draft.owner || open?.target?.id != draft.target?.id) {
+                    if (open != null) closeReply()
+                    openReply(draft.target)
+                }
+            }
+        }
+    }
+
     internal fun sendReply() {
         val current = replyDraft.value ?: return
         val draft = current.copy(text = current.text.trimEnd())
         val identity = signer.value ?: return
         if (replyBusy.value || imageUploading.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
+        publicationFailureMessage?.let(AppMessages::dismiss)
+        publicationFailureMessage = null
         replyBusy.value = true
         replyJob = viewModelScope.launch {
             try {
@@ -597,9 +617,10 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 }
                 withContext(Dispatchers.IO) { replyStore.complete(draft) }
                 if (replyDraft.value?.target?.id == draft.target?.id && replyDraft.value?.owner == draft.owner) replyDraft.value = null
-            } catch (_: TimeoutCancellationException) { message.value = "Publication not confirmed. Your draft is saved; send again to retry." }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { message.value = "Publish: ${e.message ?: e.javaClass.simpleName}" }
+            } catch (e: TimeoutCancellationException) {
+                showPublicationFailure(draft, "Publication not confirmed. Your draft is saved; send again to retry.", e)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { showPublicationFailure(draft, "Publish: ${e.message ?: e.javaClass.simpleName}", e) }
             finally { replyMining.value = false; replyBusy.value = false }
         }
     }

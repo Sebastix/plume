@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.88.2] - 2026-10-20
+
+### Fixed
+- Tap a post/reply publication-failure message to reopen its saved draft. Keep the copy icon for full error details and retry the existing signed event when unchanged.
+
+### Changed
+- Use `ethereum` as the muted-word input example.
+
 ### Added
 - “Let people play”: a second Feather interview, with shared interactive feed, video, and GIF composer demos.
 
