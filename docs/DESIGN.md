@@ -299,6 +299,8 @@ Show original → uploaded size subtly during upload and beneath its thumbnail, 
 
 ## External keyboards
 
+The full-screen image gallery accepts unmodified Left/Right arrows to navigate. Focus it when opened and after closing its pickers; leave picker/menu keyboard handling intact. Consume arrows at album boundaries and bound navigation to one animation at a time.
+
 Composer Up/Down keys move the text cursor and support Shift selection. Prevent vertical focus traversal out of the text field, including Bluetooth keyboards that also advertise a D-pad; retain normal text navigation, Tab focus navigation and Ctrl/Cmd+Enter sending.
 
 Ctrl+Tab and Ctrl+Shift+Tab cycle through the current main-feed or profile tabs, wrapping at the ends and using the current discovered tab list. Preserve each feed's scroll position; rapid shortcuts follow the last requested category. Ctrl/Cmd+F opens profile search and focuses the input, retaining its query when already on the main feed and preserving a previous detail/profile screen for Back. Handle navigation shortcuts only in the reader's focused activity window, not underneath composers, dialogs or onboarding. Plain Tab retains normal control focus traversal; Cmd+Tab remains a system shortcut.

@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.89.0] - 2026-10-20
+
+### Added
+- Navigate the full-screen image gallery with Left and Right arrow keys on an external keyboard, including when controls are hidden.
+
 ## [0.88.2] - 2026-10-20
 
 ### Fixed

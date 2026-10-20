@@ -15,6 +15,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
@@ -139,6 +143,13 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    val galleryFocus = remember { FocusRequester() }
+    var navigationJob by remember { mutableStateOf<Job?>(null) }
+    fun navigate(direction: Int) {
+        if (navigationJob?.isActive == true || pager.isScrollInProgress) return
+        val next = (pager.currentPage + direction).coerceIn(urls.indices)
+        if (next != pager.currentPage) navigationJob = scope.launch { pager.animateScrollToPage(next) }
+    }
     var zoomed by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var controlsVisible by remember { mutableStateOf(false) }
@@ -209,6 +220,9 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
         }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        LaunchedEffect(menu, reactionPicker, zapPicker) {
+            if (!menu && !reactionPicker && !zapPicker) galleryFocus.requestFocus()
+        }
         CopyableMessageHost()
         val window = (LocalView.current.parent as DialogWindowProvider).window
         HidePhotoStatusBar(window, hideNavigationBar = true)
@@ -225,7 +239,23 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
             onDispose { window.attributes = window.attributes.apply { screenBrightness = original } }
         }
         CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources, lifecycle.isAtLeast(Lifecycle.State.STARTED), null)) {
-        Box(Modifier.fillMaxSize().background(colors[background]).pointerInput(Unit) {
+        Box(Modifier.fillMaxSize().background(colors[background])
+            .focusRequester(galleryFocus)
+            .onPreviewKeyEvent { event ->
+                val direction = when (event.key) {
+                    Key.DirectionLeft -> -1
+                    Key.DirectionRight -> 1
+                    else -> 0
+                }
+                if (direction == 0 || menu || reactionPicker || zapPicker ||
+                    event.isCtrlPressed || event.isMetaPressed || event.isAltPressed || event.isShiftPressed) false
+                else {
+                    if (event.type == KeyEventType.KeyDown) { interaction++; navigate(direction) }
+                    true
+                }
+            }
+            .focusable()
+            .pointerInput(Unit) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -327,9 +357,9 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 .background(colors[background].copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (urls.size > 1) Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(enabled = pager.currentPage > 0, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.ui_previous_image), tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
+                IconButton(enabled = pager.currentPage > 0, onClick = { navigate(-1) }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.ui_previous_image), tint = foreground.copy(alpha = if (pager.currentPage > 0) 1f else 0.3f)) }
                 Text("${pager.currentPage + 1} / ${urls.size}", color = foreground, modifier = Modifier.padding(horizontal = 16.dp))
-                IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.ui_next_image), tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
+                IconButton(enabled = pager.currentPage < urls.lastIndex, onClick = { navigate(1) }) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.ui_next_image), tint = foreground.copy(alpha = if (pager.currentPage < urls.lastIndex) 1f else 0.3f)) }
                 }
             }
             }
