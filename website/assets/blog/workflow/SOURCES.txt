@@ -32,3 +32,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Goop: explicit brand purple #6c4399 from dergigi.org project styles, replacing currentColor for standalone image rendering.
+
+nospeak: unmodified app icon from Zapstore listing event b6baa52db550e9a2bbbec847eaedb606d4694ef9d7de649a0da604c6d007644c. Source: https://cdn.zapstore.dev/f51cf0daa0072099d89f9a0abb5dfde8c01b98f32ef12023a5566733a4976dfe
+Listing: https://zapstore.dev/apps/naddr1qq8kxmmd9ehx7umsv4skktnpwpcqzxrhwden5te0wfjkccte9eaxzurnw3hhyefwv3jhvq3q74t832slt4252dk526cnh64sfa3k6claah2cdl3c5n9eeeyvjz7qxpqqqplqk3l98zc
+darkwisp: unmodified app icon from Zapstore listing event af188f8d0137c67f12b413132bc9570d28ef8e598cac0b11d355af1aae9b3d02. Source: https://cdn.zapstore.dev/fcbd44bc0f5983451f971b5dbbbead2a9a155c65195da10c2f0d5433fedfcae8
+Listing: https://zapstore.dev/apps/naddr1qqgxxmmd9ejxzuntwa5hxupwv9c8qqgcwaehxw309aex2mrp0yh85ctswd6x7un99ejx2aszyr3vea70ypqr70e2ff2mx28smca78p2c5l2lxd3jlk4wl3exc8ywkqcyqqq8uzcdm0zvx
