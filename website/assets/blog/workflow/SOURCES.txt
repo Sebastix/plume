@@ -1,6 +1,6 @@
 Project logos: https://dergigi.org/ (images/*-icon.svg)
 Paseo: https://paseo.sh/logo.svg
-Wisp: converted from bundled Android vector; license follows.
+Wisp: converted from bundled Android vector to SVG, preserving its gradient and fill rule; license follows.
 
 Wisp client icon
 Source: https://github.com/barrydeen/wisp/blob/2e56fbd3c89ca280263c5543079ddd9ea5aa0ca9/app/src/main/res/drawable/ic_wisp_logo.xml
