@@ -1,5 +1,6 @@
 package org.dergigi.feather
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -8,6 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -37,6 +41,8 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
             if (tag.firstOrNull() == "client") tag.getOrNull(1)?.take(128)?.trim()?.takeIf { it.isNotBlank() } else null
         }
     }
+    val icon = remember(client) { clientIcon(client) }
+    val clientGrayscale = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) }
     val clipboard = LocalClipboardManager.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f)
     Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -107,13 +113,16 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                 } else Spacer(Modifier.weight(1f))
                 if (client != null) Row(Modifier.widthIn(max = clientMaxWidth).padding(start = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.apps), stringResource(R.string.ui_posted_from_client),
-                            Modifier.size(16.dp), tint = muted)
-                    }
                     Text(client, style = MaterialTheme.typography.labelSmall, color = muted,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
+                        modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp, top = 4.dp, bottom = 4.dp))
+                    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                        if (icon != null) Image(painterResource(icon.drawable), stringResource(R.string.ui_posted_from_client),
+                            modifier = Modifier.size(16.dp).alpha(if (icon.monochrome) 1f else .65f),
+                            colorFilter = if (icon.monochrome) ColorFilter.tint(muted) else clientGrayscale)
+                        else Icon(painterResource(R.drawable.apps), stringResource(R.string.ui_posted_from_client),
+                            Modifier.size(16.dp), tint = muted)
+                    }
                 }
             }
         }

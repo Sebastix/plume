@@ -1,0 +1,6 @@
+Shosho client identification icon
+Source: https://github.com/r0d8lsh0p/shosho-releases/blob/21059353c945ee3ee4b1f9f529d3c46938a876d3/images/shosho-Icon.png
+Commit: 21059353c945ee3ee4b1f9f529d3c46938a876d3
+Modification: trimmed outer padding and resized to 96px.
+
+No asset-specific redistribution license was identified in the upstream release repository. This official branding is included to identify the named client. Shosho branding belongs to its respective owner; no software or asset license is implied.

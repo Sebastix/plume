@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.93.2] - 2026-10-21
+
+### Changed
+- Place client icons after the client name; bundle muted logos for 31 Nostr clients and publishing apps, with a generic fallback for unknown clients.
+
 ## [0.93.1] - 2026-10-21
 
 ### Fixed

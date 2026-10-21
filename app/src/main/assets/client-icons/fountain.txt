@@ -1,0 +1,9 @@
+Fountain client logo
+Source: https://web-assets.fountain.fm/assets/fountain-logo-098b6605.png
+Downloaded through the official image proxy:
+https://fountain.fm/_next/image?url=https%3A%2F%2Fweb-assets.fountain.fm%2Fassets%2Ffountain-logo-098b6605.png&w=128&q=90
+Official homepage: https://fountain.fm/
+Retrieved: 2026-10-21
+Adaptation: resized to 96 × 96 pixels.
+No asset-specific redistribution license identified; Fountain branding belongs to its owner.
+Used only for nominative identification of the client named by the event; no endorsement implied.
