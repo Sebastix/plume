@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.94.2] - 2026-10-21
+
 ### Fixed
 - Keep block-height lookup failures silent and show the normal date while unavailable. Fall back to a second Mempool provider, cool down failing providers across all notes, and retain successful results even if optional disk caching fails.
 
