@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Extend profile banners beneath a transparent toolbar with a floating back button. Keep scrolled profile names readable and profile tabs pinned below the controls, without an empty toolbar strip above the banner.
+
 ## [0.94.2] - 2026-10-21
 
 ### Fixed

@@ -384,7 +384,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 (profileNameBottom?.let { bottom -> profileViewportTop?.let { bottom <= it } } == true)
         }
     }
-    val transparentToolbar = screen == "feed"
+    val transparentToolbar = screen in listOf("feed", "profile")
     val toolbarButtonSurface = Modifier.size(RoundControlSize).then(if (transparentToolbar) Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), CircleShape) else Modifier)
     fun selectProfileTab(tab: ProfileTab) {
         if (profileTab == tab) return
@@ -532,6 +532,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             TopAppBar(title = {
                 if (screen == "profile" && profileKey != null && showProfileToolbarName) {
                     Text(s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey),
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium)
                 }
@@ -835,7 +837,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     isRefreshing = refreshing && s.loading,
                     onRefresh = refresh,
                     modifier = Modifier.padding(
-                        if (screen == "feed") PaddingValues(
+                        if (screen in listOf("feed", "profile")) PaddingValues(
                             top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                             bottom = padding.calculateBottomPadding(),
                             start = padding.calculateStartPadding(LocalLayoutDirection.current),
@@ -871,7 +873,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                 // The 56dp avatar straddles the banner edge; content keeps its natural height.
                                 Column(Modifier.fillMaxWidth().padding(top = if (p?.banner != null) 148.dp else 0.dp)) {
                                 Column(Modifier.padding(start = 24.dp, end = 24.dp,
-                                    top = if (p?.banner != null) 0.dp else 24.dp, bottom = 24.dp),
+                                    top = if (p?.banner != null) 0.dp else 88.dp, bottom = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Avatar(p?.name ?: key, 56, p?.picture, onOpenImage = { openGallery(profileImages, 0, expandAlbum = false) })
@@ -912,7 +914,14 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                             }
                         }
                         if (screen == "profile") stickyHeader(key = "profile-tabs") {
-                            Box(Modifier.scrollAway(barFraction) { tabsHeight = it }) {
+                            // Keep the tabs in their natural position below the bio, then
+                            // pin below the floating toolbar without reserving a header strip.
+                            Box(Modifier.offset {
+                                val top = activeListState.layoutInfo.visibleItemsInfo
+                                    .firstOrNull { it.key == "profile-tabs" }?.offset ?: Int.MAX_VALUE
+                                val controls = 64.dp.roundToPx()
+                                androidx.compose.ui.unit.IntOffset(0, ((controls * barFraction).toInt() - top).coerceIn(0, controls))
+                            }.scrollAway(barFraction) { tabsHeight = it }) {
                                 categoryTabs()
                             }
                         }
