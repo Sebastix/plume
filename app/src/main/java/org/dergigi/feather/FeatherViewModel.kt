@@ -187,7 +187,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val words = state.value.mutedWords
         muteWordEdits.update { edits -> edits.filterNot { it.complete && ((it.word in words) == it.add) } }
     }
-    private val paymentMutex = Mutex()
+    private val paymentActions = ActionLanes(2)
     private val zapJobs = mutableMapOf<Triple<String, Long, String>, Job>()
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     private val repostJobs = mutableMapOf<String, Job>()
@@ -250,7 +250,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         zapping.update { it + note.id }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
-                paymentMutex.withLock {
+                paymentActions.withLock(note.id) {
                     check(signer.value === connected) { "Account changed" }
                     val newlyConfirmed = wallet.zap(note, state.value.profiles[note.pubKey]?.lightning, (state.value.relays + if (note.isAppDiscussion()) listOf(ZAPSTORE_RELAY) else emptyList()).distinct(), connected, signerRequests, amountSats, comment) { repo.zapRecipientProfiles(note) }
                     if (signer.value === connected && newlyConfirmed) {

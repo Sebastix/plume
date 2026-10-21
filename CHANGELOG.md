@@ -4,8 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.94.1] - 2026-10-21
+
 ### Fixed
-- Give zaps, reactions, reposts, and votes independent bounded queues so a payment backlog cannot exhaust the capacity for likes or other social actions. Allow bursts of up to 64 queued reactions; keep reaction/repost overflow quiet and retain serialized, journaled payments.
+- Publish up to four independent reaction/repost changes and process two independent zaps concurrently, while preserving same-note ordering, serialized signer access, and duplicate-payment protection.
+- Give zaps, reactions, reposts, and votes independent bounded queues so a payment backlog cannot exhaust the capacity for likes or other social actions. Allow bursts of up to 64 queued reactions; keep reaction/repost overflow quiet and retain journaled payments.
 
 ## [0.94.0] - 2026-10-21
 

@@ -131,7 +131,7 @@ class FeatherRepository(context: Context) {
     private val threadChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     private val threadGeneration = java.util.concurrent.atomic.AtomicLong()
     private var threadRestoreJob: Job? = null
-    private val reactionMutex = Mutex()
+    private val socialActions = ActionLanes(4)
     private val repostStore = RepostStore(context)
     private val reactionStore = ReactionStore(context)
     private val reactionDeletions = ReactionDeletions(context)
@@ -142,7 +142,17 @@ class FeatherRepository(context: Context) {
     private val hashtagCache = HashtagCache(context)
     private val muteCache = MuteCache(context)
     private val foregroundActive = MutableStateFlow(false)
-    @Volatile private var publishingAuthor: String? = null
+    private val publishingAuthors = mutableMapOf<String, Int>()
+    private fun beginPublishing(author: String) = synchronized(publishingAuthors) {
+        publishingAuthors[author] = (publishingAuthors[author] ?: 0) + 1
+    }
+    private fun endPublishing(author: String) = synchronized(publishingAuthors) {
+        val remaining = (publishingAuthors[author] ?: 1) - 1
+        if (remaining == 0) publishingAuthors.remove(author) else publishingAuthors[author] = remaining
+    }
+    private fun refreshDeletedReactions() = synchronized(reactionDeletions) {
+        deletedReactions = reactionDeletions.deleted()
+    }
     private val eventRelays = EventRelays(context)
     private val detailAuthors = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
     private fun recordRelayLocked(id: String, relay: String?) {
@@ -587,10 +597,10 @@ class FeatherRepository(context: Context) {
         val fallback = if (embeddedIds.any { it !in s.embedded })
             (RelayDefaults.seeds.drop(embeddedSeedOffset) + RelayDefaults.seeds.take(embeddedSeedOffset)).filter(::healthy).take(2)
             else emptyList()
-        val publishRoutes = publishingAuthor?.let { author ->
+        val publishRoutes = synchronized(publishingAuthors) { publishingAuthors.keys.toList() }.flatMap { author ->
             own?.write.orEmpty().filter(::healthy).take(2) + relayLists[author]?.read.orEmpty().filter(::healthy).take(2)
-        }.orEmpty()
-        val priority = (settingsRelayUrls() + relayLists[viewedProfile]?.write.orEmpty().take(2) + publishRoutes + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
+        }
+        val priority = (publishRoutes + settingsRelayUrls() + relayLists[viewedProfile]?.write.orEmpty().take(2) + listOf("wss://purplepag.es") + openedReference?.relays.orEmpty() +
             references.flatMap { it.relays }.distinct().take(2) + emojiPackRequests.mapNotNull { it.relay }.distinct().take(2) +
             emojiPackRequests.flatMap { relayLists[it.author]?.write.orEmpty() }.distinct().take(2) + fallback +
             relayLists[threadAuthor]?.read.orEmpty().take(2) + relayLists[threadAuthor]?.write.orEmpty().take(2) +
@@ -932,7 +942,7 @@ class FeatherRepository(context: Context) {
         }
         if (event.kind == 5 && event.pubKey == state.value.publicKey) {
             reactionDeletions.put(event, accepted = true)
-            deletedReactions = reactionDeletions.deleted()
+            refreshDeletedReactions()
         }
         if (event.kind in listOf(6, 16) && event.content.isNotBlank()) {
             val target = repostTarget(event)
@@ -1126,7 +1136,7 @@ class FeatherRepository(context: Context) {
     }
 
     private suspend fun snapshotContents(initialFeedOnly: Boolean = false) {
-        deletedReactions = reactionDeletions.deleted()
+        refreshDeletedReactions()
         rememberDeleted(cachedViewEvents())
         val key = _state.value.publicKey
         val settings = key?.let { owner -> mutex.withLock {
@@ -1590,7 +1600,7 @@ class FeatherRepository(context: Context) {
     }
 
     internal suspend fun repost(target: Event, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
-        reactionMutex.withLock {
+        socialActions.withLock(target.id) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect an Android signer first")
             require(signer.pubKey == author && target.kind in readableKinds)
@@ -1628,7 +1638,7 @@ class FeatherRepository(context: Context) {
             // The external signer may still cover our Activity as its result arrives.
             withTimeout(15_000) { foregroundActive.first { it } }
             check(state.value.publicKey == author) { "Account changed." }
-            publishingAuthor = target.pubKey
+            beginPublishing(target.pubKey)
             try {
                 check(publishPostEvent(signed, target)) {
                     "No relay confirmed the repost after 3 attempts. Tap again to retry the same event."
@@ -1637,7 +1647,7 @@ class FeatherRepository(context: Context) {
                 accept(signed)
                 _state.update { if (it.publicKey == author) it.copy(sentReposts = it.sentReposts + target.id) else it }
             } finally {
-                publishingAuthor = null
+                endPublishing(target.pubKey)
                 if (active) updateRoutingPool()
             }
         }
@@ -1747,7 +1757,7 @@ class FeatherRepository(context: Context) {
     }
 
     internal suspend fun react(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
-        reactionMutex.withLock {
+        socialActions.withLock(target.id) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect an Android signer first.")
             require(signer.pubKey == author && target.kind in readableKinds)
@@ -1789,14 +1799,14 @@ class FeatherRepository(context: Context) {
             // The external signer may still cover our Activity as its result arrives.
             withTimeout(15_000) { foregroundActive.first { it } }
             check(state.value.publicKey == author) { "Account changed." }
-            publishingAuthor = target.pubKey
+            beginPublishing(target.pubKey)
             try {
                 check(publishReactionEvent(signed, author, target.pubKey, target.isAppDiscussion())) { "Reaction not confirmed" }
                 reactionStore.put(target.id, signed, accepted = true)
                 accept(signed)
                 recordReaction(author, target.id, choice)
             } finally {
-                publishingAuthor = null
+                endPublishing(target.pubKey)
                 if (active) updateRoutingPool()
             }
         }
@@ -1858,7 +1868,7 @@ class FeatherRepository(context: Context) {
         store.saveSigned(draft, signed)
         withTimeout(15_000) { foregroundActive.first { it } }
         check(state.value.publicKey == author) { "Account changed" }
-        publishingAuthor = target?.pubKey ?: author
+        beginPublishing(target?.pubKey ?: author)
         try {
             check(publishPostEvent(signed, target)) {
                 "No relay confirmed the post after 3 attempts. Draft saved; send again to retry the same event."
@@ -1866,7 +1876,7 @@ class FeatherRepository(context: Context) {
             accept(signed)
             _state.update { if (target != null && it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
         } finally {
-            publishingAuthor = null
+            endPublishing(target?.pubKey ?: author)
             if (active) updateRoutingPool()
         }
     }
@@ -1900,7 +1910,7 @@ class FeatherRepository(context: Context) {
     }
 
     internal suspend fun removeReaction(target: Event, choice: ReactionChoice, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
-        reactionMutex.withLock {
+        socialActions.withLock(target.id) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect a signer first")
             require(author == signer.pubKey)
@@ -1922,21 +1932,21 @@ class FeatherRepository(context: Context) {
             reactionDeletions.put(deletion, accepted = false)
             withTimeout(15_000) { foregroundActive.first { it } }
             check(state.value.publicKey == author)
-            publishingAuthor = target.pubKey
+            beginPublishing(target.pubKey)
             try {
                 check(publishReactionEvent(deletion, author, target.pubKey, target.isAppDiscussion())) { "Deletion not confirmed" }
                 reactionDeletions.put(deletion, accepted = true)
-                deletedReactions = reactionDeletions.deleted()
+                refreshDeletedReactions()
                 _state.update { current -> current.copy(deletedReactions = deletedReactions,
                     sentReactions = if (current.publicKey == author) current.sentReactions + (target.id to current.sentReactions[target.id].orEmpty().filter { it != choice }) else current.sentReactions) }
                 accept(deletion)
                 changed.tryEmit(Unit)
-            } finally { publishingAuthor = null; if (active) updateRoutingPool() }
+            } finally { endPublishing(target.pubKey); if (active) updateRoutingPool() }
         }
     }
 
     internal suspend fun removeRepost(target: Event, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
-        reactionMutex.withLock {
+        socialActions.withLock(target.id) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect a signer first")
             require(author == signer.pubKey)
@@ -1959,16 +1969,16 @@ class FeatherRepository(context: Context) {
             reactionDeletions.put(deletion, accepted = false)
             withTimeout(15_000) { foregroundActive.first { it } }
             check(state.value.publicKey == author)
-            publishingAuthor = target.pubKey
+            beginPublishing(target.pubKey)
             try {
                 check(publishPostEvent(deletion, target)) { "Deletion not confirmed" }
                 reactionDeletions.put(deletion, accepted = true)
-                deletedReactions = reactionDeletions.deleted()
+                refreshDeletedReactions()
                 _state.update { current -> current.copy(deletedReactions = deletedReactions,
                     sentReposts = if (current.publicKey == author) current.sentReposts - target.id else current.sentReposts) }
                 accept(deletion)
                 changed.tryEmit(Unit)
-            } finally { publishingAuthor = null; if (active) updateRoutingPool() }
+            } finally { endPublishing(target.pubKey); if (active) updateRoutingPool() }
         }
     }
 

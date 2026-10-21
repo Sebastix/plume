@@ -116,9 +116,9 @@ internal class WalletStore(context: Context) {
             edit.putString("connection:$owner", encrypted)
         check(edit.commit()) { "Could not migrate saved wallet" }
     }
-    fun forgetPayment(id: String) { check(prefs.edit().remove("payment:$id").commit()) }
-    fun payment(id: String): org.json.JSONObject? = prefs.getString("payment:$id", null)?.let { org.json.JSONObject(open(it)) }
-    fun savePayment(id: String, value: org.json.JSONObject) {
+    @Synchronized fun forgetPayment(id: String) { check(prefs.edit().remove("payment:$id").commit()) }
+    @Synchronized fun payment(id: String): org.json.JSONObject? = prefs.getString("payment:$id", null)?.let { org.json.JSONObject(open(it)) }
+    @Synchronized fun savePayment(id: String, value: org.json.JSONObject) {
         // Never discard uncertain payments automatically.
         val entries = prefs.all.keys.filter { it.startsWith("payment:") }
         if (entries.size >= 512 && "payment:$id" !in entries) {
