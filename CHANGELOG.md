@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-10-21
+
+### Added
+- Tap a client name or logo to open its bundled Zapstore listing inside Feather, or its official website when no listing is available.
+
 ## [0.93.2] - 2026-10-21
 
 ### Changed

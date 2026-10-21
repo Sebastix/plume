@@ -2,7 +2,7 @@
 
 The expanded note details show the note's declared `client` name, followed by a small muted logo. This is self-reported attribution, not proof of which app signed or published an event.
 
-Icons are bundled: no image requests, app discovery subscriptions, or remote URLs are needed to display them. Unknown names retain the generic app icon. Matching uses explicit names/domains (case-insensitive, optional HTTP(S)/www prefix and trailing slash); it does not use substring matching. Aliases are recognized product names/domains, not claims that every app currently emits each spelling.
+Icons and destinations are bundled: no image requests or app discovery subscriptions are needed to display them. Tapping either the name or icon opens the bundled Zapstore coordinate in Feather where available, otherwise the official website. Opening an app listing uses the normal cache-first content loader; no client lookup is performed. Unknown client tags are never interpreted as URLs. Unknown names retain the generic app icon. Matching uses explicit names/domains (case-insensitive, optional HTTP(S)/www prefix and trailing slash); it does not use substring matching. Aliases are recognized product names/domains, not claims that every app currently emits each spelling.
 
 Transparent monochrome marks use the theme's muted text color. Detailed logos use grayscale with reduced opacity. Raster assets fit within 96 × 96 pixels. The client remains right-aligned after the relay list.
 
@@ -47,3 +47,41 @@ Transparent monochrome marks use the theme's muted text color. Detailed logos us
 Each upstream asset has a source and license/branding notice in `app/src/main/assets/client-icons/` (Amethyst's existing notice is alongside that directory). Repository sources are pinned to commits. Fountain and Shosho are official brand-identification assets without an identified asset-specific redistribution license; their notices state that explicitly. Product names and marks remain their owners' property.
 
 This catalog covers the clients listed above, not every possible Nostr client. Add an official asset and notice before adding an alias; do not substitute another product's logo for an unknown client.
+
+## Bundled destinations
+
+Verified on 2026-10-21. [Source evidence and exact coordinates](client-links.json). A missing listing uses the website; absence here is not a claim that no listing can ever exist.
+
+| Client | Tap destination | Official website |
+| --- | --- | --- |
+| Amber | In-app Zapstore listing | https://github.com/greenart7c3/Amber |
+| Amethyst | In-app Zapstore listing | https://amethyst.social/ |
+| Ants | In-app Zapstore listing | https://ants.sh |
+| Boris | In-app Zapstore listing | https://readwithboris.com/ |
+| Coracle | In-app Zapstore listing | https://coracle.social |
+| Damus | Website | https://damus.io/ |
+| Ditto | In-app Zapstore listing | https://ditto.pub |
+| Feather | In-app Zapstore listing | https://feather.dergigi.com/ |
+| Flotilla | In-app Zapstore listing | https://flotilla.social/ |
+| Fountain | In-app Zapstore listing | https://fountain.fm/app |
+| Gossip | Website | https://github.com/mikedilger/gossip |
+| Iris | Website | https://iris.to/ |
+| Jumble | Website | https://jumble.social |
+| Lume | Website | https://github.com/lumehq/lume |
+| Nos | Website | https://github.com/planetary-social/nos |
+| Nosotros | Website | https://nosotros.app/ |
+| nostr.build | Website | https://nostr.build/ |
+| Nostria | In-app Zapstore listing | https://nostria.app |
+| noStrudel | In-app Zapstore listing | https://nostrudel.ninja |
+| Nostter | Website | https://nostter.app |
+| Nostur | Website | https://nostur.com/ |
+| Olas | In-app Zapstore listing | https://olas.app/ |
+| Primal | In-app Zapstore listing | https://primal.net |
+| Satellite | Website | https://satellite.earth |
+| Shosho | In-app Zapstore listing | https://shosho.live |
+| Snort | In-app Zapstore listing | https://snort.social |
+| Voyage | In-app Zapstore listing | https://github.com/dluvian/voyage |
+| Wisp | In-app Zapstore listing | https://wisp.talk |
+| YakiHonne | In-app Zapstore listing | https://yakihonne.com |
+| zap.stream | In-app Zapstore listing | https://zap.stream/ |
+| Zapstore | In-app Zapstore listing | https://zapstore.dev/ |

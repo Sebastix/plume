@@ -1,0 +1,309 @@
+{
+  "checked": "2026-10-21",
+  "clients": [
+    {
+      "client": "Amber",
+      "website": "https://github.com/greenart7c3/Amber",
+      "address": "32267:7579076d9aff0a4cfdefa7e2045f2486c7e5d8bc63bfc6b45397233e1bbfcb19:com.greenart7c3.nostrsigner",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://zapstore.dev/apps/com.greenart7c3.nostrsigner",
+        "https://github.com/greenart7c3/Amber"
+      ],
+      "notes": "Exact kind32267 author and d verified from relay event 9dc07f1f47234461488774896cc5b06c0edcd7f1a2dcf067820edfd150948932"
+    },
+    {
+      "client": "Amethyst",
+      "website": "https://amethyst.social/",
+      "address": "32267:aa9047325603dacd4f8142093567973566de3b1e20a89557b728c3be4c6a844b:com.vitorpamplona.amethyst",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://zapstore.dev/apps/com.vitorpamplona.amethyst",
+        "https://amethyst.social/"
+      ],
+      "notes": "Exact kind32267 author and d verified from relay event a4a33e2a83bc75c805f85251595e2f27dbfa0c1491e069816ab08cb8b0d6c44e"
+    },
+    {
+      "client": "Ants",
+      "website": "https://ants.sh",
+      "address": "32267:6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93:org.dergigi.ants",
+      "sources": [
+        "https://github.com/dergigi/ants-android",
+        "https://zapstore.dev/apps/org.dergigi.ants"
+      ],
+      "event_id": "ec2f842ced61b13d35969fb3f8fbc7900a4f3bf383af295feaa088f8444fe044"
+    },
+    {
+      "client": "Boris",
+      "website": "https://readwithboris.com/",
+      "address": "32267:6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93:org.dergigi.boris",
+      "sources": [
+        "https://github.com/dergigi/boris-android",
+        "https://zapstore.dev/apps/org.dergigi.boris"
+      ],
+      "event_id": "4758cc2c3af5e082dff156de587985c64a2de80b47aed442a155f32bbf3e684d"
+    },
+    {
+      "client": "Coracle",
+      "website": "https://coracle.social",
+      "sources": [
+        "https://coracle.social",
+        "https://zapstore.dev/apps/social.coracle.app"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event 907823085fccbcd18d68a18ac0bc19eaa519fcd8c43ccc3a9f8ad7aa401afb8e",
+      "address": "32267:97c70a44366a6535c145b333f973ea86dfdc2d7a99da618c40c64705ad98e322:social.coracle.app"
+    },
+    {
+      "client": "Damus",
+      "website": "https://damus.io/",
+      "sources": [
+        "https://damus.io/",
+        "https://damus.io/android/"
+      ],
+      "notes": "No kind32267 app found in Zapstore name search; website fallback."
+    },
+    {
+      "client": "Ditto",
+      "website": "https://ditto.pub",
+      "sources": [
+        "https://ditto.pub",
+        "https://zapstore.dev/apps/pub.ditto.app"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event f661afc0342e647fa1b8d8a623280b30080dbe79109d81af757c3d74fa08009e",
+      "address": "32267:781a1527055f74c1f70230f10384609b34548f8ab6a0a6caa74025827f9fdae5:pub.ditto.app"
+    },
+    {
+      "client": "Feather",
+      "website": "https://feather.dergigi.com/",
+      "address": "32267:6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93:org.dergigi.feather",
+      "sources": [
+        "https://github.com/dergigi/feather",
+        "https://zapstore.dev/apps/org.dergigi.feather"
+      ],
+      "event_id": "cfc9c06b6a956710168e8865c65ad49ca1061296db1661dc038f13aa919001b9"
+    },
+    {
+      "client": "Flotilla",
+      "website": "https://flotilla.social/",
+      "sources": [
+        "https://flotilla.social/",
+        "https://github.com/hzrd149/flotilla/blob/master/zapstore.yaml",
+        "wss://relay.zapstore.dev"
+      ],
+      "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 581f82e3d57be53e18773c4ea0ef81cfca73409a197da83543e8229230a8c372",
+      "address": "32267:97c70a44366a6535c145b333f973ea86dfdc2d7a99da618c40c64705ad98e322:social.flotilla"
+    },
+    {
+      "client": "Fountain",
+      "website": "https://fountain.fm/app",
+      "sources": [
+        "https://fountain.fm/app",
+        "wss://relay.zapstore.dev"
+      ],
+      "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 7132cb42b14abfed1b130ce5d447451dfbc82b22fc4c32831e267db12fa62862",
+      "address": "32267:6538925ebfb661f418d8c7d074bee2e8afd778701dd89070c2da936d571e55c3:fm.fountain.apps"
+    },
+    {
+      "client": "Gossip",
+      "website": "https://github.com/mikedilger/gossip",
+      "sources": [
+        "https://github.com/mikedilger/gossip"
+      ],
+      "notes": "No verified Zapstore coordinate found; use official website/repository."
+    },
+    {
+      "client": "Iris",
+      "website": "https://iris.to/",
+      "sources": [
+        "https://iris.to/",
+        "https://github.com/irislib/iris-client"
+      ],
+      "notes": "No kind32267 app found in Zapstore name search; website fallback."
+    },
+    {
+      "client": "Jumble",
+      "website": "https://jumble.social",
+      "sources": [
+        "https://jumble.social"
+      ],
+      "notes": "Official website verified; no confirmed Zapstore listing found."
+    },
+    {
+      "client": "Lume",
+      "website": "https://github.com/lumehq/lume",
+      "sources": [
+        "https://github.com/lumehq/lume"
+      ],
+      "notes": "No verified Zapstore coordinate found; use official website/repository. Old lume.nu website failed; official repository currently says Rebooting."
+    },
+    {
+      "client": "Nos",
+      "website": "https://github.com/planetary-social/nos",
+      "sources": [
+        "https://github.com/planetary-social/nos"
+      ],
+      "notes": "No verified Zapstore coordinate found; use official website/repository. Official nos.social URL returned 404; official repository is working fallback."
+    },
+    {
+      "client": "Nosotros",
+      "website": "https://nosotros.app/",
+      "sources": [
+        "https://nosotros.app/",
+        "https://github.com/cesardeazevedo/nosotros"
+      ],
+      "notes": "No kind32267 app found in Zapstore name search; website fallback."
+    },
+    {
+      "client": "nostr.build",
+      "website": "https://nostr.build/",
+      "sources": [
+        "https://nostr.build/"
+      ],
+      "notes": "No verified Zapstore coordinate found; use official website/repository."
+    },
+    {
+      "client": "Nostria",
+      "website": "https://nostria.app",
+      "sources": [
+        "https://nostria.app",
+        "https://zapstore.dev/apps/app.nostria",
+        "https://github.com/nostria-app/nostria/blob/main/zapstore.yaml"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event 46362705ceba25ac414fee2f194d65b044053105ce3f86920980f9bd5f47cdf9; app.nostria is newer than legacy app.nostria.twa.",
+      "address": "32267:d1bd33333733dcc411f0ee893b38b8522fc0de227fff459d99044ced9e65581b:app.nostria"
+    },
+    {
+      "client": "noStrudel",
+      "website": "https://nostrudel.ninja",
+      "sources": [
+        "https://nostrudel.ninja",
+        "https://zapstore.dev/apps/ninja.nostrudel",
+        "https://github.com/hzrd149/nostrudel/blob/master/zapstore.yaml"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event 3573b414cd8a95ee7fb40db31ec69282a76e55919126d6d82df2aa8a923cab20",
+      "address": "32267:713978c3094081b34fcf2f5491733b0c22728cd3b7a6946519d40f5f08598af8:ninja.nostrudel"
+    },
+    {
+      "client": "Nostter",
+      "website": "https://nostter.app",
+      "sources": [
+        "https://nostter.app",
+        "https://github.com/SnowCait/nostter"
+      ],
+      "notes": "Official website verified; no confirmed Zapstore listing found."
+    },
+    {
+      "client": "Nostur",
+      "website": "https://nostur.com/",
+      "sources": [
+        "https://nostur.com/",
+        "https://nostur.com/"
+      ],
+      "notes": "No kind32267 app found in Zapstore name search; website fallback."
+    },
+    {
+      "client": "Olas",
+      "website": "https://olas.app/",
+      "sources": [
+        "https://olas.app/",
+        "https://github.com/pablof7z/olas/blob/main/app.json",
+        "wss://relay.zapstore.dev"
+      ],
+      "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 49d930a6e983573f4a46e0b43c881896e9bdd2e30c4c3de9f12c211283f30797",
+      "address": "32267:3f68dede81549cc0844fafe528f1574b51e095e7491f468bd9689f87779bb81d:com.pablof7z.snapstr"
+    },
+    {
+      "client": "Primal",
+      "website": "https://primal.net",
+      "address": "32267:b090908101cc6498893cc7f14d745dcea0b2ab6842cc4b512515643d272a375c:net.primal.android",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://zapstore.dev/apps/net.primal.android",
+        "https://primal.net"
+      ],
+      "notes": "Exact kind32267 author and d verified from relay event 87a584e8088772407e7b2dc16efa7e9146b8277c27da520e631e424d1aa10b6a"
+    },
+    {
+      "client": "Satellite",
+      "website": "https://satellite.earth",
+      "sources": [
+        "https://satellite.earth"
+      ],
+      "notes": "Official website verified; no confirmed Zapstore listing found."
+    },
+    {
+      "client": "Shosho",
+      "website": "https://shosho.live",
+      "address": "32267:85df00a2f6a91845354c8d2d9fbab4002bb85b4225baeab60fafb2587c5038ea:com.shosho.app",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://zapstore.dev/apps/com.shosho.app",
+        "https://shosho.live"
+      ],
+      "notes": "Exact kind32267 author and d verified from relay event 074e814870e47b3f3295372d4e1c4e6967ba098e4c21879e18ebd0784f8a5156"
+    },
+    {
+      "client": "Snort",
+      "website": "https://snort.social",
+      "sources": [
+        "https://snort.social",
+        "https://zapstore.dev/apps/social.snort.app",
+        "https://github.com/v0l/snort/blob/main/zapstore.yaml"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event b1d68408d15828ce6357afa9905a34c8a9d9581d9ffb2863692ebcf4386fbe7c; listing URL points to phoenix.social, but official snort.social and upstream zapstore.yaml still identify Snort.",
+      "address": "32267:63fe6318dc58583cfe16810f86dd09e18bfd76aabc24a0081ce2856f330504ed:social.snort.app"
+    },
+    {
+      "client": "Voyage",
+      "website": "https://github.com/dluvian/voyage",
+      "sources": [
+        "https://github.com/dluvian/voyage",
+        "wss://relay.zapstore.dev"
+      ],
+      "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 3dc2417bb3130ca8369ed9a15d35f375ca6d4544c31128bd7e143849d1cd3d1f",
+      "address": "32267:78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d:com.dluvian.voyage"
+    },
+    {
+      "client": "Wisp",
+      "website": "https://wisp.talk",
+      "address": "32267:e2ccf7cf20403f3f2a4a55b328f0de3be38558a7d5f33632fdaaefc726c1c8eb:com.wisp.app",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://zapstore.dev/apps/com.wisp.app",
+        "https://wisp.talk"
+      ],
+      "notes": "Exact kind32267 author and d verified from relay event 078dc29e3ffec12182f3713b6d57bda7e3c217f28f0383f71ee4d41f86ac6791"
+    },
+    {
+      "client": "YakiHonne",
+      "website": "https://yakihonne.com",
+      "sources": [
+        "https://yakihonne.com",
+        "https://zapstore.dev/apps/com.yakihonne.yakihonne"
+      ],
+      "notes": "Verified signed kind 32267 via wss://relay.zapstore.dev; event 5bdbbee84c8ec9344e53dcbfbf0081ea2a8e884effd811d855608e1c441f07d4",
+      "address": "32267:20986fb83e775d96d188ca5c9df10ce6d613e0eb7e5768a0f0b12b37cdac21b3:com.yakihonne.yakihonne"
+    },
+    {
+      "client": "zap.stream",
+      "website": "https://zap.stream/",
+      "sources": [
+        "https://zap.stream/",
+        "https://github.com/v0l/zap.stream",
+        "https://zapstore.dev/apps/io.nostrlabs.zap_stream_flutter"
+      ],
+      "notes": "Exact kind32267 app verified from relay.zapstore.dev event ba70b2e2edebf08a33a58652fe972900abc5b433171883a23797b4d3e8b5a52a",
+      "address": "32267:63fe6318dc58583cfe16810f86dd09e18bfd76aabc24a0081ce2856f330504ed:io.nostrlabs.zap_stream_flutter"
+    },
+    {
+      "client": "Zapstore",
+      "website": "https://zapstore.dev/",
+      "sources": [
+        "https://zapstore.dev/",
+        "wss://relay.zapstore.dev"
+      ],
+      "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 16b37687f95b87237b7ee2aeb7a48c2eb90c02e5578fd28da351b26aa8e0455c",
+      "address": "32267:78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d:dev.zapstore.app"
+    }
+  ]
+}

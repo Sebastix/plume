@@ -32,7 +32,8 @@ internal data class NoteDetails(val reposts: List<DetailPerson> = emptyList(), v
 
 @Composable
 internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (NostrContent.Reference) -> Unit) {
-    val repository = (LocalContext.current.applicationContext as FeatherApplication).repository
+    val context = LocalContext.current
+    val repository = (context.applicationContext as FeatherApplication).repository
     val stream = remember(note.id, repository) { repository.noteDetails(note) }
     val details by stream.collectAsState(initial = null)
     val data = details
@@ -111,8 +112,11 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                         }
                     }
                 } else Spacer(Modifier.weight(1f))
-                if (client != null) Row(Modifier.widthIn(max = clientMaxWidth).padding(start = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
+                if (client != null) Row(Modifier.widthIn(max = clientMaxWidth).padding(start = 8.dp)
+                    .then(if (icon != null) Modifier.clickable(onClickLabel = stringResource(R.string.ui_open_client, client)) {
+                        val app = icon.appReference()
+                        if (app != null) onReference(app) else context.openWebLink(icon.website)
+                    } else Modifier), verticalAlignment = Alignment.CenterVertically) {
                     Text(client, style = MaterialTheme.typography.labelSmall, color = muted,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp, top = 4.dp, bottom = 4.dp))

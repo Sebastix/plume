@@ -181,4 +181,5 @@
     <string name="ui_zap_split">指定されたZapの分配</string>
     <string name="ui_posted_from_client">投稿元のクライアント</string>
     <string name="ui_suspected_spam">重複スパムの疑い</string>
+    <string name="ui_open_client">%1$sを開く</string>
 </resources>
