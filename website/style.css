@@ -52,3 +52,6 @@ feather-feed-switcher{display:block;min-width:0;scroll-margin-top:80px}
 .feature-note{grid-column:1/-1;margin:0;color:var(--muted)}.feature-note a:hover{color:var(--blue)}
 
 feather-video-demo,feather-composer-demo{display:block;min-width:0}
+
+.shortcut-grid .keys kbd:first-child{min-width:88px;text-align:center}
+@media(max-width:420px){.shortcut-grid{grid-template-columns:1fr}}
