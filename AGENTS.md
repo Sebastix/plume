@@ -15,6 +15,7 @@
 - Releases include a signed APK on GitHub and a Zapstore publication, following boris-android.
 - Never commit credentials, local.properties, .env, or signing keys.
 - Use the sole tagline “Nostr with nothing in the way.” The approved promotional line is “Swipe, tap, done.” No other generic supporting slogans; public copy should describe concrete features.
+- For kind-1 promotional posts quoting Gigi, keep the quotation and attribution (including the nostr:npub mention and proper p tag) on the same line. Put the blog/article URL on the immediately following line, with no blank line. Keep announcements vertically compact.
 - Website is static HTML/CSS on Vercel at feather.dergigi.com. Keep evergreen links to the latest GitHub release and Zapstore, with no app version label. App releases must not update or deploy the website; defer further website work until explicitly requested.
 - Prefer fast iteration. Build before publishing. The user tests live on their device through Zapstore; do not run tests or emulators unless explicitly requested. Build only when a release is requested.
 - Load media automatically, cache aggressively within the chosen storage budget, and keep feed video playback muted and bounded to three visible players. Prepare neighboring first frames; clips that start playing continue until fully offscreen. Only one clip may be audible.
