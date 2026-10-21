@@ -3,7 +3,6 @@ package org.dergigi.feather
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -54,7 +53,6 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     val preference = (context.applicationContext as FeatherApplication).timestamps
     val mode by preference.mode.collectAsStateWithLifecycle()
     var height by remember(note.id) { mutableStateOf<Int?>(null) }
-    var loading by remember(note.id) { mutableStateOf(false) }
     var visible by remember(note.id) { mutableStateOf(false) }
     var relative by remember(note.createdAt) { mutableStateOf(relativeTime(note.createdAt)) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
@@ -73,13 +71,9 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
                 delay(relative.nextUpdateMs)
             }
         } else if (mode == 1) {
-            loading = true
-            try {
-                height = try { blocktime.height(note.createdAt) }
-                    catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { null }
-                if (height == null) AppMessages.show("Couldn't load block height.")
-            } finally { loading = false }
+            height = try { blocktime.height(note.createdAt) }
+                catch (e: CancellationException) { throw e }
+                catch (_: Exception) { null }
         }
     }
     val blockLabel = remember(height) { height?.let { NumberFormat.getIntegerInstance(Locale.US).format(it) } }
@@ -100,7 +94,6 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp, alignment),
     ) {
-        if (mode == 1 && loading && height == null) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.dp)
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = if (mode == 1 && height != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }

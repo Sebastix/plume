@@ -392,3 +392,5 @@ Visible authors and referenced profiles take priority over optional engagement p
 ### Action queue isolation
 
 Wallet confirmation must not consume the queue capacity of likes, reposts, or votes. Keep separate bounded backlogs: 32 zaps, 64 reaction changes, 32 repost changes, and 8 votes. Run up to four social actions and two journaled zap operations concurrently. Keep changes to the same note ordered within each lane, and serialize shared signer requests. Release idle per-note locks, including cancelled waiters. Wallet journal reads, writes, and eviction are synchronized; uncertain payments are checked, never resent. Reaction/repost overflow leaves the current UI state unchanged and fails quietly; zap overflow tells the user to wait for pending payments. Never retry an uncertain payment automatically.
+
+Block-height timestamps are optional decoration: show the normal date until a height is available, without spinners or error messages. Resolve from memory/disk first; try mempool.space then mempool.emzy.de, with bounded responses/timeouts and a shared one-minute cooldown per failing provider. Failed disk caching must not suppress a resolved height.

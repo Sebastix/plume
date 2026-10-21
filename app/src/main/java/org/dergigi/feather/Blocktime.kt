@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.os.SystemClock
 import android.util.AtomicFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,6 +31,9 @@ internal class Blocktime(context: Context) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Entry>?) = size > 512
     }
     private val mutex = Mutex()
+    private val providers = listOf("https://mempool.space", "https://mempool.emzy.de")
+    // Shared across timestamps: an outage must not cause one failed call per visible note.
+    private val providerRetryAfter = mutableMapOf<String, Long>()
     // SQLiteOpenHelper does not open or read the database until height() accesses it on IO.
     private val store = BlocktimeStore(context.applicationContext)
     private val http = OkHttpClient.Builder().callTimeout(8, TimeUnit.SECONDS).followSslRedirects(false).build()
@@ -38,33 +42,52 @@ internal class Blocktime(context: Context) {
     suspend fun height(timestamp: Long): Int? = withContext(Dispatchers.IO) {
         mutex.withLock {
             val now = System.currentTimeMillis() / 1_000
+            val elapsed = SystemClock.elapsedRealtime()
             if (timestamp !in 1231006505L..now) return@withLock null
-            entries[timestamp]?.takeIf { it.height != null || it.retryAfter > now }?.let { return@withLock it.height }
-            val cached = store.find(timestamp)
+            entries[timestamp]?.takeIf { it.height != null || it.retryAfter > elapsed }?.let { return@withLock it.height }
+            val cached = runCatching { store.find(timestamp) }.getOrNull()
             if (cached != null) {
                 entries[timestamp] = Entry(cached)
                 return@withLock cached
             }
-            val height = try {
-                val request = Request.Builder().url("https://mempool.space/api/v1/mining/blocks/timestamp/$timestamp").build()
-                http.newCall(request).await().use { response ->
-                    if (!response.isSuccessful) throw IOException("Block lookup failed")
-                    val source = response.body.source()
-                    source.request(4_097)
-                    val bytes = source.buffer.clone().readByteArray()
-                    require(bytes.size <= 4_096)
-                    val json = JSONObject(bytes.toString(Charsets.UTF_8))
-                    require(Instant.parse(json.getString("timestamp")).epochSecond <= timestamp)
-                    json.getInt("height").also { require(it >= 0) }
+            var height: Int? = null
+            for (provider in providers) {
+                if ((providerRetryAfter[provider] ?: 0) > SystemClock.elapsedRealtime()) continue
+                try {
+                    height = lookup(provider, timestamp)
+                    providerRetryAfter.remove(provider)
+                    break
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) {
+                    providerRetryAfter[provider] = SystemClock.elapsedRealtime() + 60_000
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-            catch (_: Exception) { null }
-            // Persist before returning: no deferred writer window can lose an already-shown result.
-            if (height != null) store.save(timestamp, height)
-            entries[timestamp] = Entry(height, if (height == null) now + 60 else 0)
+            }
+            // Optional persistence must not hide an otherwise usable result.
+            height?.let { resolved -> runCatching { store.save(timestamp, resolved) } }
+            entries[timestamp] = Entry(height, if (height == null) SystemClock.elapsedRealtime() + 60_000 else 0)
             height
         }
     }
+
+    private suspend fun lookup(provider: String, timestamp: Long): Int {
+        val request = Request.Builder().url("$provider/api/v1/mining/blocks/timestamp/$timestamp").build()
+        return http.newCall(request).await().use { response ->
+            if (!response.isSuccessful) throw IOException("Block lookup failed: HTTP ${response.code}")
+            val source = response.body.source()
+            source.request(4_097)
+            val bytes = source.buffer.clone().readByteArray()
+            require(bytes.size <= 4_096)
+            val json = JSONObject(bytes.toString(Charsets.UTF_8))
+            val blockTimestamp = when (val value = json.get("timestamp")) {
+                is Number -> value.toLong()
+                is String -> value.toLongOrNull() ?: Instant.parse(value).epochSecond
+                else -> error("Invalid block timestamp")
+            }
+            require(blockTimestamp in 1231006505L..timestamp)
+            json.getInt("height").also { require(it >= 0) }
+        }
+    }
+
 }
 
 /** App data, not Android's reclaimable cache directory. No expiry or pruning of successful lookups. */
