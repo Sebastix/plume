@@ -50,6 +50,22 @@
 <p>A development clanker can ask that agent what people have reported recently. After a big release, Gigi can ask it to write an announcement. He calls the accumulated context an “organizational brain,” as though each little project were its own company.</p>
 <blockquote><p>“Use it only for your project. Don’t use it for any other stuff. Then this organizational brain will build up over time.”</p></blockquote>
 <p>OpenClaw is what he uses; he also mentions Hermes as an option. His advice is to give each project its own agent and let the history accumulate. That way, a new conversation has something to draw on, and he doesn’t have to explain the project from scratch each time.</p>
+<h2>Moving the work off GitHub</h2>
+<p>Gigi recently moved Feather’s issue and feature tracking to Nostr, using ngit and GRASP servers. GitHub still hosts a code mirror and release APKs. His objection is to making the whole development process depend on a GitHub account staying available.</p>
+<blockquote><p>“GitHub is obviously still a central point of failure when it comes to development, if you base your development life around GitHub.”</p></blockquote>
+<p>He credits Dan Conway’s work on <a href="https://ngit.dev/quickstart">ngit</a> with making the switch practical. GRASP servers host copies of the repository, ngit handles signed repository activity, and <a href="https://gitworkshop.dev/npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc/relay.ngit.dev/feather">GitWorkshop</a> gives people a web interface to Feather’s code and issues. He has found the tools easy to use with clankers.</p>
+<p>What interests him is being able to move between hosts while keeping his identity. Replacing GitHub with another service that could lock him out would leave the same problem.</p>
+<blockquote><p>“He who has the keys is in control.”</p></blockquote>
+<p>For someone using Feather, this means they can report a bug or suggest a feature directly from the app, signing the public issue with their Nostr account. They don’t need to create a GitHub account to join the conversation.</p>
+<h2>Each agent has its own access</h2>
+<p>On GitHub, Gigi gave each project agent its own access token, scoped to that project. Feather’s agent didn’t need permission to work in Boris or Goop. He applies the same project-by-project approach on the Nostr side, where each agent has its own identity.</p>
+<blockquote><p>“Each project agent has its own access token, and that’s scoped only to this one project. They can’t do anything in any other project.”</p></blockquote>
+<p>The agents’ keys belong to their project accounts. They don’t have his personal signing key. That distinction matters when an agent does more than answer DMs: it can prepare a code change under its own identity while Gigi keeps control of what gets merged and published.</p>
+<h2>Fixing bugs while he sleeps</h2>
+<p>The project agents can do development too. Gigi has scheduled jobs that periodically check for bug reports, issues, and feature requests, then work on them and prepare pull requests. A fix might be waiting when he wakes up.</p>
+<p>He reviews those changes with clanker help. The schedule gives an agent time to do the work; it doesn’t give it the final decision about whether that work belongs in the app. He keeps that decision for merges as well as releases.</p>
+<blockquote><p>“In the end, I’m the final arbiter when it comes to taste and feature set.”</p></blockquote>
+<p>That leaves him free to ask an agent to investigate or implement something without committing to ship it. He can look at the result, discuss it, and decide what to keep.</p>
 <h2>Still a keyboard lover</h2>
 <p>He still likes mechanical keyboards, the “clickity-clack” and the feeling of typing quickly. But he estimates that about 80 percent of his computer input is now voice. Paseo has made that practical for him, and he encourages people to try it even if they expect their spoken thoughts to be too rambling.</p>
 <p>The rambling is part of these interviews, too. He speaks, I transcribe and edit, and he corrects what doesn’t sound right. Feather began with much the same experiment.</p>
