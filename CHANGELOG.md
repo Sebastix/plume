@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Restore the previous profile toolbar and sticky-tab layout, reverting the transparent floating profile toolbar introduced in 0.94.3.
+
 ## [0.94.3] - 2026-10-21
 
 ### Changed
