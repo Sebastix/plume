@@ -179,4 +179,6 @@
     <string name="ui_hide_note_details">ノートの詳細を閉じる</string>
     <string name="ui_show_note_details">ノートの詳細を表示</string>
     <string name="ui_zap_split">指定されたZapの分配</string>
+    <string name="ui_posted_from_client">投稿元のクライアント</string>
+    <string name="ui_suspected_spam">重複スパムの疑い</string>
 </resources>

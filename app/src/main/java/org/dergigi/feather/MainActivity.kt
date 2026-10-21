@@ -1379,7 +1379,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
 @Composable
 private fun ConversationGap(row: ConversationRow, profiles: Map<String, Profile>, onProfile: (String) -> Unit, onOpen: (NostrContent.Reference) -> Unit, onInfo: (String, String) -> Unit,
     loading: Boolean = false, onLoadParent: (() -> Unit)? = null, onMore: (() -> Unit)? = null) {
-    if (row.gap in listOf(ThreadGap.DELETED, ThreadGap.MUTED)) {
+    if (row.gap in listOf(ThreadGap.DELETED, ThreadGap.MUTED, ThreadGap.SPAM)) {
         ConcealedConversationNote(row, profiles, onProfile, onInfo, onMore)
         return
     }
@@ -1422,17 +1422,18 @@ private fun ConversationGap(row: ConversationRow, profiles: Map<String, Profile>
 
 @Composable
 private fun ConcealedConversationNote(row: ConversationRow, profiles: Map<String, Profile>, onProfile: (String) -> Unit, onInfo: (String, String) -> Unit, onMore: (() -> Unit)?) {
-    val muted = row.gap == ThreadGap.MUTED
+    val spam = row.gap == ThreadGap.SPAM
+    val muted = row.gap == ThreadGap.MUTED || spam
     val source = if (muted) row.mutedCopy else row.deletedCopy
     val currentFilter = LocalContentFilter.current
-    val filter = if (muted) currentFilter.copy(authors = source?.pubKey?.let { currentFilter.authors - it } ?: currentFilter.authors, words = emptySet())
+    val filter = if (spam) currentFilter else if (muted) currentFilter.copy(authors = source?.pubKey?.let { currentFilter.authors - it } ?: currentFilter.authors, words = emptySet())
         else currentFilter.copy(deletedNotes = emptySet())
     val copy = source?.takeUnless(filter::hides)?.takeUnless {
         it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
     }
     var revealed by rememberSaveable(row.key, row.gap, copy?.id) { mutableStateOf(false) }
     val rail = MaterialTheme.colorScheme.outlineVariant
-    val label = if (muted) "Reply from a muted account" else "Note deleted by its author"
+    val label = if (spam) stringResource(R.string.ui_suspected_spam) else if (muted) "Reply from a muted account" else "Note deleted by its author"
     Column {
         if (row.mutedTailStart) Text(stringResource(R.string.ui_muted_replies), Modifier.padding(start = 24.dp, top = 20.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1443,7 +1444,7 @@ private fun ConcealedConversationNote(row: ConversationRow, profiles: Map<String
     }) {
         Row(Modifier.padding(start = 18.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (muted) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                Icon(painterResource(if (source != null && source.pubKey !in currentFilter.authors) R.drawable.muted_words else R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+                Icon(painterResource(if (spam) R.drawable.spam else if (source != null && source.pubKey !in currentFilter.authors) R.drawable.muted_words else R.drawable.account_hidden), label, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
             } else IconButton(onClick = { onInfo(label,
                 "The author requested deletion. Any available cached text stays hidden until you choose to reveal it.") }) {
                 Icon(Icons.Default.Delete, label, tint = MaterialTheme.colorScheme.onSurfaceVariant)

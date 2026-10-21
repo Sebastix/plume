@@ -32,6 +32,11 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
     val stream = remember(note.id, repository) { repository.noteDetails(note) }
     val details by stream.collectAsState(initial = null)
     val data = details
+    val client = remember(note.id) {
+        note.tags.firstNotNullOfOrNull { tag ->
+            if (tag.firstOrNull() == "client") tag.getOrNull(1)?.take(128)?.trim()?.takeIf { it.isNotBlank() } else null
+        }
+    }
     val clipboard = LocalClipboardManager.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f)
     Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -87,11 +92,20 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
                     }
                 }
             }
-            if (zapSplits(note).isEmpty() && data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
+            if (client == null && zapSplits(note).isEmpty() && data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
                     Icon(painterResource(R.drawable.people), stringResource(R.string.ui_no_note_details), Modifier.size(18.dp), tint = muted)
                 }
             }
+        }
+        if (client != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.apps), stringResource(R.string.ui_posted_from_client),
+                    Modifier.size(16.dp), tint = muted)
+            }
+            Text(client, style = MaterialTheme.typography.labelSmall, color = muted,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
         }
     }
 }

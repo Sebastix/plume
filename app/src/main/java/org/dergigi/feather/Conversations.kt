@@ -85,7 +85,7 @@ internal object ThreadRelations {
     }
 }
 
-enum class ThreadGap { MISSING, HIDDEN, MUTED, DELETED, LIMIT, CYCLE }
+enum class ThreadGap { MISSING, HIDDEN, MUTED, SPAM, DELETED, LIMIT, CYCLE }
 
 internal const val INITIAL_THREAD_ANCESTORS = 31
 internal const val MAX_THREAD_ANCESTORS = 255
@@ -118,18 +118,19 @@ data class Conversation(
 
 /** Bounded graph projection. Run off-main; never infer ancestry from time, author, or root tags. */
 internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>, expanded: Set<String> = emptySet(),
-    ancestorLimit: Int = INITIAL_THREAD_ANCESTORS): Conversation {
+    ancestorLimit: Int = INITIAL_THREAD_ANCESTORS, spam: Set<String> = emptySet()): Conversation {
     val parentLimit = ancestorLimit.coerceIn(INITIAL_THREAD_ANCESTORS, MAX_THREAD_ANCESTORS)
     val byId = events.associateBy { it.id }
     val byAddress = events.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         .mapNotNull { e -> ThreadRelations.address(e)?.let { it to e } }.distinctBy { it.first }.toMap()
     val parents = events.associate { it.id to ThreadRelations.parent(it) }
     fun resolve(ref: NostrContent.Reference) = byId[ref.id] ?: byAddress[ref.id]
-    fun blocked(e: Event) = filter.hides(e) || e.id in deleted
+    fun blocked(e: Event) = filter.hides(e) || e.id in deleted || e.id in spam
     val revealFilter = filter.copy(deletedNotes = emptySet())
     val chainFilter = filter.copy(authors = emptySet(), words = emptySet())
     val candidateFilter = chainFilter.copy(deletedNotes = emptySet())
-    fun muted(e: Event) = e.pubKey in filter.authors || filter.mutedText(e)
+    fun muted(e: Event) = e.pubKey in filter.authors || filter.mutedText(e) || e.id in spam
+    fun concealedReason(e: Event) = if (e.id in spam && e.pubKey !in filter.authors && !filter.mutedText(e)) ThreadGap.SPAM else ThreadGap.MUTED
     fun boundary(e: Event) = chainFilter.hides(e) || e.id in deleted
     fun cachedCopy(e: Event?) = e?.takeUnless(revealFilter::hides)?.takeUnless {
         it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
@@ -167,7 +168,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
     val chain = ancestors.reversed() + focus
     chain.forEachIndexed { index, event ->
         if (blocked(event)) {
-            rows += ConversationRow(event.id, gap = if (event.id in deleted) ThreadGap.DELETED else if (muted(event) && !chainFilter.hides(event)) ThreadGap.MUTED else ThreadGap.HIDDEN,
+            rows += ConversationRow(event.id, gap = if (event.id in deleted) ThreadGap.DELETED else if (muted(event) && !chainFilter.hides(event)) concealedReason(event) else ThreadGap.HIDDEN,
                 focused = event.id == focus.id, ancestor = event.id != focus.id,
                 root = parents[event.id] == null,
                 deletedCopy = if (event.id in deleted) cachedCopy(event) else null,
@@ -194,7 +195,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
             next = replies(next).firstOrNull()
         }
         branch.forEachIndexed { index, event -> rows += ConversationRow(event.id, event.takeUnless { it.id in deleted || muted(it) },
-            gap = if (event.id in deleted) ThreadGap.DELETED else ThreadGap.MUTED.takeIf { muted(event) },
+            gap = if (event.id in deleted) ThreadGap.DELETED else concealedReason(event).takeIf { muted(event) },
             deletedCopy = cachedCopy(event).takeIf { event.id in deleted }, mutedCopy = mutedCopy(event).takeIf { event.id !in deleted },
             above = index > 0 || gapRow?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT), below = index < branch.lastIndex,
             more = index == branch.lastIndex && (next != null || replies(event).isNotEmpty())) }
@@ -254,7 +255,7 @@ internal fun conversation(target: String, focus: Event, events: List<Event>, fil
         if (reply.id !in used && rows.size < 320) {
             val start = rows.size
             branch(reply, quiet = true)
-            if (firstMuted && rows.size > start) { rows[start] = rows[start].copy(mutedTailStart = true); firstMuted = false }
+            if (firstMuted && rows.size > start) { rows[start] = rows[start].copy(mutedTailStart = rows[start].gap == ThreadGap.MUTED); firstMuted = false }
         }
     }
     return Conversation(target, rows, missing.values.take(8), deleted)

@@ -1116,7 +1116,8 @@ class FeatherRepository(context: Context) {
             } == true
         }.map { it.id }.toSet()
         rememberDeleted(pool.values)
-        var view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, request.expanded, ancestorLimit)
+        val spam = suspectedReplySpam(pool.values, state.value.following + listOfNotNull(request.account))
+        var view = conversation(id, focus, pool.values.toList(), filter, deleted + state.value.deletedNotes, request.expanded, ancestorLimit, spam)
         // A tapped branch gap gets a slot in the existing eight-parent lookup budget.
         if (requestedParent != null && view.rows.any { it.gap == ThreadGap.MISSING && it.reference?.id == requestedParent.id }) {
             view = view.copy(missing = (listOf(requestedParent) + view.missing).distinctBy { it.id }.take(8))

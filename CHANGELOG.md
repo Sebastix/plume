@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.93.0] - 2026-10-21
+
+### Added
+- Collapse suspected duplicate replies in threads after five distinct matching events from the same non-followed author, with an icon-only reveal control and cached content preserved.
+- Show the declared client name in expanded note details when the note includes a client tag.
+
 ## [0.92.1] - 2026-10-20
 
 ### Changed
