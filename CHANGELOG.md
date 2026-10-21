@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.93.1] - 2026-10-21
+
+### Fixed
+- Accept emoji hashtags such as #⭕ in search, note links, and hashtag tags on new posts.
+
+### Changed
+- Show the client icon and name right-aligned on the same compact row as observed relays.
+
 ## [0.93.0] - 2026-10-21
 
 ### Added

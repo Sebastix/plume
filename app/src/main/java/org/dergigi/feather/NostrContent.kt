@@ -9,7 +9,9 @@ object NostrContent {
     data class Reference(val id: String, val profile: Boolean = false, val relays: List<String> = emptyList(), val author: String? = null, val kind: Int? = null, val external: String? = null, val hashtag: String? = null)
     data class Token(val start: Int, val end: Int, val text: String, val reference: Reference? = null, val url: String? = null)
     private val hex = Regex("[0-9a-f]{64}")
-    private val tokens = Regex("https?://[^\\s<>]+|(?<![\\w/])(?:nostr:)?(?:npub|nprofile|note|nevent|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+|#\\[\\d{1,4}]|(?<![\\p{L}\\p{N}_/])#[\\p{L}\\p{N}_][\\p{L}\\p{N}\\p{M}_]*", RegexOption.IGNORE_CASE)
+    // Emoji symbols, modifiers, variation selectors, ZWJ sequences and flag tag sequences
+    // belong to the hashtag too. URLs still win so fragments are never published as tags.
+    private val tokens = Regex("https?://[^\\s<>]+|(?<![\\w/])(?:nostr:)?(?:npub|nprofile|note|nevent|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+|#\\[\\d{1,4}]|(?<![\\p{L}\\p{N}\\p{M}\\p{So}\\p{Sk}_/])#[\\p{L}\\p{N}\\p{So}_][\\p{L}\\p{N}\\p{M}\\p{So}\\p{Sk}_\\u200D\\x{E0020}-\\x{E007F}]*", RegexOption.IGNORE_CASE)
     /** Match the same hashtags as the reader; consume whole URLs before considering their fragments. */
     internal fun hashtags(text: String): List<String> = tokens.findAll(text)
         .map { it.value }

@@ -81,31 +81,41 @@ internal fun NoteDetailsPanel(note: Event, state: FeedState, onReference: (Nostr
             if (data.zaps.isNotEmpty()) people(data.zaps) {
                 Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_note_zaps), Modifier.size(16.dp), tint = muted)
             }
-            if (data.relays.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.storage), stringResource(R.string.ui_seen_on_relays), Modifier.size(16.dp), tint = muted)
-                LazyRow(Modifier.weight(1f).padding(start = 8.dp)) {
-                    items(data.relays, key = { it }) { relay ->
-                        Text(relay.removePrefix("wss://").removePrefix("ws://").trimEnd('/'),
-                            style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1,
-                            modifier = Modifier.clickable(onClickLabel = relay) { clipboard.setText(AnnotatedString(relay)) }
-                                .padding(horizontal = 6.dp, vertical = 4.dp))
-                    }
-                }
-            }
             if (client == null && zapSplits(note).isEmpty() && data.reposts.isEmpty() && data.reactions.isEmpty() && data.zaps.isEmpty() && data.relays.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
                     Icon(painterResource(R.drawable.people), stringResource(R.string.ui_no_note_details), Modifier.size(18.dp), tint = muted)
                 }
             }
         }
-        if (client != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.apps), stringResource(R.string.ui_posted_from_client),
-                    Modifier.size(16.dp), tint = muted)
+        val relays = data?.relays.orEmpty()
+        if (relays.isNotEmpty() || client != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val clientMaxWidth = maxWidth * .45f
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (relays.isNotEmpty()) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.storage), stringResource(R.string.ui_seen_on_relays),
+                            Modifier.size(16.dp), tint = muted)
+                    }
+                    LazyRow(Modifier.weight(1f).padding(start = 4.dp)) {
+                        items(relays, key = { it }) { relay ->
+                            Text(relay.removePrefix("wss://").removePrefix("ws://").trimEnd('/'),
+                                style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1,
+                                modifier = Modifier.clickable(onClickLabel = relay) { clipboard.setText(AnnotatedString(relay)) }
+                                    .padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+                        }
+                    }
+                } else Spacer(Modifier.weight(1f))
+                if (client != null) Row(Modifier.widthIn(max = clientMaxWidth).padding(start = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.apps), stringResource(R.string.ui_posted_from_client),
+                            Modifier.size(16.dp), tint = muted)
+                    }
+                    Text(client, style = MaterialTheme.typography.labelSmall, color = muted,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
+                }
             }
-            Text(client, style = MaterialTheme.typography.labelSmall, color = muted,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
         }
     }
 }
