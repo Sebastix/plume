@@ -192,10 +192,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     val reposting = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     private val repostJobs = mutableMapOf<String, Job>()
     private val reactionJobs = mutableMapOf<String, Job>()
-    private fun queueHasRoom(): Boolean {
-        if (zapJobs.size + optimisticReactions.value.values.sumOf { it.size } + repostJobs.size < 32) return true
-        message.value = "Action queue is full. Try again shortly."
-        return false
+    // Wallet confirmation can be slow. Keep its backlog independent of social actions,
+    // while retaining finite queues and the existing per-note/signer/payment ordering.
+    private companion object {
+        const val MAX_QUEUED_ZAPS = 32
+        const val MAX_QUEUED_REACTIONS = 64
+        const val MAX_QUEUED_REPOSTS = 32
     }
     private fun cancelActions() {
         muteWordJobs.values.toList().forEach { it.cancel() }; muteWordJobs.clear(); muteWordEdits.value = emptyList()
@@ -238,7 +240,11 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     fun zap(note: Event, amountSats: Long = DEFAULT_ZAP_SATS, comment: String = "") {
         if (amountSats !in 1..MAX_ZAP_SATS) return
         val request = Triple(note.id, amountSats, comment.trimEnd())
-        if (request in zapJobs || !queueHasRoom()) return
+        if (request in zapJobs) return
+        if (zapJobs.size >= MAX_QUEUED_ZAPS) {
+            message.value = "Zap queue is full. Wait for pending payments to finish."
+            return
+        }
         if (walletBusy.value) { message.value = "Wallet connection is being updated. Try again shortly."; return }
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         zapping.update { it + note.id }
@@ -626,7 +632,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun repost(note: Event) {
-        if (note.id in reposting.value || !queueHasRoom()) return
+        if (note.id in reposting.value || repostJobs.size >= MAX_QUEUED_REPOSTS) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first"; return }
         val remove = note.id in state.value.sentReposts
         reposting.update { it + (note.id to !remove) }
@@ -645,7 +651,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
 
     internal fun vote(note: Event, choices: Set<String>) {
         val connected = signer.value ?: return
-        if (note.id in state.value.pendingVotes || state.value.pendingVotes.size >= 8 || !queueHasRoom()) return
+        if (note.id in state.value.pendingVotes || state.value.pendingVotes.size >= 8) return
         repo.voting(note.id, true)
         viewModelScope.launch {
             try { repo.vote(note, choices, connected, signerRequests) }
@@ -660,7 +666,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val connected = signer.value ?: run { message.value = "Connect an Android signer first."; return }
         val queued = optimisticReactions.value[note.id].orEmpty()
         val visible = queued.fold(state.value.sentReactions[note.id].orEmpty()) { reactions, change -> change.applyTo(reactions) }
-        if ((!remove && choice in visible) || (remove && choice !in visible) || !queueHasRoom()) return
+        if ((!remove && choice in visible) || (remove && choice !in visible)) return
+        // As with publication failure, leave the icon unchanged and fail quietly if full.
+        if (optimisticReactions.value.values.sumOf { it.size } >= MAX_QUEUED_REACTIONS) return
         optimisticReactions.update { it + (note.id to (queued + PendingReaction(choice, remove))) }
         reacting.update { it + note.id }
         if (reactionJobs[note.id] != null) return

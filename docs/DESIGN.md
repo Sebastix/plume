@@ -388,3 +388,7 @@ Show declared NIP-57 zap splits as compact recipient avatars with percentages, u
 Explicit zaps honor valid declared splits. Allocate whole sats by largest remainder in tag order, preserving the requested total; require at least one sat per positive-weight recipient. Resolve recipient metadata using cached profiles and bounded kind-0 discovery with declared relay hints. Invalid declarations never fall back to paying the author. Persist a split batch and each invoice before payment; skip confirmed recipients, check uncertain invoices without resending, and prevent changing the total/message while a split remains incomplete. Only completed batches count toward local success and amount history. Keep active batch child records protected from journal eviction.
 
 Visible authors and referenced profiles take priority over optional engagement participants in bounded metadata discovery. Restore cached names before optional engagement calculation.
+
+### Action queue isolation
+
+Wallet confirmation must not consume the queue capacity of likes, reposts, or votes. Keep separate bounded backlogs: 32 zaps, 64 reaction changes, 32 repost changes, and 8 votes. Preserve per-note reaction order, shared signer serialization, and serialized journaled payments. Reaction/repost overflow leaves the current UI state unchanged and fails quietly; zap overflow tells the user to wait for pending payments. Never retry an uncertain payment automatically.
