@@ -17,10 +17,12 @@ internal fun Event.nostrPointer(): String = tagValue("d")?.takeIf { kind in 3000
 } ?: NEvent.create(id, pubKey, kind, relay = null)
 
 /** Explicit chooser, even if Feather is the default nostr: handler. Resolve packages off-main. */
-internal suspend fun Context.openInNostrApp(event: Event) {
+internal suspend fun Context.openInNostrApp(event: Event) = openInNostrApp(event.nostrPointer())
+
+internal suspend fun Context.openInNostrApp(pointer: String) {
     try {
         val chooser = withContext(Dispatchers.IO) {
-            val view = Intent(Intent.ACTION_VIEW, Uri.parse("nostr:${event.nostrPointer()}"))
+            val view = Intent(Intent.ACTION_VIEW, Uri.parse("nostr:$pointer"))
             @Suppress("DEPRECATION")
             val handlers = packageManager.queryIntentActivities(view, PackageManager.MATCH_DEFAULT_ONLY)
             if (handlers.none {

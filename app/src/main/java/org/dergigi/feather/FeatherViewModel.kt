@@ -133,35 +133,41 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         job.start()
     }
     internal val pendingAccountMutes = MutableStateFlow<Set<String>>(emptySet())
+    internal val pendingAccountUnmutes = MutableStateFlow<Set<String>>(emptySet())
     private val accountMuteJobs = mutableMapOf<String, Job>()
 
-    internal fun muteAccount(pubkey: String) {
+    internal fun muteAccount(pubkey: String) = changeAccountMute(pubkey, true)
+    internal fun unmuteAccount(pubkey: String) = changeAccountMute(pubkey, false)
+
+    private fun changeAccountMute(pubkey: String, mute: Boolean) {
         val identity = signer.value ?: return
         if (Protocol.publicKey(pubkey) != pubkey || pubkey == identity.pubKey ||
-            pubkey in state.value.mutedAuthors || pubkey in pendingAccountMutes.value || pubkey in accountMuteJobs) return
-        if (accountMuteJobs.size >= 16 || pendingAccountMutes.value.size >= 64) {
+            (pubkey in state.value.mutedAuthors) == mute || pubkey in pendingAccountMutes.value ||
+            pubkey in pendingAccountUnmutes.value || pubkey in accountMuteJobs) return
+        val pending = if (mute) pendingAccountMutes else pendingAccountUnmutes
+        if (accountMuteJobs.size >= 16 || pending.value.size >= 64) {
             message.value = "Action queue is full. Try again shortly."
             return
         }
-        pendingAccountMutes.update { it + pubkey }
+        pending.update { it + pubkey }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 followQueueMutex.withLock {
                     check(signer.value === identity) { "Account changed" }
-                    followLists.muteAccount(identity, pubkey)
+                    followLists.changeAccountMute(identity, pubkey, mute)
                 }
                 // Retain the optimistic mute until the repository has applied the signed list.
-                if (signer.value === identity && pubkey in state.value.mutedAuthors)
-                    pendingAccountMutes.update { it - pubkey }
+                if (signer.value === identity && (pubkey in state.value.mutedAuthors) == mute)
+                    pending.update { it - pubkey }
             } catch (e: TimeoutCancellationException) {
                 if (signer.value === identity) {
-                    pendingAccountMutes.update { it - pubkey }
+                    pending.update { it - pubkey }
                     AppMessages.show("Mute list: request timed out", e.stackTraceToString())
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (signer.value === identity) {
-                    pendingAccountMutes.update { it - pubkey }
+                    pending.update { it - pubkey }
                     AppMessages.show("Mute list: ${e.message}", e.stackTraceToString())
                 }
             } finally {
@@ -240,7 +246,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         const val MAX_QUEUED_REPOSTS = 32
     }
     private fun cancelActions() {
-        accountMuteJobs.values.toList().forEach { it.cancel() }; accountMuteJobs.clear(); pendingAccountMutes.value = emptySet()
+        accountMuteJobs.values.toList().forEach { it.cancel() }; accountMuteJobs.clear(); pendingAccountMutes.value = emptySet(); pendingAccountUnmutes.value = emptySet()
         muteWordJobs.values.toList().forEach { it.cancel() }; muteWordJobs.clear(); muteWordEdits.value = emptyList()
         followJobs.values.toList().forEach { it.cancel() }; followJobs.clear()
         followBusy.value = emptySet(); firstFollow.value = null
@@ -382,6 +388,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     init {
         viewModelScope.launch { state.map { it.mutedAuthors }.distinctUntilChanged().collect { authors ->
             pendingAccountMutes.update { it - authors }
+            pendingAccountUnmutes.update { it.intersect(authors) }
         } }
         viewModelScope.launch { state.map { it.mutedWords }.distinctUntilChanged().collect { reconcileMutedWords() } }
         viewModelScope.launch {

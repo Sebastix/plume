@@ -183,4 +183,9 @@
     <string name="ui_suspected_spam">Suspected duplicate spam</string>
     <string name="ui_open_client">Open %1$s</string>
     <string name="ui_mute_account">Mute %1$s</string>
+    <string name="ui_muted_accounts">Muted accounts</string>
+    <string name="ui_no_muted_accounts">No muted accounts</string>
+    <string name="ui_unmute_account">Unmute %1$s</string>
+    <string name="ui_open_profile_in_another_nostr_app">Open profile in another Nostr app</string>
+    <string name="ui_share_profile">Share profile</string>
 </resources>

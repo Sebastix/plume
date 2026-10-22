@@ -4,7 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-10-22
+
 ### Added
+- Manage muted accounts from settings and unmute directly beside Follow on muted profiles.
+- Copy, open in another Nostr app, and share profiles from the top bar.
 - Long-press a notification to reveal an account-mute button between its avatar and text. Hide the sender’s notifications immediately and save the mute privately to the existing NIP-51 list, preserving other clients’ entries.
 
 ## [0.94.4] - 2026-10-21

@@ -29,8 +29,8 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
     suspend fun changeMutedWord(identity: NostrSignerExternal, word: String, add: Boolean) =
         changeList(identity, word, add, true, 10000)
 
-    suspend fun muteAccount(identity: NostrSignerExternal, pubkey: String) =
-        changeList(identity, pubkey, true, true, 10000, "p")
+    suspend fun changeAccountMute(identity: NostrSignerExternal, pubkey: String, mute: Boolean) =
+        changeList(identity, pubkey, mute, true, 10000, "p")
 
     private suspend fun changeList(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean, listKind: Int, muteTag: String = "word") =
         withContext(Dispatchers.IO) {

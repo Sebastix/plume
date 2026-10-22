@@ -183,4 +183,9 @@
     <string name="ui_suspected_spam">重複スパムの疑い</string>
     <string name="ui_open_client">%1$sを開く</string>
     <string name="ui_mute_account">%1$sをミュート</string>
+    <string name="ui_muted_accounts">ミュート中のアカウント</string>
+    <string name="ui_no_muted_accounts">ミュート中のアカウントはありません</string>
+    <string name="ui_unmute_account">%1$sのミュートを解除</string>
+    <string name="ui_open_profile_in_another_nostr_app">別のNostrアプリでプロフィールを開く</string>
+    <string name="ui_share_profile">プロフィールを共有</string>
 </resources>

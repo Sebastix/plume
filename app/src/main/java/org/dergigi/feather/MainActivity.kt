@@ -563,6 +563,30 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             }, navigationIcon = {
                 if (screen != "feed") IconButton(onClick = { goBack() }, modifier = toolbarButtonSurface) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_back)) }
             }, actions = {
+                if (screen == "profile" && profileKey != null) {
+                    val pointer = Protocol.npub(profileKey)
+                    IconButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", pointer))
+                    }, modifier = toolbarButtonSurface) {
+                        Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_profile_public_key), Modifier.size(20.dp))
+                    }
+                    IconButton(enabled = !openingInApp, onClick = {
+                        openingInApp = true
+                        scrollScope.launch {
+                            try { context.openInNostrApp(pointer) }
+                            finally { openingInApp = false }
+                        }
+                    }, modifier = toolbarButtonSurface) {
+                        Icon(painterResource(R.drawable.open_in_app), stringResource(R.string.ui_open_profile_in_another_nostr_app))
+                    }
+                    IconButton(onClick = {
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
+                        }, context.getString(R.string.ui_share_profile)))
+                    }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_profile)) }
+                }
                 if (screen == "hashtag") HashtagFollowButton(vm, hashtag.orEmpty()) { showAccount = true }
                 val detailNote = if (screen == "thread") {
                     (s.threadNotes.firstOrNull { it.matchesThread(threadId) }
@@ -889,6 +913,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                             }
                                         }
                                         ProfileFollowButton(vm, key)
+                                        ProfileUnmuteButton(vm, key)
                                         p?.website?.let { website ->
                                             IconButton(onClick = { context.openWebLink(website) }) {
                                                 Icon(Icons.Default.Home, stringResource(R.string.ui_open_profile_homepage), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
@@ -900,10 +925,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Lightning address", address))
                                             }) { Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_copy_lightning_address), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                         }
-                                        IconButton(onClick = {
-                                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", Protocol.npub(key)))
-                                        }) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_profile_public_key), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                     }
                                     if (!p?.about.isNullOrBlank()) ProfileBiography(key, p, s, ::openReference)
                                 }
@@ -1059,6 +1080,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     showSettings = false; showAccount = false
                     Protocol.publicKey("npub1r7u5wcxpv0fknn486uarrlset92caxntmwn22nvw2fjan630m03stxw3t3")?.let(::openProfile)
                 },
+                onProfile = { showSettings = false; showAccount = false; openProfile(it) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(bottom = 32.dp))
         }
     }
@@ -1608,7 +1630,11 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, modifier: Modifier) {
+private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, onProfile: (String) -> Unit, modifier: Modifier) {
+    var showMutedAccounts by rememberSaveable(state.publicKey) { mutableStateOf(false) }
+    if (showMutedAccounts) MutedAccountsSheet(vm, onDismiss = { showMutedAccounts = false }, onProfile = {
+        showMutedAccounts = false; onProfile(it)
+    })
     var showMutedWords by rememberSaveable { mutableStateOf(false) }
     var mutedWordInput by rememberSaveable(state.publicKey) { mutableStateOf("") }
     val muteWordEdits by vm.muteWordEdits.collectAsStateWithLifecycle()
@@ -1731,6 +1757,10 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { showMutedWords = true }, modifier = Modifier.size(RoundControlSize)) {
                 Icon(painterResource(R.drawable.muted_words), stringResource(R.string.ui_muted_words), tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(12.dp))
+            FilledTonalIconButton(onClick = { showMutedAccounts = true }, modifier = Modifier.size(RoundControlSize)) {
+                Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_muted_accounts), tint = MaterialTheme.colorScheme.primary)
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -1515,9 +1515,11 @@ class FeatherRepository(context: Context) {
         cached + cachedProfiles(authors)
     }
 
-    internal fun zapSplitProfiles(note: Event): Flow<Map<String, Profile>> = flow {
+    internal fun zapSplitProfiles(note: Event): Flow<Map<String, Profile>> = accountProfiles(zapSplits(note).map { it.pubkey })
+
+    internal fun accountProfiles(keys: List<String>): Flow<Map<String, Profile>> = flow {
         val token = java.util.UUID.randomUUID().toString()
-        val authors = zapSplits(note).map { it.pubkey }
+        val authors = keys.distinct().take(64)
         try {
             changed.onStart { emit(Unit) }.conflate().collect {
                 val profiles = try { cachedProfiles(authors) }
