@@ -23,10 +23,8 @@ internal fun ProfileUnmuteButton(vm: FeatherViewModel, target: String) {
     val state by vm.state.collectAsStateWithLifecycle()
     val removing by vm.pendingAccountUnmutes.collectAsStateWithLifecycle()
     if (state.publicKey == null || target !in state.mutedAuthors || target in removing) return
-    IconButton(onClick = { vm.unmuteAccount(target) }) {
-        Icon(painterResource(R.drawable.account_hidden),
-            stringResource(R.string.ui_unmute_account, state.profiles[target]?.name ?: FeatherRepository.shortKey(target)),
-            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
+    HoldToUnmuteButton(target, state.profiles[target]?.name ?: FeatherRepository.shortKey(target)) {
+        vm.unmuteAccount(target)
     }
 }
 
@@ -65,10 +63,7 @@ internal fun MutedAccountsSheet(vm: FeatherViewModel, onDismiss: () -> Unit, onP
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        IconButton(onClick = { vm.unmuteAccount(key) }) {
-                            Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_unmute_account, name),
-                                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
-                        }
+                        HoldToUnmuteButton(key, name) { vm.unmuteAccount(key) }
                     }
                 }
             }
