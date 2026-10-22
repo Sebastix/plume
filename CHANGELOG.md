@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.95.1] - 2026-10-22
+
 ### Changed
 - Include muted accounts in profile search with a subdued mute indicator; allow opening them directly by Nostr identifier.
 - Match the notification mute control’s visible circle to the avatar size, with a muted red surface and a full-size touch target.
