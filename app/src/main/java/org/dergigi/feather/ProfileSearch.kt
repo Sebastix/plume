@@ -1,6 +1,7 @@
 package org.dergigi.feather
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -92,6 +93,11 @@ internal object VertexProfileSearch {
 @Composable
 internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigation, home: ReaderEntry, active: Boolean) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val pendingMutes by vm.pendingAccountMutes.collectAsStateWithLifecycle()
+    val pendingUnmutes by vm.pendingAccountUnmutes.collectAsStateWithLifecycle()
+    val muted = remember(state.mutedAuthors, pendingMutes, pendingUnmutes) {
+        (state.mutedAuthors + pendingMutes) - pendingUnmutes
+    }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val running = active && lifecycle.isAtLeast(Lifecycle.State.STARTED)
     var results by remember { mutableStateOf<List<SearchProfile>>(emptyList()) }
@@ -117,7 +123,7 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 val reference = withContext(Dispatchers.Default) { NostrContent.searchReference(query) }
                 if (reference == null) { AppMessages.show(invalidReference); return@launch }
                 val latest = vm.state.value
-                if (ContentFilter(latest.mutedAuthors, latest.embedded, latest.deletedReactions, latest.showSensitive, latest.deletedNotes, latest.mutedWords).hides(reference)) return@launch
+                if (!reference.profile && ContentFilter(latest.mutedAuthors, latest.embedded, latest.deletedReactions, latest.showSensitive, latest.deletedNotes, latest.mutedWords).hides(reference)) return@launch
                 if (reference.external != null) {
                     context.openWebLink("https://njump.to/${reference.external}")
                 } else {
@@ -174,9 +180,9 @@ internal fun ProfileSearchPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                 IconButton(onClick = { AppMessages.show(message); retry++ }) { Icon(Icons.Default.Warning, stringResource(R.string.ui_search_failed_show_error_and_retry), tint = MaterialTheme.colorScheme.error) }
             } }
             LazyColumn(state = home.feedPage(ProfileTab.SEARCH).list, contentPadding = PaddingValues(top = 8.dp, bottom = 144.dp)) {
-                items(results.filter { it.event.pubKey !in state.mutedAuthors && (state.showSensitive || !it.sensitive) }, key = { it.event.pubKey }) { profile ->
+                items(results.filter { state.showSensitive || !it.sensitive }, key = { it.event.pubKey }) { profile ->
                     ProfileListRow(profile.event.pubKey, profile.name, profile.picture, profile.identity,
-                        profile.event.pubKey in state.followedAccounts) {
+                        profile.event.pubKey in state.followedAccounts, muted = profile.event.pubKey in muted) {
                         focus.clearFocus()
                         scope.launch {
                             vm.repo.cacheSearchProfile(profile.event)
@@ -212,7 +218,7 @@ private fun ProfileStatusIcons(pubkey: String, identity: String?, following: Boo
 
 /** One profile row for search results and public people lists. */
 @Composable
-internal fun ProfileListRow(pubkey: String, name: String, picture: String?, identity: String?, following: Boolean,
+internal fun ProfileListRow(pubkey: String, name: String, picture: String?, identity: String?, following: Boolean, muted: Boolean = false,
     onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Open $name's profile", onClick = onClick)
         .padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
@@ -225,6 +231,8 @@ internal fun ProfileListRow(pubkey: String, name: String, picture: String?, iden
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        if (muted) Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_account_is_muted),
+            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
         ProfileStatusIcons(pubkey, identity, following)
     }
 }

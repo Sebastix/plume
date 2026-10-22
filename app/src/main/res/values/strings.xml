@@ -188,4 +188,5 @@
     <string name="ui_unmute_account">Unmute %1$s</string>
     <string name="ui_open_profile_in_another_nostr_app">Open profile in another Nostr app</string>
     <string name="ui_share_profile">Share profile</string>
+    <string name="ui_account_is_muted">Muted account</string>
 </resources>

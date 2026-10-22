@@ -188,4 +188,5 @@
     <string name="ui_unmute_account">%1$sのミュートを解除</string>
     <string name="ui_open_profile_in_another_nostr_app">別のNostrアプリでプロフィールを開く</string>
     <string name="ui_share_profile">プロフィールを共有</string>
+    <string name="ui_account_is_muted">ミュート中のアカウント</string>
 </resources>
