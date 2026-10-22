@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Use a subdued red tint for muted-account indicators in search and unmute controls on profiles and in the muted-accounts list.
+
 ## [0.95.2] - 2026-10-22
 
 ### Changed

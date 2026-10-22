@@ -232,7 +232,7 @@ internal fun ProfileListRow(pubkey: String, name: String, picture: String?, iden
             }
         }
         if (muted) Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_account_is_muted),
-            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
         ProfileStatusIcons(pubkey, identity, following)
     }
 }

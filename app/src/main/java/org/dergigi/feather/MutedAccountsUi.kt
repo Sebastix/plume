@@ -26,7 +26,7 @@ internal fun ProfileUnmuteButton(vm: FeatherViewModel, target: String) {
     IconButton(onClick = { vm.unmuteAccount(target) }) {
         Icon(painterResource(R.drawable.account_hidden),
             stringResource(R.string.ui_unmute_account, state.profiles[target]?.name ?: FeatherRepository.shortKey(target)),
-            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = .65f))
+            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
     }
 }
 
@@ -67,7 +67,7 @@ internal fun MutedAccountsSheet(vm: FeatherViewModel, onDismiss: () -> Unit, onP
                         }
                         IconButton(onClick = { vm.unmuteAccount(key) }) {
                             Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_unmute_account, name),
-                                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = .65f))
+                                Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
                         }
                     }
                 }
