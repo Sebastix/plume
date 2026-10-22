@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Changed
+- Remove extra layout padding around the notification mute button and place it closer to the avatar.
 - Place Unmute first in the profile action row, before Follow.
 
 ## [0.95.1] - 2026-10-22

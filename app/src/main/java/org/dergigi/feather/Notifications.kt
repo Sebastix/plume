@@ -336,19 +336,24 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                 6, 16 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation
                             }), item.action, Modifier.size(22.dp), tint = tint)
                         }
-                        Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.combinedClickable(onClickLabel = "Open $name's profile",
-                            onLongClickLabel = if (canMute) muteLabel else null, onLongClick = revealMute,
-                            onClick = { open(NostrContent.Reference(item.actor, profile = true)) }) else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
-                        AnimatedVisibility(visible = canMute && muteRow == item.event.id,
-                            enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
-                            IconButton(onClick = {
-                                item.actor?.let(vm::muteAccount)
-                                muteRow = null
-                            }, modifier = Modifier.size(48.dp)) {
-                                Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
-                                    contentAlignment = Alignment.Center) {
-                                    Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.combinedClickable(onClickLabel = "Open $name's profile",
+                                onLongClickLabel = if (canMute) muteLabel else null, onLongClick = revealMute,
+                                onClick = { open(NostrContent.Reference(item.actor, profile = true)) }) else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
+                            AnimatedVisibility(visible = canMute && muteRow == item.event.id,
+                                enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
+                                // Keep the control within the avatar's height, without Material's layout padding.
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                    IconButton(onClick = {
+                                        item.actor?.let(vm::muteAccount)
+                                        muteRow = null
+                                    }, modifier = Modifier.padding(start = 2.dp).size(36.dp)) {
+                                        Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                            contentAlignment = Alignment.Center) {
+                                            Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
+                                                tint = MaterialTheme.colorScheme.onErrorContainer)
+                                        }
+                                    }
                                 }
                             }
                         }
