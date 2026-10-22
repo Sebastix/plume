@@ -478,10 +478,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
     val pendingAvatarMutes by vm.pendingAccountMutes.collectAsStateWithLifecycle()
     val pendingAvatarUnmutes by vm.pendingAccountUnmutes.collectAsStateWithLifecycle()
+    val avatarMutePending by rememberUpdatedState(pendingAvatarMutes + pendingAvatarUnmutes)
     val avatarMutedAccounts by rememberUpdatedState((s.mutedAuthors + pendingAvatarMutes) - pendingAvatarUnmutes)
     val avatarModeration = remember(vm, s.publicKey) {
         AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open,
-            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount)
+            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount, mutePending = { it in avatarMutePending })
     }
     LaunchedEffect(activePage) { if (!activePage) avatarModeration.expanded = null }
     CompositionLocalProvider(LocalAvatarModeration provides avatarModeration, LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
@@ -908,7 +909,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     top = if (p?.banner != null) 0.dp else 24.dp, bottom = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        ModerationAvatar(key, p?.name ?: FeatherRepository.shortKey(key), p?.picture, size = 56, slotSize = 56, expansionKey = profileModerationKey,
+                                        ModerationAvatar(key, p?.name ?: FeatherRepository.shortKey(key), p?.picture, size = 56, slotSize = 56, expansionKey = profileModerationKey, profileToggle = true,
                                             onClick = { if (profileImages.isNotEmpty()) openGallery(profileImages, 0, expandAlbum = false) })
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

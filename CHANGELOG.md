@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Profile avatar controls use a one-tap mute/unmute toggle with a stronger red active state. Keep the controls open after toggling.
+
 ## [0.98.2] - 2026-10-22
 
 ### Fixed

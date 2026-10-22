@@ -26,7 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit,
-    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit) {
+    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit, val mutePending: (String) -> Boolean) {
     var expanded by mutableStateOf<Any?>(null)
     var controlBounds: Pair<Any, Rect>? = null
 }
@@ -36,7 +36,7 @@ internal val LocalAvatarModeration = staticCompositionLocalOf<AvatarModeration?>
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, size: Int = 36,
-    slotSize: Int = 48, expansionKey: Any? = null, onClick: () -> Unit) {
+    slotSize: Int = 48, expansionKey: Any? = null, profileToggle: Boolean = false, onClick: () -> Unit) {
     val actions = LocalAvatarModeration.current
     val token = remember(pubkey, expansionKey) { expansionKey ?: Any() }
     val enabled = actions?.owner != null && actions.owner != pubkey
@@ -59,10 +59,26 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it } + fadeOut()) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Row(Modifier.onGloballyPositioned { actions?.controlBounds = token to it.boundsInRoot() }.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    if (actions?.isMuted?.invoke(pubkey) == true) {
+                    val muted = actions?.isMuted?.invoke(pubkey) == true
+                    if (profileToggle) {
+                        val background = if (muted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer
+                        val foreground = if (muted) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onErrorContainer
+                        IconToggleButton(checked = muted, enabled = actions?.mutePending?.invoke(pubkey) != true,
+                            onCheckedChange = { checked ->
+                                if (checked) actions?.mute?.invoke(pubkey) else actions?.unmute?.invoke(pubkey)
+                            }, modifier = Modifier.size(36.dp),
+                            colors = IconButtonDefaults.iconToggleButtonColors(
+                                containerColor = background, contentColor = foreground,
+                                checkedContainerColor = background, checkedContentColor = foreground,
+                                disabledContainerColor = background, disabledContentColor = foreground.copy(alpha = .65f))) {
+                            Icon(painterResource(R.drawable.account_hidden),
+                                stringResource(if (muted) R.string.ui_unmute_account else R.string.ui_mute_account, name),
+                                Modifier.size(22.dp))
+                        }
+                    } else if (muted) {
                         HoldToUnmuteButton(pubkey, name, size = 36) {
-                            actions.expanded = null
-                            actions.unmute(pubkey)
+                            actions?.expanded = null
+                            actions?.unmute?.invoke(pubkey)
                         }
                     } else IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
                         modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
