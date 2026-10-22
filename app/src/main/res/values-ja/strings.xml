@@ -197,7 +197,7 @@
     <string name="ui_report_public">通報は公開されます。</string>
     <string name="ui_report_reason">理由</string>
     <string name="ui_report_explanation">詳細（任意）</string>
-    <string name="ui_report_spam">スパム・詐欺</string>
+    <string name="ui_report_spam">スパム / 詐欺</string>
     <string name="ui_report_impersonation">なりすまし</string>
     <string name="ui_report_nudity">ヌード・性的なコンテンツ</string>
     <string name="ui_report_profanity">暴言・ヘイトスピーチ</string>

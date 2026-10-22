@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Wait for the signer handoff before refreshing account lists instead of failing after 15 seconds in the background. Recheck list freshness before retrying publication.
+
+### Changed
+- Rename the report reason to “Spam / scam.”
+
 ## [0.98.1] - 2026-10-22
 
 ### Fixed

@@ -1701,8 +1701,19 @@ class FeatherRepository(context: Context) {
         } else if (event.kind == 10015) refreshHashtagFollowing(event.pubKey)
     }
 
+    internal suspend fun awaitListEditingForeground() {
+        try {
+            withTimeout(180_000) { foregroundActive.first { it } }
+        } catch (e: TimeoutCancellationException) {
+            currentCoroutineContext().ensureActive()
+            throw IllegalStateException("Waiting to return to Feather after signing timed out. Reopen Feather and retry the list change.", e)
+        }
+    }
+
     internal suspend fun publishFollowEvent(event: Event, routes: List<String>, baseline: String?, relayBaseline: String?): Boolean = withContext(Dispatchers.IO) {
-        withTimeout(15_000) { foregroundActive.first { it } }
+        // If the signer/app switch backgrounded us during discovery, let the caller
+        // wait and refresh again instead of publishing an aging snapshot on resume.
+        if (!foregroundActive.value) return@withContext false
         check(state.value.publicKey == event.pubKey) { "Account changed" }
         require(event.kind in listOf(3, 10015, 10000))
         check(followEvent(event.pubKey, event.kind)?.id == baseline && followEvent(event.pubKey, 10002)?.id == relayBaseline) {

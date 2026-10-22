@@ -43,6 +43,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 else if (listKind == 10000) require(target.isNotBlank() && target.length <= 256 && normalizeMutedWord(target) == target)
                 else require(normalizeFollowedTag(target) == target)
                 suspend fun discover(kind: Int, routes: List<String>): Discovery {
+                    repo.awaitListEditingForeground()
                     current()
                     var latest = repo.followEvent(owner, kind)
                     val lock = Mutex()
