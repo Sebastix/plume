@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Wait for the signer handoff before refreshing account lists instead of failing after 15 seconds in the background. Recheck list freshness before retrying publication.
 
 ### Changed
+- Tapping the profile mute indicator reveals the avatar controls. Muted accounts offer hold-to-unmute there instead of a duplicate mute action.
 - Rename the report reason to “Spam / scam.”
 
 ## [0.98.1] - 2026-10-22

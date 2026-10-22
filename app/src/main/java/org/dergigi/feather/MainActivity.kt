@@ -476,7 +476,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    val avatarModeration = remember(vm, s.publicKey) { AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open) }
+    val pendingAvatarMutes by vm.pendingAccountMutes.collectAsStateWithLifecycle()
+    val pendingAvatarUnmutes by vm.pendingAccountUnmutes.collectAsStateWithLifecycle()
+    val avatarMutedAccounts by rememberUpdatedState((s.mutedAuthors + pendingAvatarMutes) - pendingAvatarUnmutes)
+    val avatarModeration = remember(vm, s.publicKey) {
+        AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open,
+            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount)
+    }
     LaunchedEffect(activePage) { if (!activePage) avatarModeration.expanded = null }
     CompositionLocalProvider(LocalAvatarModeration provides avatarModeration, LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
         if (s.publicKey == null) showAccount = true else vm.vote(note, choices)
@@ -916,8 +922,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
+                                        ProfileMutedIndicator(vm, key) { avatarModeration.expanded = profileModerationKey }
                                         if (avatarModeration.expanded !== profileModerationKey) {
-                                        ProfileUnmuteButton(vm, key)
                                         ProfileFollowButton(vm, key)
                                         p?.website?.let { website ->
                                             IconButton(onClick = { context.openWebLink(website) }) {

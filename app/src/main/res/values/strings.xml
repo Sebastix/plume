@@ -204,4 +204,5 @@
     <string name="ui_report_malware">Malware</string>
     <string name="ui_report_illegal">Illegal content</string>
     <string name="ui_report_other">Other</string>
+    <string name="ui_muted_account_actions">%1$s is muted. Show account actions</string>
 </resources>

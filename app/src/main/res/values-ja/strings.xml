@@ -204,4 +204,5 @@
     <string name="ui_report_malware">マルウェア</string>
     <string name="ui_report_illegal">違法なコンテンツ</string>
     <string name="ui_report_other">その他</string>
+    <string name="ui_muted_account_actions">%1$sはミュート中です。アカウントの操作を表示</string>
 </resources>

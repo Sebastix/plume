@@ -19,12 +19,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
-internal fun ProfileUnmuteButton(vm: FeatherViewModel, target: String) {
+internal fun ProfileMutedIndicator(vm: FeatherViewModel, target: String, onReveal: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val removing by vm.pendingAccountUnmutes.collectAsStateWithLifecycle()
-    if (state.publicKey == null || target !in state.mutedAuthors || target in removing) return
-    HoldToUnmuteButton(target, state.profiles[target]?.name ?: FeatherRepository.shortKey(target)) {
-        vm.unmuteAccount(target)
+    val adding by vm.pendingAccountMutes.collectAsStateWithLifecycle()
+    if (state.publicKey == null || target == state.publicKey ||
+        (target !in state.mutedAuthors && target !in adding) || target in removing) return
+    val name = state.profiles[target]?.name ?: FeatherRepository.shortKey(target)
+    IconButton(onClick = onReveal) {
+        Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_muted_account_actions, name),
+            Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
     }
 }
 

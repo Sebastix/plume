@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 
 /** A tap demonstrates charging; only a continuous hold commits the account change. */
 @Composable
-internal fun HoldToUnmuteButton(account: String, name: String, onUnmute: () -> Unit) {
+internal fun HoldToUnmuteButton(account: String, name: String, size: Int = 48, onUnmute: () -> Unit) {
     key(account) {
         val charge = remember { Animatable(0f) }
         val scope = rememberCoroutineScope()
@@ -74,7 +74,7 @@ internal fun HoldToUnmuteButton(account: String, name: String, onUnmute: () -> U
                 charge.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
             }
         }
-        Box(Modifier.size(48.dp)
+        Box(Modifier.size(size.dp)
             .semantics {
                 role = Role.Button
                 contentDescription = label
@@ -105,7 +105,7 @@ internal fun HoldToUnmuteButton(account: String, name: String, onUnmute: () -> U
                     finally { end(id, released) }
                 })
             }, contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(36.dp)) {
+            Canvas(Modifier.size(minOf(36, size - 2).dp)) {
                 if (charge.value > 0f) drawArc(tint, -90f, 360f * charge.value, false,
                     style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
             }

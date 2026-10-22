@@ -15,7 +15,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
-internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit) {
+internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit,
+    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit) {
     var expanded by mutableStateOf<Any?>(null)
 }
 internal val LocalAvatarModeration = staticCompositionLocalOf<AvatarModeration?> { null }
@@ -47,7 +48,12 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it } + fadeOut()) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Row(Modifier.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
+                    if (actions?.isMuted?.invoke(pubkey) == true) {
+                        HoldToUnmuteButton(pubkey, name, size = 36) {
+                            actions.expanded = null
+                            actions.unmute(pubkey)
+                        }
+                    } else IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
                         modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
                         Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_mute_account, name),
                             Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
