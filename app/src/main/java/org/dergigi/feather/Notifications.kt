@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
@@ -339,11 +341,15 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             onClick = { open(NostrContent.Reference(item.actor, profile = true)) }) else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
                         AnimatedVisibility(visible = canMute && muteRow == item.event.id,
                             enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
-                            FilledTonalIconButton(onClick = {
+                            IconButton(onClick = {
                                 item.actor?.let(vm::muteAccount)
                                 muteRow = null
                             }, modifier = Modifier.size(48.dp)) {
-                                Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp))
+                                Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                    contentAlignment = Alignment.Center) {
+                                    Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.onErrorContainer)
+                                }
                             }
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

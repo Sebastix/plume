@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Match the notification mute control’s visible circle to the avatar size, with a muted red surface and a full-size touch target.
+
 ## [0.95.0] - 2026-10-22
 
 ### Added
