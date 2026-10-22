@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.98.1] - 2026-10-22
+
 ### Fixed
 - Load both avatars in the report sheet using the shared media cache and cache-first account profiles.
 
