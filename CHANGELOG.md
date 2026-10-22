@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Long-press author avatars in notes, quoted notes, and profiles to reveal compact red mute and report controls. Normal taps retain their existing navigation.
+
 ## [0.97.0] - 2026-10-22
 
 ### Added

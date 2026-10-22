@@ -476,7 +476,9 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     }
     statusReport?.let { StatusDetails(statusTitle, it) { statusReport = null } }
     BackHandler(activePage && navigation.entries.size > 1 && !showAccount && !showSettings) { goBack() }
-    CompositionLocalProvider(LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
+    val avatarModeration = remember(vm, s.publicKey) { AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open) }
+    LaunchedEffect(activePage) { if (!activePage) avatarModeration.expanded = null }
+    CompositionLocalProvider(LocalAvatarModeration provides avatarModeration, LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
         if (s.publicKey == null) showAccount = true else vm.vote(note, choices)
     }, LocalReply provides { note ->
         if (s.publicKey == null) showAccount = true else vm.openReply(note)
@@ -880,6 +882,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         if (screen == "profile") item("profile-header") {
                             val key = profileKey!!
                             val p = s.profiles[key]
+                            val profileModerationKey = remember(key) { Any() }
                             val openGallery = LocalOpenGallery.current
                             val profileImages = remember(p?.picture, p?.banner) { listOfNotNull(p?.picture, p?.banner) }
                             Box(Modifier.fillMaxWidth()) {
@@ -898,7 +901,8 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                     top = if (p?.banner != null) 0.dp else 24.dp, bottom = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Avatar(p?.name ?: key, 56, p?.picture, onOpenImage = { openGallery(profileImages, 0, expandAlbum = false) })
+                                        ModerationAvatar(key, p?.name ?: FeatherRepository.shortKey(key), p?.picture, size = 56, slotSize = 56, expansionKey = profileModerationKey,
+                                            onClick = { if (profileImages.isNotEmpty()) openGallery(profileImages, 0, expandAlbum = false) })
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(p?.name ?: FeatherRepository.shortKey(key),
@@ -912,6 +916,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                         }
+                                        if (avatarModeration.expanded !== profileModerationKey) {
                                         ProfileUnmuteButton(vm, key)
                                         ProfileFollowButton(vm, key)
                                         p?.website?.let { website ->
@@ -925,6 +930,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Lightning address", address))
                                             }) { Icon(painterResource(R.drawable.zap), stringResource(R.string.ui_copy_lightning_address), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
                                         }
+                                    }
                                     }
                                     if (!p?.about.isNullOrBlank()) ProfileBiography(key, p, s, ::openReference)
                                 }
@@ -1256,11 +1262,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
         Row(Modifier.padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onProfile, modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" }) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                        Avatar(name, picture = profile?.picture)
-                    }
-                }
+                ModerationAvatar(note.pubKey, name, profile?.picture, onClick = onProfile)
                 Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp), maxLines = 1,
                     overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
@@ -1592,14 +1594,8 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) },
-                        modifier = Modifier.size(48.dp).semantics { contentDescription = "Open $name's profile" },
-                    ) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                            Avatar(name, 36, profile?.picture)
-                        }
-                    }
+                    ModerationAvatar(note.pubKey, name, profile?.picture,
+                        onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) })
                     Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NoteTimestamp(note)
                 }
