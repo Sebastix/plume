@@ -1116,7 +1116,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
 
 /** Account sheets share the image cache but do not inherit paused feed playback. */
 @Composable
-private fun AccountAvatar(name: String, size: Int, picture: String?) {
+internal fun AccountAvatar(name: String, size: Int, picture: String?) {
     val store = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by store.resources.collectAsStateWithLifecycle()
     val lifecycle by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()

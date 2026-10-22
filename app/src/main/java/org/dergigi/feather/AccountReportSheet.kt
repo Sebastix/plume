@@ -31,7 +31,10 @@ internal fun AccountReportSheet(vm: FeatherViewModel) {
     val current = draft ?: return
     if (!visible || current.owner != state.publicKey) return
     var expanded by remember(current.owner, current.target) { mutableStateOf(false) }
-    val profile = state.profiles[current.target]
+    val profiles by remember(vm, current.owner, current.target) {
+        vm.repo.accountProfiles(listOf(current.owner, current.target))
+    }.collectAsStateWithLifecycle(emptyMap())
+    val profile = profiles[current.target] ?: state.profiles[current.target]
     val name = profile?.name ?: FeatherRepository.shortKey(current.target)
     ModalBottomSheet(onDismissRequest = reports::close,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -41,17 +44,15 @@ internal fun AccountReportSheet(vm: FeatherViewModel) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = reports::close) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_report)) }
                 Spacer(Modifier.weight(1f))
-                val author = state.profiles[current.owner]
-                Avatar(author?.name ?: FeatherRepository.shortKey(current.owner), 36, author?.picture)
+                val author = profiles[current.owner] ?: state.profiles[current.owner]
+                AccountAvatar(author?.name ?: FeatherRepository.shortKey(current.owner), 36, author?.picture)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Avatar(name, 36, profile?.picture)
+                AccountAvatar(name, 36, profile?.picture)
                 Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
                     tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
             }
-            Text(stringResource(R.string.ui_report_public), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box {
                 OutlinedButton(enabled = !busy, onClick = { expanded = true }) {
                     Text(stringResource(current.reason?.label ?: R.string.ui_report_reason))
@@ -71,7 +72,10 @@ internal fun AccountReportSheet(vm: FeatherViewModel) {
                 placeholder = { Text(explanation) }, minLines = 2, maxLines = 5, shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.colors(focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.ui_report_public), Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FilledIconButton(onClick = reports::send, enabled = !busy && current.reason != null,
                     modifier = Modifier.size(48.dp), colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)) {

@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Load both avatars in the report sheet using the shared media cache and cache-first account profiles.
+
+### Changed
+- Keep the public-report notice beside Send below the explanation field, and label the spam reason “Spam and scams.”
+
 ## [0.98.0] - 2026-10-22
 
 ### Added

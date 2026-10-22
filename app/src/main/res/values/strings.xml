@@ -197,7 +197,7 @@
     <string name="ui_report_public">Reports are public.</string>
     <string name="ui_report_reason">Reason</string>
     <string name="ui_report_explanation">Details (optional)</string>
-    <string name="ui_report_spam">Spam</string>
+    <string name="ui_report_spam">Spam and scams</string>
     <string name="ui_report_impersonation">Impersonation</string>
     <string name="ui_report_nudity">Nudity / sexual content</string>
     <string name="ui_report_profanity">Abuse / hateful speech</string>
