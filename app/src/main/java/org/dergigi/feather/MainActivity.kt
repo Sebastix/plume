@@ -533,6 +533,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
         }
     }
     Scaffold(
+        modifier = Modifier.dismissAvatarModeration(avatarModeration),
         topBar = {
             if (homeToolbar == null) {
             Box(Modifier.scrollAway(barFraction) { toolbarHeight = it }) {

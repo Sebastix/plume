@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.98.2] - 2026-10-22
+
 ### Fixed
+- A tap outside revealed avatar controls dismisses them without opening the tapped avatar, banner, or note; scrolling remains available.
 - Wait for the signer handoff before refreshing account lists instead of failing after 15 seconds in the background. Recheck list freshness before retrying publication.
 
 ### Changed

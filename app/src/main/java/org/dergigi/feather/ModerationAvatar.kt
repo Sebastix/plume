@@ -11,6 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -18,6 +28,7 @@ import androidx.compose.ui.unit.dp
 internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit,
     val isMuted: (String) -> Boolean, val unmute: (String) -> Unit) {
     var expanded by mutableStateOf<Any?>(null)
+    var controlBounds: Pair<Any, Rect>? = null
 }
 internal val LocalAvatarModeration = staticCompositionLocalOf<AvatarModeration?> { null }
 
@@ -47,7 +58,7 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             enter = expandHorizontally(expandFrom = Alignment.Start) + slideInHorizontally { -it } + fadeIn(),
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it } + fadeOut()) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                Row(Modifier.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(Modifier.onGloballyPositioned { actions?.controlBounds = token to it.boundsInRoot() }.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (actions?.isMuted?.invoke(pubkey) == true) {
                         HoldToUnmuteButton(pubkey, name, size = 36) {
                             actions.expanded = null
@@ -79,4 +90,30 @@ internal fun Modifier.avatarModerationName(pubkey: String, expansionKey: Any, on
         onLongClick = { actions.expanded = if (actions.expanded === expansionKey) null else expansionKey },
         onClick = onClick,
     )
+}
+
+/** Consume only an outside tap's release, leaving scrolling and control gestures alone. */
+internal fun Modifier.dismissAvatarModeration(actions: AvatarModeration): Modifier = composed {
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    onGloballyPositioned { origin = it.positionInRoot() }.pointerInput(actions) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val token = actions.expanded
+            val bounds = actions.controlBounds?.takeIf { it.first === token }?.second
+            val outside = token != null && bounds?.contains(down.position + origin) != true
+            var moved = false
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change != null) {
+                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                    if (!change.pressed && outside && !moved && actions.expanded === token &&
+                        change.uptimeMillis - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis) {
+                        change.consume()
+                        actions.expanded = null
+                    }
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }
 }
