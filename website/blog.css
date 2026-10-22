@@ -34,7 +34,7 @@
 .workflow-phone::before,.workflow-phone::after{content:"";position:absolute;width:3px;background:var(--device-edge);left:-9px;border-radius:2px 0 0 2px}.workflow-phone::before{top:65px;height:24px}.workflow-phone::after{top:99px;height:38px}
 .workflow-speaker{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:38px;height:6px;background:var(--device-shell);border-radius:8px}.workflow-home{width:46px;height:3px;background:var(--muted);opacity:.5;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:4px}
 .workflow-laptop{width:100%;max-width:320px;justify-self:center;filter:drop-shadow(0 14px 12px #091d3214)}
-.workflow-laptop-screen{position:relative;margin:0 6%;padding:25px 16px 17px;display:flex;flex-direction:column;gap:14px;border:6px solid var(--device-shell);border-bottom-width:9px;border-radius:13px 13px 5px 5px;background:var(--paper);box-shadow:0 0 0 1px var(--device-edge)}
+.workflow-laptop-screen{position:relative;margin:0 6%;aspect-ratio:16/10;box-sizing:border-box;padding:10px 8px;display:flex;flex-direction:column;justify-content:center;gap:10px;border:6px solid var(--device-shell);border-bottom-width:9px;border-radius:13px 13px 5px 5px;background:var(--paper);box-shadow:0 0 0 1px var(--device-edge)}
 .workflow-laptop-screen::before{content:"";position:absolute;top:-4px;left:50%;width:3px;height:3px;border-radius:50%;background:#90a7b6}
 .workflow-keyboard{display:block;width:100%;height:auto;margin-top:-1px;overflow:visible}.workflow-deck{fill:var(--device-deck);stroke:var(--device-edge);stroke-width:1}.workflow-keys{fill:var(--device-key)}.workflow-trackpad{fill:none;stroke:var(--device-key);stroke-width:1}.workflow-lip{fill:var(--device-edge)}
 .workflow h3{font-size:13px;margin:0;font-weight:500;color:var(--muted)}.workflow-app{display:flex;gap:10px;align-items:center;font-weight:600;color:var(--ink);font-size:14px}.workflow-app img{flex:none;object-fit:contain;background:#fff;border-radius:9px;padding:4px;box-sizing:content-box;box-shadow:0 1px 4px #091d3210}.workflow-app img.workflow-paseo{background:#172934}
@@ -56,3 +56,5 @@
 
 .blog-shortcuts{margin:30px 0 36px;padding:28px;border:1px solid var(--line);border-radius:24px;background:var(--mist);font-size:14px;line-height:1.5}.blog-shortcuts .shortcut-grid{width:100%}
 @media(max-width:480px){.blog-shortcuts{padding:20px 16px}.blog-shortcuts .shortcut-grid{gap:24px 12px}}
+
+.workflow-laptop-apps{display:flex;align-items:center;justify-content:center;gap:18px}.workflow-laptop-apps .workflow-app{gap:6px;font-size:12px}.workflow-laptop-apps .workflow-app img{width:24px;height:24px;padding:3px;border-radius:7px}.workflow-laptop-screen .workflow-clankers{justify-content:center;gap:4px 10px;padding-top:8px}.workflow-laptop-screen .workflow-clankers span{text-align:center;font-size:10px;line-height:1.2}
