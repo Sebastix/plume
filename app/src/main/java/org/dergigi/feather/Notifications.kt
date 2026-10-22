@@ -311,12 +311,13 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                     val tint = when(item.event.kind) { 9735 -> Color(0xFFFFB300); 9321 -> Color(0xFFC084FC); else -> MaterialTheme.colorScheme.primary }
                     val canMute = item.actor != null && item.actor != owner
                     val muteLabel = stringResource(R.string.ui_mute_account, name)
+                    val moderationLabel = stringResource(R.string.ui_moderation_actions)
                     val revealMute: (() -> Unit)? = if (canMute) ({
                         muteRow = item.event.id.takeUnless { muteRow == it }
                     }) else null
                     Row(Modifier.fillMaxWidth().animateContentSize().combinedClickable(
                         onClickLabel = "Open ${item.action.lowercase()}",
-                        onLongClickLabel = if (canMute) muteLabel else null,
+                        onLongClickLabel = if (canMute) moderationLabel else null,
                         onLongClick = revealMute,
                         onClick = {
                             if (muteRow != null) muteRow = null
@@ -338,20 +339,32 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.combinedClickable(onClickLabel = "Open $name's profile",
-                                onLongClickLabel = if (canMute) muteLabel else null, onLongClick = revealMute,
+                                onLongClickLabel = if (canMute) moderationLabel else null, onLongClick = revealMute,
                                 onClick = { open(NostrContent.Reference(item.actor, profile = true)) }) else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
                             AnimatedVisibility(visible = canMute && muteRow == item.event.id,
                                 enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
                                 // Keep the control within the avatar's height, without Material's layout padding.
                                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                                    IconButton(onClick = {
-                                        item.actor?.let(vm::muteAccount)
-                                        muteRow = null
-                                    }, modifier = Modifier.padding(start = 2.dp).size(36.dp)) {
-                                        Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
-                                            contentAlignment = Alignment.Center) {
-                                            Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
-                                                tint = MaterialTheme.colorScheme.onErrorContainer)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 2.dp)) {
+                                        IconButton(onClick = {
+                                            item.actor?.let(vm::muteAccount)
+                                            muteRow = null
+                                        }, modifier = Modifier.size(36.dp)) {
+                                            Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            }
+                                        }
+                                        IconButton(onClick = {
+                                            item.actor?.let(vm.accountReports::open)
+                                            muteRow = null
+                                        }, modifier = Modifier.size(36.dp)) {
+                                            Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
+                                                    Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            }
                                         }
                                     }
                                 }
@@ -363,7 +376,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                             if (item.text.isNotBlank()) Text(item.text, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        NotificationTimestamp(item.event, onLongClick = revealMute, longClickLabel = if (canMute) muteLabel else null) {
+                        NotificationTimestamp(item.event, onLongClick = revealMute, longClickLabel = if (canMute) moderationLabel else null) {
                             (notificationTarget(item.event) ?: item.actor?.let { NostrContent.Reference(it, profile = true) })?.let(::open)
                         }
                     }

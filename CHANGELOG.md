@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Report accounts from the red flag beside Mute in notification rows. A bottom sheet offers standard NIP-56 reasons, optional details, and explicit public submission; reporting does not automatically mute the account.
+
 ## [0.96.0] - 2026-10-22
 
 ### Changed

@@ -190,4 +190,18 @@
     <string name="ui_share_profile">プロフィールを共有</string>
     <string name="ui_account_is_muted">ミュート中のアカウント</string>
     <string name="ui_hold_to_unmute_account">長押しして%1$sのミュートを解除</string>
+    <string name="ui_report_account">%1$sを通報</string>
+    <string name="ui_moderation_actions">アカウントをミュートまたは通報</string>
+    <string name="ui_close_report">通報を閉じる</string>
+    <string name="ui_send_report">公開の通報を送信</string>
+    <string name="ui_report_public">通報は公開されます。</string>
+    <string name="ui_report_reason">理由</string>
+    <string name="ui_report_explanation">詳細（任意）</string>
+    <string name="ui_report_spam">スパム</string>
+    <string name="ui_report_impersonation">なりすまし</string>
+    <string name="ui_report_nudity">ヌード・性的なコンテンツ</string>
+    <string name="ui_report_profanity">暴言・ヘイトスピーチ</string>
+    <string name="ui_report_malware">マルウェア</string>
+    <string name="ui_report_illegal">違法なコンテンツ</string>
+    <string name="ui_report_other">その他</string>
 </resources>

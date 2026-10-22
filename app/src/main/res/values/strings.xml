@@ -190,4 +190,18 @@
     <string name="ui_share_profile">Share profile</string>
     <string name="ui_account_is_muted">Muted account</string>
     <string name="ui_hold_to_unmute_account">Hold to unmute %1$s</string>
+    <string name="ui_report_account">Report %1$s</string>
+    <string name="ui_moderation_actions">Mute or report account</string>
+    <string name="ui_close_report">Close report</string>
+    <string name="ui_send_report">Send public report</string>
+    <string name="ui_report_public">Reports are public.</string>
+    <string name="ui_report_reason">Reason</string>
+    <string name="ui_report_explanation">Details (optional)</string>
+    <string name="ui_report_spam">Spam</string>
+    <string name="ui_report_impersonation">Impersonation</string>
+    <string name="ui_report_nudity">Nudity / sexual content</string>
+    <string name="ui_report_profanity">Abuse / hateful speech</string>
+    <string name="ui_report_malware">Malware</string>
+    <string name="ui_report_illegal">Illegal content</string>
+    <string name="ui_report_other">Other</string>
 </resources>

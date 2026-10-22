@@ -1883,6 +1883,12 @@ class FeatherRepository(context: Context) {
         }
     }
 
+    /** Publish an explicitly signed NIP-56 account report through the account’s existing routes. */
+    internal suspend fun publishAccountReport(event: Event) = withContext(Dispatchers.IO) {
+        require(event.kind == 1984 && event.pubKey == state.value.publicKey && event.verify()) { "Invalid account report" }
+        check(publishPostEvent(event, null)) { "No relay confirmed the report. Send again to retry the same report." }
+    }
+
     /** Sign and persist once; only relay delivery is retried, never signing or image uploads. */
     private suspend fun publishPostEvent(event: Event, target: Event?): Boolean {
         repeat(3) { attempt ->

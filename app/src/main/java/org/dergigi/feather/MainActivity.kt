@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
         receiveMedia(intent)
         receiveNostrLink(intent)
         setContent {
-            FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog(composerModel); IssueComposer(composerModel) }
+            FeatherTheme { CopyableMessageHost(); FeatherApp(window, composerModel); PreviousCrashDialog(composerModel); IssueComposer(composerModel); AccountReportSheet(composerModel) }
         }
     }
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {

@@ -80,6 +80,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { message.value = "Settings: ${e.message}" }
     }
+    internal val accountReports by lazy { AccountReports(application, viewModelScope, repo, { signer.value }, signerRequests) }
     internal val issues by lazy { IssueReports(application, viewModelScope, { signer.value }, signerRequests) }
     internal val followBusy = MutableStateFlow<Set<String>>(emptySet())
     internal val firstFollow = MutableStateFlow<Pair<String, String>?>(null)
@@ -251,6 +252,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         followJobs.values.toList().forEach { it.cancel() }; followJobs.clear()
         followBusy.value = emptySet(); firstFollow.value = null
         issues.accountChanged()
+        accountReports.accountChanged()
         if (signer.value != null) cancelSharedMedia()
         cancelImageUpload(); replyJob?.cancel(); replyLoadJob?.cancel(); replyDraft.value = null; replyMining.value = false
         zapJobs.values.toList().forEach { it.cancel() }

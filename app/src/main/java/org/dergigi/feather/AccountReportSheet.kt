@@ -1,0 +1,84 @@
+package org.dergigi.feather
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AccountReportSheet(vm: FeatherViewModel) {
+    val reports = vm.accountReports
+    val visible by reports.visible.collectAsStateWithLifecycle()
+    val draft by reports.draft.collectAsStateWithLifecycle()
+    val busy by reports.busy.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val current = draft ?: return
+    if (!visible || current.owner != state.publicKey) return
+    var expanded by remember(current.owner, current.target) { mutableStateOf(false) }
+    val profile = state.profiles[current.target]
+    val name = profile?.name ?: FeatherRepository.shortKey(current.target)
+    ModalBottomSheet(onDismissRequest = reports::close,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        CopyableMessageHost()
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = reports::close) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_report)) }
+                Spacer(Modifier.weight(1f))
+                val author = state.profiles[current.owner]
+                Avatar(author?.name ?: FeatherRepository.shortKey(current.owner), 36, author?.picture)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Avatar(name, 36, profile?.picture)
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
+            }
+            Text(stringResource(R.string.ui_report_public), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box {
+                OutlinedButton(enabled = !busy, onClick = { expanded = true }) {
+                    Text(stringResource(current.reason?.label ?: R.string.ui_report_reason))
+                    Icon(Icons.Default.ArrowDropDown, null)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    AccountReportReason.entries.forEach { reason ->
+                        DropdownMenuItem(text = { Text(stringResource(reason.label)) }, onClick = {
+                            reports.edit(reason, current.text); expanded = false
+                        })
+                    }
+                }
+            }
+            val explanation = stringResource(R.string.ui_report_explanation)
+            TextField(value = current.text, onValueChange = { reports.edit(current.reason, it) }, enabled = !busy,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = explanation },
+                placeholder = { Text(explanation) }, minLines = 2, maxLines = 5, shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.colors(focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                FilledIconButton(onClick = reports::send, enabled = !busy && current.reason != null,
+                    modifier = Modifier.size(48.dp), colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
+                    if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.ui_send_report))
+                }
+            }
+        }
+    }
+}
