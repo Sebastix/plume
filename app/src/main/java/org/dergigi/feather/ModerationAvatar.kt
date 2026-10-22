@@ -2,6 +2,7 @@ package org.dergigi.feather
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -32,8 +33,10 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
         onDispose { if (actions?.expanded === token) actions.expanded = null }
     }
     BackHandler(expanded) { actions?.expanded = null }
+    // Collapse only the trailing hit-area padding; the avatar and row height stay fixed.
+    val avatarWidth by animateDpAsState(if (expanded) (size + 2).dp else slotSize.dp, label = "Avatar action spacing")
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(slotSize.dp).combinedClickable(
+        Box(Modifier.width(avatarWidth).height(slotSize.dp).combinedClickable(
             onClickLabel = "Open $name's profile",
             onLongClickLabel = if (enabled) stringResource(R.string.ui_moderation_actions) else null,
             onLongClick = if (enabled) ({ actions?.expanded = if (expanded) null else token }) else null,
@@ -58,4 +61,16 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             }
         }
     }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun Modifier.avatarModerationName(pubkey: String, expansionKey: Any, onClick: () -> Unit): Modifier {
+    val actions = LocalAvatarModeration.current
+    if (actions?.owner == null || actions.owner == pubkey) return this
+    return combinedClickable(
+        onLongClickLabel = stringResource(R.string.ui_moderation_actions),
+        onLongClick = { actions.expanded = if (actions.expanded === expansionKey) null else expansionKey },
+        onClick = onClick,
+    )
 }

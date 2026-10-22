@@ -906,7 +906,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text(p?.name ?: FeatherRepository.shortKey(key),
-                                                modifier = Modifier.onGloballyPositioned {
+                                                modifier = Modifier.avatarModerationName(key, profileModerationKey) {}.onGloballyPositioned {
                                                     profileNameBottom = it.positionInWindow().y + it.size.height
                                                 }, style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -1242,6 +1242,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
     var expanded by rememberSaveable(note.id) { mutableStateOf(false) }
     var detailsExpanded by rememberSaveable(note.id) { mutableStateOf(false) }
     val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
+    val moderationKey = remember(note.id) { Any() }
     val articleDetail = note.kind == 30023 && !compact
     val threaded = threadRow != null && note.kind in listOf(1, 1111, 1244, 1222)
     val inset = threaded && !threadRow.focused && !threadRow.root
@@ -1262,8 +1263,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
         Row(Modifier.padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                ModerationAvatar(note.pubKey, name, profile?.picture, onClick = onProfile)
-                Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp), maxLines = 1,
+                ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, onClick = onProfile)
+                Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    .avatarModerationName(note.pubKey, moderationKey, onOpen), maxLines = 1,
                     overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
             if (showHashtagMatch) {
@@ -1592,11 +1594,14 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
             } else {
                 val profile = profiles[note.pubKey]
                 val name = profile?.name ?: FeatherRepository.shortKey(note.pubKey)
+                val moderationKey = remember(note.id) { Any() }
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
-                    ModerationAvatar(note.pubKey, name, profile?.picture,
+                    ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey,
                         onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) })
-                    Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(name, modifier = Modifier.weight(1f)
+                        .avatarModerationName(note.pubKey, moderationKey) { onReference(reference) },
+                        style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NoteTimestamp(note)
                 }
                 if (note.kind in voiceKinds) AudioContent(note, compact, name)

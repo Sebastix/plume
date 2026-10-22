@@ -8,6 +8,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Load both avatars in the report sheet using the shared media cache and cache-first account profiles.
 
 ### Changed
+- Long-press author names as well as avatars to reveal moderation controls; tighten the gap beside the avatar without moving it.
 - Keep the public-report notice beside Send below the explanation field, and label the spam reason “Spam and scams.”
 
 ## [0.98.0] - 2026-10-22
