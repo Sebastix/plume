@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Long-press a notification to reveal an account-mute button between its avatar and text. Hide the sender’s notifications immediately and save the mute privately to the existing NIP-51 list, preserving other clients’ entries.
+
 ## [0.94.4] - 2026-10-21
 
 ### Fixed

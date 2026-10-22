@@ -10,7 +10,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -77,6 +84,10 @@ internal data class NotificationSnapshot(
 @Composable
 internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigation, entry: ReaderEntry, home: ReaderEntry, active: Boolean) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val pendingMutes by vm.pendingAccountMutes.collectAsStateWithLifecycle()
+    var muteRow by remember(state.publicKey) { mutableStateOf<String?>(null) }
+    BackHandler(active && muteRow != null) { muteRow = null }
+    LaunchedEffect(active) { if (!active) muteRow = null }
     val owner = state.publicKey
     if (owner == null) {
         LaunchedEffect(active) { if (active) home.toolbar = true }
@@ -164,15 +175,18 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
     val media = (context.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-    val visiblePreviews = remember(previews, filter, query, state.profiles) {
+    val visiblePreviews = remember(previews, filter, query, state.profiles, pendingMutes) {
         previews.filter { item ->
             val profile = state.profiles[item.actor]
-            !filter.hides(item.event) && item.actor !in filter.authors &&
+            !filter.hides(item.event) && item.actor !in filter.authors && item.actor !in pendingMutes &&
                 (query.isEmpty() || item.text.contains(query, ignoreCase = true) ||
                     profile?.name?.contains(query, ignoreCase = true) == true ||
                     profile?.username?.contains(query, ignoreCase = true) == true ||
                     profile?.nip05?.contains(query, ignoreCase = true) == true)
         }
+    }
+    LaunchedEffect(visiblePreviews) {
+        if (visiblePreviews.none { it.event.id == muteRow }) muteRow = null
     }
     val emptySettled by produceState(false, active, events, visiblePreviews.isEmpty(), state.notificationsLoading) {
         value = false
@@ -293,9 +307,20 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                     val profile = state.profiles[item.actor]
                     val name = profile?.name ?: item.actor?.let(FeatherRepository::shortKey) ?: "Anonymous"
                     val tint = when(item.event.kind) { 9735 -> Color(0xFFFFB300); 9321 -> Color(0xFFC084FC); else -> MaterialTheme.colorScheme.primary }
-                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Open ${item.action.lowercase()}") {
-                        (notificationTarget(item.event) ?: item.actor?.let { NostrContent.Reference(it, profile = true) })?.let(::open)
-                    }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                    val canMute = item.actor != null && item.actor != owner
+                    val muteLabel = stringResource(R.string.ui_mute_account, name)
+                    val revealMute: (() -> Unit)? = if (canMute) ({
+                        muteRow = item.event.id.takeUnless { muteRow == it }
+                    }) else null
+                    Row(Modifier.fillMaxWidth().animateContentSize().combinedClickable(
+                        onClickLabel = "Open ${item.action.lowercase()}",
+                        onLongClickLabel = if (canMute) muteLabel else null,
+                        onLongClick = revealMute,
+                        onClick = {
+                            if (muteRow != null) muteRow = null
+                            else (notificationTarget(item.event) ?: item.actor?.let { NostrContent.Reference(it, profile = true) })?.let(::open)
+                        },
+                    ).padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.widthIn(min = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             val reaction = item.reaction
@@ -309,16 +334,25 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                 6, 16 -> R.drawable.repost; 9735, 9321 -> R.drawable.zap; else -> R.drawable.conversation
                             }), item.action, Modifier.size(22.dp), tint = tint)
                         }
-                        Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.clickable(onClickLabel = "Open $name's profile") {
-                            open(NostrContent.Reference(item.actor, profile = true))
-                        } else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
+                        Box(Modifier.size(40.dp).then(if (item.actor != null) Modifier.combinedClickable(onClickLabel = "Open $name's profile",
+                            onLongClickLabel = if (canMute) muteLabel else null, onLongClick = revealMute,
+                            onClick = { open(NostrContent.Reference(item.actor, profile = true)) }) else Modifier), contentAlignment = Alignment.Center) { Avatar(name, 36, profile?.picture) }
+                        AnimatedVisibility(visible = canMute && muteRow == item.event.id,
+                            enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
+                            FilledTonalIconButton(onClick = {
+                                item.actor?.let(vm::muteAccount)
+                                muteRow = null
+                            }, modifier = Modifier.size(48.dp)) {
+                                Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp))
+                            }
+                        }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             item.amount?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = tint) }
                             if (item.text.isNotBlank()) Text(item.text, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        NotificationTimestamp(item.event) {
+                        NotificationTimestamp(item.event, onLongClick = revealMute, longClickLabel = if (canMute) muteLabel else null) {
                             (notificationTarget(item.event) ?: item.actor?.let { NostrContent.Reference(it, profile = true) })?.let(::open)
                         }
                     }

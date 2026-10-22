@@ -99,9 +99,9 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     }
 }
 
-/** Relative age; taps open the notification, long presses copy its event reference. */
+/** Relative age; notifications may supply a row action for long presses. */
 @Composable
-internal fun NotificationTimestamp(note: Event, onClick: () -> Unit) {
+internal fun NotificationTimestamp(note: Event, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
     val context = LocalContext.current
     val view = LocalView.current
     var visible by remember(note.id) { mutableStateOf(false) }
@@ -120,8 +120,8 @@ internal fun NotificationTimestamp(note: Event, onClick: () -> Unit) {
             val bounds = it.boundsInWindow()
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
         }.combinedClickable(onClick = onClick,
-            onLongClickLabel = stringResource(R.string.ui_copy_nostr_reference),
-            onLongClick = { context.copyTimestampReference(note) })
+            onLongClickLabel = longClickLabel ?: stringResource(R.string.ui_copy_nostr_reference),
+            onLongClick = onLongClick ?: { context.copyTimestampReference(note) })
             .semantics { contentDescription = relative.spoken })
 }
 

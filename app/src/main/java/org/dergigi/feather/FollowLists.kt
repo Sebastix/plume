@@ -29,13 +29,17 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
     suspend fun changeMutedWord(identity: NostrSignerExternal, word: String, add: Boolean) =
         changeList(identity, word, add, true, 10000)
 
-    private suspend fun changeList(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean, listKind: Int) =
+    suspend fun muteAccount(identity: NostrSignerExternal, pubkey: String) =
+        changeList(identity, pubkey, true, true, 10000, "p")
+
+    private suspend fun changeList(identity: NostrSignerExternal, target: String, follow: Boolean, allowCreate: Boolean, listKind: Int, muteTag: String = "word") =
         withContext(Dispatchers.IO) {
             edits.withLock {
                 val owner = identity.pubKey
                 fun current() = check(repo.state.value.publicKey == owner) { "Account changed" }
                 current()
                 if (listKind == 3) require(Protocol.publicKey(target) == target && target != owner)
+                else if (listKind == 10000 && muteTag == "p") require(Protocol.publicKey(target) == target && target != owner)
                 else if (listKind == 10000) require(target.isNotBlank() && target.length <= 256 && normalizeMutedWord(target) == target)
                 else require(normalizeFollowedTag(target) == target)
                 suspend fun discover(kind: Int, routes: List<String>): Discovery {
@@ -110,7 +114,7 @@ internal class FollowLists(private val repo: FeatherRepository, private val requ
                 val base = fresh()
                 val edit = when (listKind) {
                     10015 -> editHashtagList(base, target, follow, identity, requests)
-                    10000 -> editMutedWordList(base, target, follow, identity, requests)
+                    10000 -> editMuteList(base, target, follow, identity, requests, muteTag)
                     else -> null
                 }
                 if (listKind != 3 && edit == null) return@withLock

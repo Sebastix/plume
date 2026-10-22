@@ -182,4 +182,5 @@
     <string name="ui_posted_from_client">投稿元のクライアント</string>
     <string name="ui_suspected_spam">重複スパムの疑い</string>
     <string name="ui_open_client">%1$sを開く</string>
+    <string name="ui_mute_account">%1$sをミュート</string>
 </resources>

@@ -132,6 +132,46 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         followJobs[actionKey] = job
         job.start()
     }
+    internal val pendingAccountMutes = MutableStateFlow<Set<String>>(emptySet())
+    private val accountMuteJobs = mutableMapOf<String, Job>()
+
+    internal fun muteAccount(pubkey: String) {
+        val identity = signer.value ?: return
+        if (Protocol.publicKey(pubkey) != pubkey || pubkey == identity.pubKey ||
+            pubkey in state.value.mutedAuthors || pubkey in pendingAccountMutes.value || pubkey in accountMuteJobs) return
+        if (accountMuteJobs.size >= 16 || pendingAccountMutes.value.size >= 64) {
+            message.value = "Action queue is full. Try again shortly."
+            return
+        }
+        pendingAccountMutes.update { it + pubkey }
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                followQueueMutex.withLock {
+                    check(signer.value === identity) { "Account changed" }
+                    followLists.muteAccount(identity, pubkey)
+                }
+                // Retain the optimistic mute until the repository has applied the signed list.
+                if (signer.value === identity && pubkey in state.value.mutedAuthors)
+                    pendingAccountMutes.update { it - pubkey }
+            } catch (e: TimeoutCancellationException) {
+                if (signer.value === identity) {
+                    pendingAccountMutes.update { it - pubkey }
+                    AppMessages.show("Mute list: request timed out", e.stackTraceToString())
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (signer.value === identity) {
+                    pendingAccountMutes.update { it - pubkey }
+                    AppMessages.show("Mute list: ${e.message}", e.stackTraceToString())
+                }
+            } finally {
+                if (accountMuteJobs[pubkey] === currentCoroutineContext()[Job]) accountMuteJobs.remove(pubkey)
+            }
+        }
+        accountMuteJobs[pubkey] = job
+        job.start()
+    }
+
     internal data class MuteWordEdit(val id: Long, val word: String, val add: Boolean, val complete: Boolean = false)
     internal val muteWordEdits = MutableStateFlow<List<MuteWordEdit>>(emptyList())
     private val muteWordJobs = mutableMapOf<Long, Job>()
@@ -200,6 +240,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         const val MAX_QUEUED_REPOSTS = 32
     }
     private fun cancelActions() {
+        accountMuteJobs.values.toList().forEach { it.cancel() }; accountMuteJobs.clear(); pendingAccountMutes.value = emptySet()
         muteWordJobs.values.toList().forEach { it.cancel() }; muteWordJobs.clear(); muteWordEdits.value = emptyList()
         followJobs.values.toList().forEach { it.cancel() }; followJobs.clear()
         followBusy.value = emptySet(); firstFollow.value = null
@@ -339,6 +380,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
+        viewModelScope.launch { state.map { it.mutedAuthors }.distinctUntilChanged().collect { authors ->
+            pendingAccountMutes.update { it - authors }
+        } }
         viewModelScope.launch { state.map { it.mutedWords }.distinctUntilChanged().collect { reconcileMutedWords() } }
         viewModelScope.launch {
             state.map { it.publicKey }.distinctUntilChanged().collectLatest { owner ->

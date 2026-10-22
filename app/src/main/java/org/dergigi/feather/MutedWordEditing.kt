@@ -8,9 +8,11 @@ import java.util.Locale
 
 internal fun normalizeMutedWord(value: String): String = value.trim().lowercase(Locale.ROOT)
 
-/** Apply only the requested word delta; preserve every unrelated public/private tag. */
-internal suspend fun editMutedWordList(base: Event?, word: String, add: Boolean,
-    identity: NostrSignerExternal, requests: SignerRequests): HashtagListEdit? {
+/** Apply only the requested mute delta; preserve every unrelated public/private tag. */
+internal suspend fun editMuteList(base: Event?, target: String, add: Boolean,
+    identity: NostrSignerExternal, requests: SignerRequests, tagName: String = "word"): HashtagListEdit? {
+    require(tagName in setOf("word", "p"))
+    fun normalized(value: String) = if (tagName == "word") normalizeMutedWord(value) else value
     val content = base?.content.orEmpty()
     val plain = if (content.isBlank()) null else requests.run {
         withTimeout(180_000) {
@@ -21,9 +23,9 @@ internal suspend fun editMutedWordList(base: Event?, word: String, add: Boolean,
     require(plain == null || plain.length <= 262_144) { "Mute list is too large" }
     val privateTags = plain?.let(::JSONArray) ?: JSONArray()
     require(privateTags.length() <= 5000) { "Mute list is too large" }
-    fun matches(tag: Array<String>) = tag.firstOrNull() == "word" && tag.getOrNull(1)?.let(::normalizeMutedWord) == word
+    fun matches(tag: Array<String>) = tag.firstOrNull() == tagName && tag.getOrNull(1)?.let(::normalized) == target
     fun privateMatch(index: Int): Boolean = privateTags.optJSONArray(index)?.let {
-        it.optString(0) == "word" && normalizeMutedWord(it.optString(1)) == word
+        it.optString(0) == tagName && normalized(it.optString(1)) == target
     } == true
     val hasPrivateMatch = (0 until privateTags.length()).any(::privateMatch)
     if ((base?.tags.orEmpty().any(::matches) || hasPrivateMatch) == add) return null
@@ -33,7 +35,7 @@ internal suspend fun editMutedWordList(base: Event?, word: String, add: Boolean,
     val changed = add || hasPrivateMatch
     val updated = if (changed) JSONArray().apply {
         for (i in 0 until privateTags.length()) if (add || !privateMatch(i)) put(privateTags.get(i))
-        if (add) put(JSONArray().put("word").put(word))
+        if (add) put(JSONArray().put(tagName).put(target))
         require(length() <= 5000) { "Mute list is too large" }
     }.toString() else plain
     require(updated == null || updated.length <= 262_144) { "Mute list is too large" }
