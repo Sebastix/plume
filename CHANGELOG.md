@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.99.0] - 2026-10-23
+
 ### Added
 - Render linked MP3 and other audio files as inline players in notes and quoted notes, with background playback, system controls, and playback speed selection. Recognize common audio extensions, imeta MIME types, and audio detected by link previews.
 
