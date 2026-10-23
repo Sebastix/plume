@@ -116,6 +116,7 @@ private fun FeedState.withFollowedHashtags(event: Event?, privateTags: Set<Strin
 class FeatherRepository(context: Context) {
     private val prefs = context.getSharedPreferences("feather", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repostOriginals = Channel<Pair<Event, Set<NormalizedRelayUrl>>>(32)
     internal val blocktime = Blocktime(context.applicationContext)
     private val dbPath = context.getDatabasePath("events.db").also { it.parentFile?.mkdirs() }.absolutePath
     private val db by lazy { EventStore(dbName = dbPath, numReaders = 1) }
@@ -335,6 +336,24 @@ class FeatherRepository(context: Context) {
                 _state.update { it.copy(connected = it.connected - relay.url.url) }
             }
         })
+        // Optional original-event propagation must never delay explicit repost publication.
+        repeat(2) {
+            scope.launch {
+                for ((original, routes) in repostOriginals) {
+                    try {
+                        if (original.tags.none { it.firstOrNull() == "-" } && original.verify()) {
+                            client.publishAndConfirm(original, routes, timeoutInSeconds = 10, untilFirstAccept = true)
+                        }
+                    } catch (_: TimeoutCancellationException) {
+                        currentCoroutineContext().ensureActive()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // Best effort: a relay rejecting the original does not undo a repost.
+                    }
+                }
+            }
+        }
         scope.launch {
             try {
                 noteDeletions.load(mutex.withLock { db.query<Event>(Filter(kinds = listOf(5), limit = 512)) })
@@ -1923,7 +1942,12 @@ class FeatherRepository(context: Context) {
                 currentCoroutineContext().ensureActive()
                 false
             } catch (_: java.io.IOException) { false }
-            if (accepted) return true
+            if (accepted) {
+                if (event.kind in listOf(6, 16) && target != null && target.tags.none { it.firstOrNull() == "-" }) {
+                    repostOriginals.trySend(target to routes.map { it.normalizeRelayUrl() }.toSet())
+                }
+                return true
+            }
         }
         return false
     }

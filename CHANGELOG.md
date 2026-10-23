@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.98.6] - 2026-10-23
+
+### Changed
+- Reposting also rebroadcasts the original signed event to the same relays in the background. Skip protected events and silently tolerate rebroadcast failures.
+
 ## [0.98.5] - 2026-10-23
 
 ### Fixed
