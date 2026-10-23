@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.98.5] - 2026-10-23
+
 ### Fixed
 - Keep images, GIFs, videos, and quoted notes in their original relative order instead of always placing attachments after quotes.
 
