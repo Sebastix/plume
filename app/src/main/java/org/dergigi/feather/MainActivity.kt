@@ -1330,11 +1330,28 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 else LinkText(content, style = style)
             }
         }
-        quotes.forEachIndexed { index, reference ->
-            if (body.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
-            EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
+        val orderedContent = remember(note.id, attachments, quotes) {
+            val tokens = NostrContent.tokens(note.content, note)
+            // Keep tag-only references/media at the end, in their existing fallback order.
+            val quoted = quotes.map { reference ->
+                Triple(tokens.firstOrNull { it.reference?.id == reference.id }?.start ?: Int.MAX_VALUE,
+                    reference, null as MediaContent.Attachment?)
+            }
+            val media = attachments.map { attachment ->
+                Triple(tokens.firstOrNull { it.url == attachment.url }?.start ?: Int.MAX_VALUE,
+                    null as NostrContent.Reference?, attachment)
+            }
+            (quoted + media).sortedBy { it.first }
         }
-        if (attachments.isNotEmpty()) { Spacer(Modifier.height(12.dp)); NoteMedia(note, attachments, repost?.id ?: note.id) }
+        orderedContent.forEachIndexed { index, (_, reference, attachment) ->
+            if (attachment != null) {
+                Spacer(Modifier.height(12.dp))
+                NoteMedia(note, listOf(attachment), repost?.id ?: note.id)
+            } else if (reference != null) {
+                if (body.isNotBlank() || index > 0) Spacer(Modifier.height(6.dp))
+                EmbeddedNote(reference, state.embedded[reference.id], state.profiles, "${repost?.id ?: note.id}:${reference.id}", onReference, compact)
+            }
+        }
             }
         }
         } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
