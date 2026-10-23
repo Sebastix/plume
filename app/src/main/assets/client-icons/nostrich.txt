@@ -1,0 +1,28 @@
+Nostrich icon
+Source: https://cdn.zapstore.dev/0b14cdc5f4f92e2efdbd09315ae3689234e159560742bb6716f1aeeed02cd61f
+Official Zapstore listing event: e12a7eb1fd2df3ea593935d2ed80c190e20e85471b80cfa9684f18ce4529737f
+Publisher: npub17fe5rak0reatm7y5xu3yvve0trl8njvjt4yflevhyxqpwv22mlfs3wnzuc
+Repository: https://github.com/nostrichOS/nostrich-client
+Resized to fit 96px; original artwork unchanged. Product marks remain their owners' property.
+
+MIT License
+
+Copyright (c) 2026 Nostrich
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

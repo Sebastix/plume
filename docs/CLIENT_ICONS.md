@@ -27,6 +27,7 @@ Transparent monochrome marks use the theme's muted text color. Detailed logos us
 | Nos | `nos`, `nos.social` | [Source and notice](../app/src/main/assets/client-icons/nos.txt) |
 | nostr.build | `nostr.build`, `nostr build` | [Source and notice](../app/src/main/assets/client-icons/nostr_build.txt) |
 | Nostria | `nostria`, `nostria.app` | [Source and notice](../app/src/main/assets/client-icons/nostria.txt) |
+| Nostrich | `nostrich`, `nostrich.org`, `org.nostrich.app`, `nostrich: nostr client` | [Source and notice](../app/src/main/assets/client-icons/nostrich.txt) |
 | noStrudel | `nostrudel`, `nostrudel.ninja` | [Source and notice](../app/src/main/assets/client-icons/nostrudel.txt) |
 | Nosotros | `nosotros` | [Source and notice](../app/src/main/assets/client-icons/nosotros.txt) |
 | Nostter | `nostter`, `nostter.app` | [Source and notice](../app/src/main/assets/client-icons/nostter.txt) |
@@ -85,3 +86,5 @@ Verified on 2026-10-21. [Source evidence and exact coordinates](client-links.jso
 | YakiHonne | In-app Zapstore listing | https://yakihonne.com |
 | zap.stream | In-app Zapstore listing | https://zap.stream/ |
 | Zapstore | In-app Zapstore listing | https://zapstore.dev/ |
+
+Nostrich added on 2026-10-23: official icon and in-app Zapstore destination verified against its published listing; website https://nostrich.org/.

@@ -304,6 +304,18 @@
       ],
       "notes": "Verified signed kind 32267 event via nak (default signature verification). Event 16b37687f95b87237b7ee2aeb7a48c2eb90c02e5578fd28da351b26aa8e0455c",
       "address": "32267:78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d:dev.zapstore.app"
+    },
+    {
+      "client": "Nostrich",
+      "website": "https://nostrich.org/",
+      "address": "32267:f27341f6cf1e7abdf894372246332f58fe79c9925d489fe597218017314adfd3:org.nostrich.app",
+      "sources": [
+        "wss://relay.zapstore.dev",
+        "https://nostrich.org/",
+        "https://github.com/nostrichOS/nostrich-client"
+      ],
+      "event_id": "e12a7eb1fd2df3ea593935d2ed80c190e20e85471b80cfa9684f18ce4529737f",
+      "checked": "2026-10-23"
     }
   ]
 }

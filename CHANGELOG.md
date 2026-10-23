@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Bundled Nostrich client icon with an in-app link to its Zapstore listing.
+
 ## [0.98.6] - 2026-10-23
 
 ### Changed

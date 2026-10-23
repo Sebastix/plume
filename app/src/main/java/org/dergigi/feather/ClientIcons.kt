@@ -39,6 +39,7 @@ private val clientIcons: Map<String, ClientIcon> = buildMap {
     add(R.drawable.client_nos, false, "https://github.com/planetary-social/nos", null, "nos", "nos.social")
     add(R.drawable.client_nostr_build, true, "https://nostr.build/", null, "nostr.build", "nostr build")
     add(R.drawable.client_nostria, false, "https://nostria.app", "32267:d1bd33333733dcc411f0ee893b38b8522fc0de227fff459d99044ced9e65581b:app.nostria", "nostria", "nostria.app")
+    add(R.drawable.client_nostrich, false, "https://nostrich.org/", "32267:f27341f6cf1e7abdf894372246332f58fe79c9925d489fe597218017314adfd3:org.nostrich.app", "nostrich", "nostrich.org", "org.nostrich.app", "nostrich: nostr client")
     add(R.drawable.client_nostrudel, false, "https://nostrudel.ninja", "32267:713978c3094081b34fcf2f5491733b0c22728cd3b7a6946519d40f5f08598af8:ninja.nostrudel", "nostrudel", "nostrudel.ninja")
     add(R.drawable.client_nosotros, false, "https://nosotros.app/", null, "nosotros")
     add(R.drawable.client_nostter, true, "https://nostter.app", null, "nostter", "nostter.app")
