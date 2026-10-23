@@ -127,8 +127,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                     AudioPlayerContent("audio:${note.id}:${attachment.url}",
                         AudioInfo(attachment.url, attachment.mime, null, "", null, 0L, emptyList()),
                         compact = true, author = FeatherRepository.shortKey(note.pubKey), sourceNote = note)
-                    return@key
-                }
+                } else {
                 val videos = media.playback
                 val playback = videos?.clip(identity)
                 DisposableEffect(identity, videos) { onDispose { videos?.remove(identity) } }
@@ -162,6 +161,7 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
                                 Icon(painterResource(if (playback.muted) R.drawable.volume_off else R.drawable.volume_up), if (playback.muted) stringResource(R.string.ui_unmute_video) else stringResource(R.string.ui_mute_video), tint = Color.White)
                             }
                         }
+                }
                 }
             }
         }
