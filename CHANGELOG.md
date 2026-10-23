@@ -4,7 +4,10 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.100.0] - 2026-10-23
+
 ### Added
+- Add muted-red icons alongside reporting reason labels.
 - Add “AI slop” as a reporting reason, published as the standard NIP-56 `other` type with the reason preserved in the report text.
 - Delete your own notes and replies through a red trash action revealed by long-pressing the author avatar or name. Hold to confirm; publish a signed NIP-09 request and hide through the existing deletion handling. Failed publication retries reuse the same signed request.
 

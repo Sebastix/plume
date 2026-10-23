@@ -8,15 +8,15 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONObject
 
-internal enum class AccountReportReason(val tag: String, val label: Int) {
-    SPAM("spam", R.string.ui_report_spam),
-    AI_SLOP("other", R.string.ui_report_ai_slop),
-    IMPERSONATION("impersonation", R.string.ui_report_impersonation),
-    NUDITY("nudity", R.string.ui_report_nudity),
-    PROFANITY("profanity", R.string.ui_report_profanity),
-    MALWARE("malware", R.string.ui_report_malware),
-    ILLEGAL("illegal", R.string.ui_report_illegal),
-    OTHER("other", R.string.ui_report_other),
+internal enum class AccountReportReason(val tag: String, val label: Int, val icon: Int) {
+    SPAM("spam", R.string.ui_report_spam, R.drawable.spam),
+    AI_SLOP("other", R.string.ui_report_ai_slop, R.drawable.report_robot),
+    IMPERSONATION("impersonation", R.string.ui_report_impersonation, R.drawable.report_mask),
+    NUDITY("nudity", R.string.ui_report_nudity, R.drawable.sensitive_content),
+    PROFANITY("profanity", R.string.ui_report_profanity, R.drawable.muted_words),
+    MALWARE("malware", R.string.ui_report_malware, R.drawable.bug_report),
+    ILLEGAL("illegal", R.string.ui_report_illegal, R.drawable.report_gavel),
+    OTHER("other", R.string.ui_report_other, R.drawable.report_flag),
 }
 internal data class AccountReportDraft(val owner: String, val target: String,
     val reason: AccountReportReason? = null, val text: String = "")

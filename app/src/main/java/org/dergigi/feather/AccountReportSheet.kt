@@ -55,12 +55,19 @@ internal fun AccountReportSheet(vm: FeatherViewModel) {
             }
             Box {
                 OutlinedButton(enabled = !busy, onClick = { expanded = true }) {
+                    current.reason?.let { reason ->
+                        Icon(painterResource(reason.icon), null, Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = .8f))
+                        Spacer(Modifier.width(8.dp))
+                    }
                     Text(stringResource(current.reason?.label ?: R.string.ui_report_reason))
                     Icon(Icons.Default.ArrowDropDown, null)
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     AccountReportReason.entries.forEach { reason ->
-                        DropdownMenuItem(text = { Text(stringResource(reason.label)) }, onClick = {
+                        DropdownMenuItem(text = { Text(stringResource(reason.label)) },
+                            leadingIcon = { Icon(painterResource(reason.icon), null, Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = .8f)) }, onClick = {
                             reports.edit(reason, current.text); expanded = false
                         })
                     }
