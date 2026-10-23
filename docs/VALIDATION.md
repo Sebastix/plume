@@ -1901,3 +1901,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 15s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `f07d47f57a3c060168f2eb8e0a52bef80e3e800c7be6f74479630cbacc7f5be0`; 16,227,659 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
 - Zapstore release `4c7e756fa6ca263bcc1ac7c203cbf9ec501e2d34bca86a9cd174ea1e60978a04` references asset `bce556bbb08cc4c445be1a097b05cf3de64d3410f710bce7bbd490e57868c332`; hash, size, certificate and versionCode match. CDN HTTP 200. Publication completed after restarting the stale signing request once Amber returned online. No website deployment.
+
+## 2026-10-23 — 0.99.0 release
+
+- Version 0.99.0 (207), source `4348241a15004f6a1f0a9272d41e77511df25e92`. Inline linked audio with existing background playback and system controls.
+- Initial release compilation found an R8 non-local-return issue; replaced the early return with a conditional branch. Signed release build then passed in 1m 5s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `324e9b441cf1c86470177f1242745acc1cf6956309f9ffcfaacf2dedd8f52a31`; 16,227,663 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
+- Zapstore release `9cf6e025a1e1de599d5d1d6e72a5239df734da314901f59b6146624ba7c8dbfb` references asset `0e3ee60712ae7b5f5788626d174d110d6841b125fe628ba33db65661c7daf478`; hash, size, certificate and versionCode match. CDN HTTP 200. No website deployment.
