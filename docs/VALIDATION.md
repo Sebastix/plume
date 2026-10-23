@@ -1894,3 +1894,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 24s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `6364307fc722de315f364cb632e00adac7563efe6114458f775167fe73cc3d58`; 16,221,037 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
 - Zapstore release `bcd0f3abaff0996b19d70c05b31687b95551a27206e12ecdfba45e237cd3921d` references asset `f9a30a038da35e68349fbc8adce4949fd55142dd6ad170538f5e5bb06bdbe8ae`; hash, size, certificate and versionCode match. CDN HTTP 200. No website deployment.
+
+## 2026-10-23 — 0.98.7 release
+
+- Version 0.98.7 (206), source `c31f258fbd0ed0737815b292ec61ab6b00b1e21f`. Bundled official Nostrich icon and in-app Zapstore destination.
+- Signed release build passed in 1m 15s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `f07d47f57a3c060168f2eb8e0a52bef80e3e800c7be6f74479630cbacc7f5be0`; 16,227,659 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
+- Zapstore release `4c7e756fa6ca263bcc1ac7c203cbf9ec501e2d34bca86a9cd174ea1e60978a04` references asset `bce556bbb08cc4c445be1a097b05cf3de64d3410f710bce7bbd490e57868c332`; hash, size, certificate and versionCode match. CDN HTTP 200. Publication completed after restarting the stale signing request once Amber returned online. No website deployment.
