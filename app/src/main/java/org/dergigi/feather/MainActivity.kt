@@ -1324,7 +1324,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             val content = if (quotes.isEmpty()) richContent else richContent.subSequence(0, richContent.text.trimEnd().length)
             if (content.isNotBlank()) NoteSelection(note) {
                 val style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (threadRow?.focused == true) 20.sp else 16.sp,
-                    lineHeight = if (threadRow?.focused == true) 28.sp else 26.sp)
+                    lineHeight = if (threadRow?.focused == true) 28.sp else 24.sp)
                 if (compact) InlineExpandableText(content, 12, expanded, { expanded = !expanded }, style,
                     stringResource(R.string.ui_expand_note), stringResource(R.string.ui_collapse_note))
                 else LinkText(content, style = style)

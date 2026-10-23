@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.98.4] - 2026-10-23
+
+### Changed
+- Tighten ordinary note line spacing for easier reading and scanning while retaining the larger focused-note typography.
+
 ## [0.98.3] - 2026-10-22
 
 ### Changed
