@@ -482,7 +482,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val avatarMutedAccounts by rememberUpdatedState((s.mutedAuthors + pendingAvatarMutes) - pendingAvatarUnmutes)
     val avatarModeration = remember(vm, s.publicKey) {
         AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open,
-            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount, mutePending = { it in avatarMutePending })
+            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount, mutePending = { it in avatarMutePending }, deleteNote = vm::deleteNote)
     }
     LaunchedEffect(activePage) { if (!activePage) avatarModeration.expanded = null }
     CompositionLocalProvider(LocalAvatarModeration provides avatarModeration, LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
@@ -1271,9 +1271,9 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         .clickable(onClickLabel = "Read conversation", onClick = onOpen).padding(horizontal = if (articleDetail) 0.dp else 24.dp, vertical = if (threaded) 12.dp else 24.dp)) {
         Row(Modifier.padding(horizontal = if (articleDetail) 24.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, onClick = onProfile)
+                ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, note = note, onClick = onProfile)
                 Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    .avatarModerationName(note.pubKey, moderationKey, onOpen), maxLines = 1,
+                    .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 1111), onClick = onOpen), maxLines = 1,
                     overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
             if (showHashtagMatch) {
@@ -1622,10 +1622,10 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                 val moderationKey = remember(note.id) { Any() }
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
-                    ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey,
+                    ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, note = note,
                         onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) })
                     Text(name, modifier = Modifier.weight(1f)
-                        .avatarModerationName(note.pubKey, moderationKey) { onReference(reference) },
+                        .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 1111)) { onReference(reference) },
                         style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NoteTimestamp(note)
                 }

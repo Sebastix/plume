@@ -684,6 +684,21 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private val deletingNotes = mutableSetOf<String>()
+
+    fun deleteNote(note: Event) {
+        val connected = signer.value ?: return
+        if (note.pubKey != connected.pubKey || note.kind !in listOf(1, 1111) ||
+            deletingNotes.size >= 8 || !deletingNotes.add(note.id)) return
+        viewModelScope.launch {
+            try { repo.deleteNote(note, connected, signerRequests) }
+            catch (e: TimeoutCancellationException) { AppMessages.show("Delete: confirmation timed out", e.stackTraceToString()) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { AppMessages.show("Delete: ${e.message}", e.stackTraceToString()) }
+            finally { deletingNotes.remove(note.id) }
+        }
+    }
+
     fun repost(note: Event) {
         if (note.id in reposting.value || repostJobs.size >= MAX_QUEUED_REPOSTS) return
         val connected = signer.value ?: run { message.value = "Connect an Android signer first"; return }

@@ -1988,6 +1988,37 @@ class FeatherRepository(context: Context) {
         }
     }
 
+    internal suspend fun deleteNote(target: Event, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
+        socialActions.withLock(target.id) {
+            ready.await()
+            val author = state.value.publicKey ?: error("Connect a signer first")
+            require(author == signer.pubKey && target.pubKey == author && target.kind in listOf(1, 1111) && target.verify()) {
+                "Only your own notes and replies can be deleted"
+            }
+            if (noteDeletions.hides(target)) return@withLock
+            val tags = arrayOf(arrayOf("e", target.id), arrayOf("k", target.kind.toString()))
+            val now = System.currentTimeMillis() / 1000
+            val deletion = reactionDeletions.pending(author, setOf(target.id)) ?: signerRequests.run {
+                check(state.value.publicKey == author) { "Account changed" }
+                withTimeout(180_000) { signer.sign<Event>(now, 5, tags, "") }.also {
+                    require(it.createdAt == now) { "Signer changed deletion timestamp" }
+                }
+            }
+            require(deletion.pubKey == author && deletion.kind == 5 && deletion.content.isEmpty() &&
+                deletion.tags.contentDeepEquals(tags) && deletion.verify()) { "Invalid deletion request" }
+            check(state.value.publicKey == author) { "Account changed" }
+            reactionDeletions.put(deletion, accepted = false)
+            withTimeout(15_000) { foregroundActive.first { it } }
+            beginPublishing(author)
+            try {
+                check(publishPostEvent(deletion, target)) { "Deletion not confirmed. Try again to resend the same request." }
+                reactionDeletions.put(deletion, accepted = true)
+                accept(deletion)
+                changed.tryEmit(Unit)
+            } finally { endPublishing(author); if (active) updateRoutingPool() }
+        }
+    }
+
     internal suspend fun removeRepost(target: Event, signer: NostrSignerExternal, signerRequests: SignerRequests) = withContext(Dispatchers.IO) {
         socialActions.withLock(target.id) {
             ready.await()

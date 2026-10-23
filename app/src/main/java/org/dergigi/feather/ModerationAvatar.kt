@@ -1,6 +1,7 @@
 package org.dergigi.feather
 
 import androidx.activity.compose.BackHandler
+import com.vitorpamplona.quartz.nip01Core.core.Event
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -26,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit,
-    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit, val mutePending: (String) -> Boolean) {
+    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit, val mutePending: (String) -> Boolean, val deleteNote: (Event) -> Unit) {
     var expanded by mutableStateOf<Any?>(null)
     var controlBounds: Pair<Any, Rect>? = null
 }
@@ -36,10 +37,11 @@ internal val LocalAvatarModeration = staticCompositionLocalOf<AvatarModeration?>
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, size: Int = 36,
-    slotSize: Int = 48, expansionKey: Any? = null, profileToggle: Boolean = false, onClick: () -> Unit) {
+    slotSize: Int = 48, expansionKey: Any? = null, profileToggle: Boolean = false, note: Event? = null, onClick: () -> Unit) {
     val actions = LocalAvatarModeration.current
     val token = remember(pubkey, expansionKey) { expansionKey ?: Any() }
-    val enabled = actions?.owner != null && actions.owner != pubkey
+    val ownNote = actions?.owner == pubkey && note?.kind in listOf(1, 1111)
+    val enabled = actions?.owner != null && (actions.owner != pubkey || ownNote)
     val expanded = enabled && actions?.expanded === token
     DisposableEffect(token, actions) {
         onDispose { if (actions?.expanded === token) actions.expanded = null }
@@ -59,36 +61,43 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally { -it } + fadeOut()) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Row(Modifier.onGloballyPositioned { actions?.controlBounds = token to it.boundsInRoot() }.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val muted = actions?.isMuted?.invoke(pubkey) == true
-                    if (profileToggle) {
-                        val background = if (muted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer
-                        val foreground = if (muted) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onErrorContainer
-                        IconToggleButton(checked = muted, enabled = actions?.mutePending?.invoke(pubkey) != true,
-                            onCheckedChange = { checked ->
-                                if (checked) actions?.mute?.invoke(pubkey) else actions?.unmute?.invoke(pubkey)
-                            }, modifier = Modifier.size(36.dp),
-                            colors = IconButtonDefaults.iconToggleButtonColors(
-                                containerColor = background, contentColor = foreground,
-                                checkedContainerColor = background, checkedContentColor = foreground,
-                                disabledContainerColor = background, disabledContentColor = foreground.copy(alpha = .65f))) {
-                            Icon(painterResource(R.drawable.account_hidden),
-                                stringResource(if (muted) R.string.ui_unmute_account else R.string.ui_mute_account, name),
-                                Modifier.size(22.dp))
-                        }
-                    } else if (muted) {
-                        HoldToUnmuteButton(pubkey, name, size = 36) {
+                    if (ownNote && note != null) {
+                        HoldToConfirmButton(note.id, stringResource(R.string.ui_hold_to_delete_note), R.drawable.delete_note, 36) {
                             actions?.expanded = null
-                            actions?.unmute?.invoke(pubkey)
+                            actions?.deleteNote?.invoke(note)
                         }
-                    } else IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
-                        modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
-                        Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_mute_account, name),
-                            Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
-                    }
-                    IconButton(onClick = { actions?.expanded = null; actions?.report?.invoke(pubkey) },
-                        modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
-                        Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
-                            Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                    } else {
+                        val muted = actions?.isMuted?.invoke(pubkey) == true
+                        if (profileToggle) {
+                            val background = if (muted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer
+                            val foreground = if (muted) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onErrorContainer
+                            IconToggleButton(checked = muted, enabled = actions?.mutePending?.invoke(pubkey) != true,
+                                onCheckedChange = { checked ->
+                                    if (checked) actions?.mute?.invoke(pubkey) else actions?.unmute?.invoke(pubkey)
+                                }, modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.iconToggleButtonColors(
+                                    containerColor = background, contentColor = foreground,
+                                    checkedContainerColor = background, checkedContentColor = foreground,
+                                    disabledContainerColor = background, disabledContentColor = foreground.copy(alpha = .65f))) {
+                                Icon(painterResource(R.drawable.account_hidden),
+                                    stringResource(if (muted) R.string.ui_unmute_account else R.string.ui_mute_account, name),
+                                    Modifier.size(22.dp))
+                            }
+                        } else if (muted) {
+                            HoldToUnmuteButton(pubkey, name, size = 36) {
+                                actions?.expanded = null
+                                actions?.unmute?.invoke(pubkey)
+                            }
+                        } else IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
+                            modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
+                            Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_mute_account, name),
+                                Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                        IconButton(onClick = { actions?.expanded = null; actions?.report?.invoke(pubkey) },
+                            modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
+                            Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
+                                Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                        }
                     }
                 }
             }
@@ -98,9 +107,9 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun Modifier.avatarModerationName(pubkey: String, expansionKey: Any, onClick: () -> Unit): Modifier {
+internal fun Modifier.avatarModerationName(pubkey: String, expansionKey: Any, ownNote: Boolean = false, onClick: () -> Unit): Modifier {
     val actions = LocalAvatarModeration.current
-    if (actions?.owner == null || actions.owner == pubkey) return this
+    if (actions?.owner == null || (actions.owner == pubkey && !ownNote)) return this
     return combinedClickable(
         onLongClickLabel = stringResource(R.string.ui_moderation_actions),
         onLongClick = { actions.expanded = if (actions.expanded === expansionKey) null else expansionKey },

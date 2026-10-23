@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Delete your own notes and replies through a red trash action revealed by long-pressing the author avatar or name. Hold to confirm; publish a signed NIP-09 request and hide through the existing deletion handling. Failed publication retries reuse the same signed request.
+
 ## [0.99.0] - 2026-10-23
 
 ### Added

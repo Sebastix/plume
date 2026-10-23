@@ -32,16 +32,20 @@ import kotlinx.coroutines.launch
 /** A tap demonstrates charging; only a continuous hold commits the account change. */
 @Composable
 internal fun HoldToUnmuteButton(account: String, name: String, size: Int = 48, onUnmute: () -> Unit) {
-    key(account) {
+    HoldToConfirmButton(account, stringResource(R.string.ui_hold_to_unmute_account, name), R.drawable.account_hidden, size, onUnmute)
+}
+
+@Composable
+internal fun HoldToConfirmButton(actionKey: String, label: String, icon: Int, size: Int = 48, onConfirm: () -> Unit) {
+    key(actionKey) {
         val charge = remember { Animatable(0f) }
         val scope = rememberCoroutineScope()
         val haptics = LocalHapticFeedback.current
-        val confirm by rememberUpdatedState(onUnmute)
+        val confirm by rememberUpdatedState(onConfirm)
         var motion by remember { mutableStateOf<Job?>(null) }
         var pressId by remember { mutableIntStateOf(0) }
         var confirmed by remember { mutableStateOf(false) }
         var keyboardPress by remember { mutableStateOf<Int?>(null) }
-        val label = stringResource(R.string.ui_hold_to_unmute_account, name)
         val tint = MaterialTheme.colorScheme.error.copy(alpha = .8f)
 
         fun finish() {
@@ -97,7 +101,7 @@ internal fun HoldToUnmuteButton(account: String, name: String, size: Int = 48, o
                     true
                 }
             }.focusable()
-            .pointerInput(account) {
+            .pointerInput(actionKey) {
                 detectTapGestures(onPress = {
                     val id = begin()
                     var released = false
@@ -109,7 +113,7 @@ internal fun HoldToUnmuteButton(account: String, name: String, size: Int = 48, o
                 if (charge.value > 0f) drawArc(tint, -90f, 360f * charge.value, false,
                     style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
             }
-            Icon(painterResource(R.drawable.account_hidden), null, Modifier.size(20.dp), tint = tint)
+            Icon(painterResource(icon), null, Modifier.size(20.dp), tint = tint)
         }
     }
 }
