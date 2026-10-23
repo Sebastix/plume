@@ -10,6 +10,7 @@ import org.json.JSONObject
 
 internal enum class AccountReportReason(val tag: String, val label: Int) {
     SPAM("spam", R.string.ui_report_spam),
+    AI_SLOP("other", R.string.ui_report_ai_slop),
     IMPERSONATION("impersonation", R.string.ui_report_impersonation),
     NUDITY("nudity", R.string.ui_report_nudity),
     PROFANITY("profanity", R.string.ui_report_profanity),
@@ -61,9 +62,14 @@ internal class AccountReports(private val context: Context, private val scope: C
                     fun checkAccount() = check(signer() === identity && generation == run) { "Account changed" }
                     checkAccount()
                     val tags = arrayOf(arrayOf("p", current.target, reason.tag))
-                    val content = current.text.trimEnd()
+                    val explanation = current.text.trimEnd()
+                    // Keep the wire type interoperable while retaining the specific reason publicly.
+                    val content = if (reason == AccountReportReason.AI_SLOP)
+                        "AI slop" + if (explanation.isBlank()) "" else "\n\n$explanation"
+                    else explanation
                     // Persist the signed event before sending. Retry the same report if an OK is lost.
-                    val key = "${current.owner}:${current.target}:${reason.tag}"
+                    val reasonKey = if (reason == AccountReportReason.AI_SLOP) "ai-slop" else reason.tag
+                    val key = "${current.owner}:${current.target}:$reasonKey"
                     val saved = prefs().getString(key, null)?.let { raw -> runCatching { JSONObject(raw) }.getOrNull() }
                     val previous = saved?.optString("event")?.let { raw -> runCatching { Event.fromJson(raw) }.getOrNull() }
                         ?.takeIf { it.kind == 1984 && it.pubKey == current.owner && it.content == content &&

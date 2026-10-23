@@ -206,4 +206,5 @@
     <string name="ui_report_other">Other</string>
     <string name="ui_muted_account_actions">%1$s is muted. Show account actions</string>
     <string name="ui_hold_to_delete_note">Hold to delete note</string>
+    <string name="ui_report_ai_slop">AI slop</string>
 </resources>
