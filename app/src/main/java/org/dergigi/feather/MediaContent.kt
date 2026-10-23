@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 object MediaContent {
-    enum class Kind { IMAGE, VIDEO }
+    enum class Kind { IMAGE, VIDEO, AUDIO }
     data class Attachment(val url: String, val kind: Kind, val ratio: Float = 16f / 9f, val preview: String? = null, val alt: String? = null, val mime: String? = null)
     val cacheOptionsMb = listOf(128, 256, 512, 1024, 2048)
     fun imageBudget(mb: Int): Long = mb * 1024L * 1024 / 4
@@ -36,10 +36,11 @@ object MediaContent {
             val kind = when {
                 mime?.startsWith("image/") == true -> Kind.IMAGE
                 mime?.startsWith("video/") == true -> Kind.VIDEO
-                mime?.startsWith("audio/") == true -> return@mapNotNull null
+                mime?.startsWith("audio/") == true -> Kind.AUDIO
                 mime in setOf("application/x-mpegurl", "application/vnd.apple.mpegurl") -> Kind.VIDEO
                 extension in setOf("jpg", "jpeg", "png", "webp", "gif", "avif") -> Kind.IMAGE
                 extension in setOf("mp4", "m4v", "mov", "webm", "m3u8") -> Kind.VIDEO
+                extension in setOf("mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "aiff", "aif", "amr") -> Kind.AUDIO
                 event.kind == 20 && url in metadata -> Kind.IMAGE
                 event.kind in videoKinds && url in metadata -> Kind.VIDEO
                 else -> return@mapNotNull null

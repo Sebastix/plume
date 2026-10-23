@@ -291,6 +291,8 @@ private object OpenGraph {
                         return LinkMetadata(null, null, null, null, "${type!!.type}/${type.subtype}")
                     if (podcast?.episode == true && type?.type == "audio")
                         return LinkMetadata("Podcast episode", null, null, url.host, audio = url.toString())
+                    if (type?.type == "audio")
+                        return LinkMetadata(null, null, null, null, "${type.type}/${type.subtype}")
                     val xml = podcast != null && type?.subtype in setOf("xml", "rss+xml", "atom+xml")
                     if (type != null && type.subtype !in setOf("html", "xhtml+xml") && !xml) return null
                     val buffer = Buffer()

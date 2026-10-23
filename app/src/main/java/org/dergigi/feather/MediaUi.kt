@@ -123,6 +123,12 @@ fun NoteMedia(note: Event, attachments: List<MediaContent.Attachment>, mediaKey:
         attachments.forEach { attachment ->
             key(attachment.url) {
                 val identity = "$mediaKey:${attachment.url}"
+                if (attachment.kind == MediaContent.Kind.AUDIO) {
+                    AudioPlayerContent("audio:${note.id}:${attachment.url}",
+                        AudioInfo(attachment.url, attachment.mime, null, "", null, 0L, emptyList()),
+                        compact = true, author = FeatherRepository.shortKey(note.pubKey), sourceNote = note)
+                    return@key
+                }
                 val videos = media.playback
                 val playback = videos?.clip(identity)
                 DisposableEffect(identity, videos) { onDispose { videos?.remove(identity) } }

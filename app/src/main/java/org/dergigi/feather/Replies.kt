@@ -489,6 +489,7 @@ internal fun ReplyContextRow(parent: Event?, name: String, kind: Int? = parent?.
             val media = parent?.let { MediaContent.attachments(it, 32) }.orEmpty()
             val type = when {
                 kind in voiceKinds -> kind
+                media.any { it.kind == MediaContent.Kind.AUDIO } -> 1222
                 kind in videoKinds || media.any { it.kind == MediaContent.Kind.VIDEO } -> 21
                 kind == 30023 || kind == 9802 -> kind
                 kind == 20 || media.any { it.kind == MediaContent.Kind.IMAGE } -> 20
