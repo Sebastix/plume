@@ -1,0 +1,7 @@
+Halo icon
+Source: https://haloapp.fyi/favicon-96x96.png?v=6
+Official website: https://haloapp.fyi/
+Retrieved: 2026-10-24
+SHA-256: 657b0d468c66c8b3223b0b15c85f2d4623c267545fc97c0a4ca7943bbb3ae676
+Bundled official 96px favicon unchanged for client identification.
+No asset-specific redistribution license identified. The Halo name and artwork remain their owners' property.

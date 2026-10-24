@@ -316,6 +316,17 @@
       ],
       "event_id": "e12a7eb1fd2df3ea593935d2ed80c190e20e85471b80cfa9684f18ce4529737f",
       "checked": "2026-10-23"
+    },
+    {
+      "client": "Halo",
+      "website": "https://haloapp.fyi/",
+      "address": null,
+      "sources": [
+        "https://haloapp.fyi/",
+        "https://haloapp.fyi/favicon-96x96.png?v=6"
+      ],
+      "checked": "2026-10-24",
+      "notes": "Official site identifies favicon; developer announcement event 478279a8094b76d2a486089936bc580df5b9ac2898857fa0d5ecfc4e6995591e links to this site."
     }
   ]
 }

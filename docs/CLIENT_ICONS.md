@@ -21,6 +21,7 @@ Transparent monochrome marks use the theme's muted text color. Detailed logos us
 | Flotilla | `flotilla`, `flotilla.social` | [Source and notice](../app/src/main/assets/client-icons/flotilla.txt) |
 | Fountain | `fountain`, `fountain.fm` | [Source and notice](../app/src/main/assets/client-icons/fountain.txt) |
 | Gossip | `gossip` | [Source and notice](../app/src/main/assets/client-icons/gossip.txt) |
+| Halo | `halo`, `haloapp.fyi` | [Source and notice](../app/src/main/assets/client-icons/halo.txt) |
 | Iris | `iris`, `iris.to` | [Source and notice](../app/src/main/assets/client-icons/iris.txt) |
 | Jumble | `jumble`, `jumble.social` | [Source and notice](../app/src/main/assets/client-icons/jumble.txt) |
 | Lume | `lume` | [Source and notice](../app/src/main/assets/client-icons/lume.txt) |
@@ -88,3 +89,5 @@ Verified on 2026-10-21. [Source evidence and exact coordinates](client-links.jso
 | Zapstore | In-app Zapstore listing | https://zapstore.dev/ |
 
 Nostrich added on 2026-10-23: official icon and in-app Zapstore destination verified against its published listing; website https://nostrich.org/.
+
+Halo added on 2026-10-24: official website favicon bundled unchanged; tapping opens https://haloapp.fyi/. No Zapstore coordinate is bundled.

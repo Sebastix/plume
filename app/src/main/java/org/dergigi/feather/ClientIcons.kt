@@ -33,6 +33,7 @@ private val clientIcons: Map<String, ClientIcon> = buildMap {
     add(R.drawable.client_flotilla, false, "https://flotilla.social/", "32267:97c70a44366a6535c145b333f973ea86dfdc2d7a99da618c40c64705ad98e322:social.flotilla", "flotilla", "flotilla.social")
     add(R.drawable.client_fountain, false, "https://fountain.fm/app", "32267:6538925ebfb661f418d8c7d074bee2e8afd778701dd89070c2da936d571e55c3:fm.fountain.apps", "fountain", "fountain.fm")
     add(R.drawable.client_gossip, true, "https://github.com/mikedilger/gossip", null, "gossip")
+    add(R.drawable.client_halo, false, "https://haloapp.fyi/", null, "halo", "haloapp.fyi")
     add(R.drawable.client_iris, false, "https://iris.to/", null, "iris", "iris.to")
     add(R.drawable.client_jumble, false, "https://jumble.social", null, "jumble", "jumble.social")
     add(R.drawable.client_lume, false, "https://github.com/lumehq/lume", null, "lume")
