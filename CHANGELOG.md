@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.100.1] - 2026-10-24
+
 ### Added
 - Bundle Halo’s official client icon and link its attribution to haloapp.fyi.
 
