@@ -1915,3 +1915,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 25s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `9e244d1de831c1768175d86c13880756d73a1ee65d037bd163d03e54cb4cd68b`; 16,231,147 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
 - Zapstore release `12bcd828ecc0a2d956fc2b169b75581791c23fd01a8225f93cf5fcadf4b24b03` references asset `f60964fbf0264181297526992a649e1f8093b7592b670dd0f5ce956b4d7b1041`; hash, size, certificate and versionCode match. CDN HTTP 200. No website deployment.
+
+## 2026-10-24 — 0.100.1 release
+
+- Version 0.100.1 (209), source `2f858b59e69ff2ded2bb92e6ae2ad3625e33848e`. Halo official client icon and website destination.
+- Signed release build passed in 1m 18s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `5c91ab45eb011b8a7544d3b5a933c83264465c7ead1f75bdb5f03bbcf9960a49`; 16,234,897 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
+- Zapstore release `c26b380c4e58d06ebd5d79f54ec665d8a73c5cc59b7fb05ea3bcf6aa991f09e0` references asset `d2973ce46ccf432991cec7bde3c323e6332976d46d037dda3b3ffb1f94e20bc9`; hash, size, certificate and versionCode match. CDN HTTP 200. No website deployment.
