@@ -9,3 +9,7 @@ Source: https://github.com/google/material-design-icons
 License: https://www.apache.org/licenses/LICENSE-2.0
 
 Notification playback-speed icons use Roboto SemiBold glyph outlines (Google / the Roboto Project Authors), under the SIL Open Font License 1.1. See app/src/main/assets/ROBOTO-LICENSE.txt.
+
+Offline Translator public AIDL interface, Copyright (C) 2025 dic1911, used under the MIT license.
+Source: https://github.com/DavidVentura/offline-translator (2281d8d65fc5c195257c0b47fc6d768440f4c416).
+See app/src/main/assets/OFFLINE-TRANSLATOR-LICENSE.txt. Translation runs in the separately installed app.

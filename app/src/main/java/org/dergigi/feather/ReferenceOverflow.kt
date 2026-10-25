@@ -29,6 +29,9 @@ internal fun ReferenceOverflow(
     onCopy: () -> Unit,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    onTranslate: (() -> Unit)? = null,
+    translationEnabled: Boolean = true,
+    showingTranslation: Boolean = false,
 ) {
     var expanded by remember(identity) { mutableStateOf(false) }
     Box {
@@ -36,6 +39,12 @@ internal fun ReferenceOverflow(
             Icon(Icons.Default.MoreVert, stringResource(R.string.ui_more_reference_actions))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (onTranslate != null) DropdownMenuItem(
+                text = { Text(stringResource(if (showingTranslation) R.string.ui_show_original else R.string.ui_translate)) },
+                leadingIcon = { Icon(painterResource(R.drawable.translate), null, Modifier.size(20.dp)) },
+                enabled = translationEnabled,
+                onClick = { expanded = false; onTranslate() },
+            )
             DropdownMenuItem(
                 text = { Text(copyDescription) },
                 leadingIcon = { Icon(painterResource(R.drawable.copy), null, Modifier.size(20.dp)) },

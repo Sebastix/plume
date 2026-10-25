@@ -46,8 +46,9 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
             }
         }
     } }
-    val body by produceState<String?>(null, event.id) {
-        value = withContext(Dispatchers.Default) { event.content.withoutObjectMarkers() }
+    val translated = LocalTranslations.current?.text(event)
+    val body by produceState<String?>(null, event.id, translated) {
+        value = withContext(Dispatchers.Default) { (translated ?: event.content).withoutObjectMarkers() }
     }
     val flavour = remember { GFMFlavourDescriptor() }
     // The library's default arguments allocate new instances on every recomposition.

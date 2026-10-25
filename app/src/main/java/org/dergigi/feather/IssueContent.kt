@@ -57,7 +57,7 @@ internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrCon
             Text(it.take(500), style = MaterialTheme.typography.titleLarge, maxLines = if (compact) 2 else Int.MAX_VALUE,
                 overflow = TextOverflow.Ellipsis)
         }
-        if (compact) Text(event.content.take(1200).withoutObjectMarkers(), style = MaterialTheme.typography.bodyMedium,
+        if (compact) Text((LocalTranslations.current?.text(event) ?: event.content).take(1200).withoutObjectMarkers(), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Ellipsis)
         else ArticleMarkdown(event, onReference, articleLayout = false, embedState = state)
     }

@@ -315,6 +315,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     val entry = navigation.current
     BackHandler(entry.screen == "feed" && navigation.entries.size > 1) { navigation.back() }
     if (entry.screen in listOf("feed", "profile", "hashtag") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
+    TranslationHost {
     CompositionLocalProvider(LocalOpenRepositoryIssues provides { address, relays ->
         if (issueRepositoryFilter(address) != null) navigation.push(ReaderEntry("repository", address).also {
             it.reference = NostrContent.Reference(address, kind = 30617, relays = relays)
@@ -324,6 +325,7 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     else if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else key(entry.key) { FeatherReader(vm, navigation, entry) }
     ReplyComposer(vm)
+    }
     }
 }
 
@@ -622,8 +624,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         putExtra(Intent.EXTRA_TEXT, if (detailNote.kind == 1621) "https://gitworkshop.dev/$pointer" else "https://njump.to/$pointer")
                     }, "Share note"))
                 }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_note)) }
+                val translations = LocalTranslations.current
                 if (detailNote != null) ReferenceOverflow(
                     identity = detailNote.id, modifier = toolbarButtonSurface,
+                    onTranslate = if (detailNote.kind in listOf(1, 1111, 1244, 1222, 30023, 1621) && detailNote.content.isNotBlank())
+                        ({ translations?.toggle(detailNote) }) else null,
+                    translationEnabled = translations != null && translations.pending == null,
+                    showingTranslation = translations?.text(detailNote) != null,
                     copyDescription = stringResource(R.string.ui_copy_nostr_reference),
                     openDescription = stringResource(R.string.ui_open_note_in_another_nostr_app),
                     opening = openingInApp,
@@ -1335,7 +1342,14 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         val attachments by produceState<List<MediaContent.Attachment>>(emptyList(), note.id, detectedTypes) {
             value = withContext(Dispatchers.Default) { MediaContent.attachments(note, 32) }
         }
-        val body = remember(note.id, attachments) { MediaContent.text(note, attachments) }
+        val translated = LocalTranslations.current?.text(note)
+        val originalBody = remember(note.id, attachments) { MediaContent.text(note, attachments) }
+        val body by produceState(originalBody, note.id, attachments, translated) {
+            value = withContext(Dispatchers.Default) {
+                if (translated == null) originalBody
+                else attachments.fold(translated) { text, attachment -> text.replace(attachment.url, "") }
+            }
+        }
         val quotes = remember(note.id) { NostrContent.quotes(note) }
         LinkPreviewContent(body, event = note) { part ->
             val richContent = richNoteText(part, note, state.profiles, onReference, quotes.map { it.id }.toSet())
@@ -1372,6 +1386,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
             }
         }
+        TranslationControl(note)
         } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
         if (note.kind !in listOf(7, 17, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()

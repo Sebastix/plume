@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Offline Translator integration: translate notes and articles from the overflow menu, switch back to the original inline, or translate selected passages in a compact bottom sheet. Uses the separately installed app and downloaded language packs, with a bounded session cache and no cloud fallback.
+
 ## [1.6.1] - 2026-10-25
 
 ### Fixed
