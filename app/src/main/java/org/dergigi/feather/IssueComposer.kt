@@ -49,12 +49,14 @@ internal fun IssueComposer(vm: FeatherViewModel) {
     }
     Dialog(onDismissRequest = reports::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(horizontal = 20.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+                Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 4.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = reports::close) { Icon(Icons.Default.Close, stringResource(R.string.ui_close_issue_draft)) }
                     Spacer(Modifier.weight(1f))
-                    Icon(painterResource(if (draft?.type == IssueType.FEATURE) R.drawable.feature_request else R.drawable.bug_report), null,
-                        tint = MaterialTheme.colorScheme.primary)
+                    signer?.pubKey?.let { owner ->
+                        val profile = state.profiles[owner]
+                        AccountAvatar(profile?.name ?: FeatherRepository.shortKey(owner), 36, profile?.picture)
+                    }
                 }
                 val current = draft
                 if (current == null) {
@@ -72,8 +74,10 @@ internal fun IssueComposer(vm: FeatherViewModel) {
                         }) { Text(stringResource(R.string.ui_view_issue)) }
                     }
                 } else {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(if (current.type == IssueType.FEATURE) stringResource(R.string.ui_suggest_a_feature) else stringResource(R.string.ui_report_a_bug), style = MaterialTheme.typography.titleLarge)
+                        Text(current.repository.split(':', limit = 3).last(), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(current.title, { reports.edit(it, current.body) }, enabled = !busy,
                             label = { Text(stringResource(R.string.ui_title)) }, singleLine = true, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth())
                         TextField(current.body, { reports.edit(current.title, it) }, enabled = !busy,
@@ -88,7 +92,7 @@ internal fun IssueComposer(vm: FeatherViewModel) {
                             Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         } }
                     }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.End) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.End) {
                         if (signer == null) FilledTonalIconButton(onClick = {
                             try { login.launch(ExternalSignerLogin.createIntent(emptyList())) }
                             catch (_: Exception) { reports.error.value = "Install an Android signer such as Amber first." }

@@ -736,6 +736,61 @@ class FeatherRepository(context: Context) {
             _state.update { it.copy(notificationsLoading = false) }
         }
     }
+    internal fun repositoryIssues(address: String, hints: List<String>, requestedLimit: Int): Flow<RepositoryIssueSnapshot> = channelFlow {
+        ready.await()
+        val repositoryFilter = issueRepositoryFilter(address) ?: return@channelFlow
+        val limit = requestedLimit.coerceIn(100, 600)
+        val issueFilter = Filter(kinds = listOf(1621), tags = mapOf("a" to listOf(address)), limit = limit)
+        var routes = (hints + IssueReports.RELAYS + state.value.relays).mapNotNull(Protocol::relay).distinct().take(6)
+        suspend fun snapshot(loading: Boolean = true, failed: Boolean = false): RepositoryIssueSnapshot = mutex.withLock {
+            val repository = db.query<Event>(repositoryFilter).maxByOrNull { it.createdAt }
+            val issues = db.query<Event>(issueFilter).filterNot(noteDeletions::hides)
+                .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+            val statuses = issues.associate { issue ->
+                val repos = listOfNotNull(repository)
+                issue.id to latestIssueStatus(issue, repos, db.query<Event>(Filter(
+                    kinds = issueStatusKinds, authors = issueStatusAuthors(issue, repos),
+                    tags = mapOf("e" to listOf(issue.id)), limit = 64,
+                )))
+            }
+            RepositoryIssueSnapshot(issues, statuses, routes, loading, failed, issues.size >= limit)
+        }
+        send(snapshot())
+        val updates = Channel<Unit>(Channel.CONFLATED)
+        val updater = launch { for (signal in updates) { delay(150); send(snapshot()) } }
+        try {
+            suspend fun acceptIssue(relay: String, event: Event): Boolean {
+                val matches = (event.kind == 30617 && ThreadRelations.address(event) == address) ||
+                    (event.kind == 1621 && address in issueRepositories(event))
+                val valid = matches && accept(event, seenAt = relay)
+                if (valid) updates.trySend(Unit)
+                return valid
+            }
+            val initialRoutes = routes
+            val completed = profileQueries.completed(initialRoutes,
+                listOf(repositoryFilter.toJson(), issueFilter.toJson()), ::acceptIssue).toMutableSet()
+            val repo = mutex.withLock { db.query<Event>(repositoryFilter).maxByOrNull { it.createdAt } }
+            routes = (repo?.tags.orEmpty().filter { it.firstOrNull() == "relays" }.flatMap { it.drop(1) } + routes)
+                .mapNotNull(Protocol::relay).distinct().take(6)
+            val additional = routes - initialRoutes.toSet()
+            if (additional.isNotEmpty()) completed += profileQueries.completed(additional, listOf(issueFilter.toJson()), ::acceptIssue)
+            val issues = snapshot().issues
+            val statusFilters = issues.chunked(40).map { batch -> Filter(kinds = issueStatusKinds,
+                authors = batch.flatMap { issueStatusAuthors(it, listOfNotNull(repo)) }.distinct(),
+                tags = mapOf("e" to batch.map { it.id }), limit = 400).toJson() }
+            val issueIds = issues.map { it.id }.toSet()
+            val authors = issues.flatMap { issueStatusAuthors(it, listOfNotNull(repo)) }.toSet()
+            if (statusFilters.isNotEmpty()) profileQueries.fetch(routes, statusFilters) { relay, event ->
+                val valid = event.kind in issueStatusKinds && event.pubKey in authors &&
+                    event.tags.any { it.firstOrNull() == "e" && it.getOrNull(1) in issueIds } && accept(event, seenAt = relay)
+                if (valid) updates.trySend(Unit)
+                valid
+            }
+            updates.close(); updater.join()
+            send(snapshot(loading = false, failed = completed.isEmpty()))
+        } finally { updates.close(); updater.cancel() }
+    }.flowOn(Dispatchers.IO)
+
     private suspend fun refreshIssueStatuses(countTargets: List<Event>) {
         visibleIssues = countTargets.filter { it.kind == 1621 }.take(8)
         val statuses = mutex.withLock {

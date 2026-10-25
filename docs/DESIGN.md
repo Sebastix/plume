@@ -425,3 +425,5 @@ Drain while the owning account is logged in, either in the foreground or during 
 Overflow menus use text labels alongside their icons; toolbar controls remain icon-only.
 
 Issues share through GitWorkshop. Render a compact accessible status icon from the latest verified NIP-34 root status (1630–1633) by the issue author or a repository maintainer. Discover repository announcements and status updates only for visible issues, with bounded relay routes and filters; retain status events in the local cache.
+
+Repository names on issue cards open a native cached issue browser with All/Open/Closed filters, stable per-visit scroll/filter state, and bounded incremental results (100–600). Settings offers direct access to Feather’s tracker. Query kind 1621 by repository a tag, discover repository relay hints, and validate status-author authority. The report composer displays the posting account avatar and destination repository; keep drafts separate by repository and sign only explicit Send actions.

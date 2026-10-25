@@ -213,4 +213,12 @@
     <string name="ui_issue_resolved">Resolved issue</string>
     <string name="ui_issue_closed">Closed issue</string>
     <string name="ui_issue_draft">Draft issue</string>
+    <string name="ui_refresh_issues">Refresh issues</string>
+    <string name="ui_retry_issue_loading">Retry loading issues</string>
+    <string name="ui_load_more_issues">Load more issues</string>
+    <string name="ui_no_matching_issues">No matching issues</string>
+    <string name="ui_repository_issues">Repository issues</string>
+    <string name="ui_issues_all">All</string>
+    <string name="ui_issues_open">Open</string>
+    <string name="ui_issues_closed">Closed</string>
 </resources>

@@ -26,6 +26,9 @@ internal class ReaderEntry(
         if (category == ProfileTab.POSTS) list else hashtagLists.getOrPut(category) { LazyListState() }
     val feedPages = mutableMapOf<ProfileTab, ReaderEntry>()
     fun feedPage(category: ProfileTab): ReaderEntry = feedPages.getOrPut(category) { ReaderEntry("feed", tab = category) }
+    var issueFilter by mutableIntStateOf(0)
+    var issueLimit by mutableIntStateOf(100)
+    var repositoryIssues: RepositoryIssueSnapshot? = null
     var searchQuery by mutableStateOf("")
     // Explicit, transient keyboard requests; never replay them after restoring a screen.
     var requestedFeedTab by mutableStateOf<FeedTabRequest?>(null)
@@ -74,7 +77,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
         if (entry.screen == current.screen && entry.target == current.target && entry.hashtagAuthor == current.hashtagAuthor) return
         entries.add(entry)
         // Bound retained event references; older destinations still restore from the repository.
-        entries.dropLast(8).forEach { it.notes.clear(); it.topics = emptyList(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
+        entries.dropLast(8).forEach { it.repositoryIssues = null; it.notes.clear(); it.topics = emptyList(); it.conversation = null; it.threadViewport.clear(); it.bookmarks = emptyList(); it.people = emptyList(); it.photos = ProfilePhotos() }
     }
     fun back() { if (entries.size > 1) entries.removeAt(entries.lastIndex) }
     fun home() { entries.clear(); entries.add(ReaderEntry("feed")) }
@@ -82,6 +85,7 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
     companion object {
         val saver = Saver<ReaderNavigation, ArrayList<Bundle>>(
             save = { navigation -> ArrayList(navigation.entries.map { entry -> Bundle().apply {
+                putInt("issueFilter", entry.issueFilter); putInt("issueLimit", entry.issueLimit)
                 putString("screen", entry.screen); putString("target", entry.target); putString("key", entry.key)
                 putInt("index", entry.list.firstVisibleItemIndex); putInt("offset", entry.list.firstVisibleItemScrollOffset)
                 putString("tab", entry.tab.name); putBoolean("toolbar", entry.toolbar); putFloat("toolbarFraction", entry.toolbarFraction)
@@ -111,6 +115,9 @@ internal class ReaderNavigation(entries: List<ReaderEntry> = listOf(ReaderEntry(
                     bundle.getInt("index"), bundle.getInt("offset"), ProfileTab.valueOf(bundle.getString("tab")!!),
                     bundle.getBoolean("toolbar")).also { entry ->
                     entry.toolbarFraction = bundle.getFloat("toolbarFraction", entry.toolbarFraction).coerceIn(0f, 1f)
+                    entry.issueFilter = bundle.getInt("issueFilter", 0).coerceIn(0, 2)
+                    entry.issueLimit = bundle.getInt("issueLimit", 100).coerceIn(100, 600)
+                    if (entry.screen == "repository") entry.reference = NostrContent.Reference(entry.target.orEmpty(), kind = 30617, relays = bundle.getStringArrayList("relays").orEmpty())
                     entry.hashtagAuthor = bundle.getString("hashtagAuthor")
                     if (entry.screen == "hashtag") hashtagTabs.forEach { category ->
                         bundle.getBundle("hashtag-list:${category.name}")?.let { saved ->

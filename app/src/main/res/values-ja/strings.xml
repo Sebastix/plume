@@ -213,4 +213,12 @@
     <string name="ui_issue_resolved">解決済みの課題</string>
     <string name="ui_issue_closed">終了した課題</string>
     <string name="ui_issue_draft">下書きの課題</string>
+    <string name="ui_refresh_issues">課題を更新</string>
+    <string name="ui_retry_issue_loading">課題の読み込みを再試行</string>
+    <string name="ui_load_more_issues">課題をさらに読み込む</string>
+    <string name="ui_no_matching_issues">一致する課題はありません</string>
+    <string name="ui_repository_issues">リポジトリの課題</string>
+    <string name="ui_issues_all">すべて</string>
+    <string name="ui_issues_open">未解決</string>
+    <string name="ui_issues_closed">終了</string>
 </resources>

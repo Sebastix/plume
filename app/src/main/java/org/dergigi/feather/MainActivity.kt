@@ -315,9 +315,16 @@ fun FeatherApp(window: android.view.Window, vm: FeatherViewModel = viewModel()) 
     val entry = navigation.current
     BackHandler(entry.screen == "feed" && navigation.entries.size > 1) { navigation.back() }
     if (entry.screen in listOf("feed", "profile", "hashtag") && entry.tab == ProfileTab.PHOTOS) HidePhotoStatusBar(window)
-    if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
+    CompositionLocalProvider(LocalOpenRepositoryIssues provides { address, relays ->
+        if (issueRepositoryFilter(address) != null) navigation.push(ReaderEntry("repository", address).also {
+            it.reference = NostrContent.Reference(address, kind = 30617, relays = relays)
+        })
+    }) {
+    if (entry.screen == "repository") key(entry.key) { RepositoryIssuesScreen(vm, navigation, entry) }
+    else if (entry.screen == "feed") HomeFeedPages(vm, navigation, entry)
     else key(entry.key) { FeatherReader(vm, navigation, entry) }
     ReplyComposer(vm)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -1095,6 +1102,12 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
             CopyableMessageHost()
             Settings(vm, s, onChange = { sensitive, pow -> vm.changeSettings(sensitive, pow) }, onWallet = { showSettings = false; showWallet = true }, onLogout = { vm.logout(); showSettings = false; showAccount = false; goHome() },
                 onIssue = { type -> showSettings = false; vm.issues.open(type) },
+                onIssues = {
+                    showSettings = false
+                    navigation.push(ReaderEntry("repository", IssueReports.REPOSITORY).also {
+                        it.reference = NostrContent.Reference(IssueReports.REPOSITORY, kind = 30617, relays = IssueReports.RELAYS)
+                    })
+                },
                 onFeather = {
                     showSettings = false; showAccount = false
                     Protocol.publicKey("npub1r7u5wcxpv0fknn486uarrlset92caxntmwn22nvw2fjan630m03stxw3t3")?.let(::openProfile)
@@ -1661,7 +1674,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onFeather: () -> Unit, onProfile: (String) -> Unit, modifier: Modifier) {
+private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?, Boolean?) -> Unit, onLogout: () -> Unit, onWallet: () -> Unit, onIssue: (IssueType) -> Unit, onIssues: () -> Unit, onFeather: () -> Unit, onProfile: (String) -> Unit, modifier: Modifier) {
     var showMutedAccounts by rememberSaveable(state.publicKey) { mutableStateOf(false) }
     if (showMutedAccounts) MutedAccountsSheet(vm, onDismiss = { showMutedAccounts = false }, onProfile = {
         showMutedAccounts = false; onProfile(it)
@@ -1815,8 +1828,8 @@ private fun Settings(vm: FeatherViewModel, state: FeedState, onChange: (Boolean?
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dergigi/feather"))) }) {
-                Icon(painterResource(R.drawable.github), stringResource(R.string.ui_feather_on_github_source_code_and_feedback), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = onIssues) {
+                Icon(painterResource(R.drawable.project), stringResource(R.string.ui_repository_issues), Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.weight(1f))
             Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall,

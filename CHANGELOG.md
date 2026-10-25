@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-25
+
+### Added
+- Native repository issue browser with All/Open/Closed filters, cached results, status icons, and more-results loading. Open it from an issue's repository name or Feather Settings.
+- Report issues to the selected repository using its advertised relays, with separate drafts per repository.
+
+### Changed
+- Align the report composer's close control with the regular toolbar and show the signed-in account avatar at the top right.
+
 ## [1.5.1] - 2026-10-25
 
 ### Fixed

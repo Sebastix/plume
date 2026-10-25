@@ -16,7 +16,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal enum class IssueType { BUG, FEATURE, CRASH }
 internal data class IssueDraft(val type: IssueType, val title: String, val body: String, val crash: String? = null,
-    val build: String = "Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${BuildConfig.GIT_COMMIT}")
+    val build: String = "Feather ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${BuildConfig.GIT_COMMIT}",
+    val repository: String = IssueReports.REPOSITORY, val relays: List<String> = IssueReports.RELAYS)
 
 /** Only explicit Send signs/publishes. Retry the exact saved event, including after process death. */
 internal class IssueReports(
@@ -31,7 +32,7 @@ internal class IssueReports(
     val error = MutableStateFlow<String?>(null)
     val published = MutableStateFlow<String?>(null)
     private val writes = Channel<Unit>(Channel.CONFLATED)
-    private val pendingWrites = ConcurrentHashMap<IssueType, IssueDraft>()
+    private val pendingWrites = ConcurrentHashMap<String, IssueDraft>()
     private var job: Job? = null
     private var loading: Job? = null
     private fun prefs() = context.getSharedPreferences("issue-reports", Context.MODE_PRIVATE)
@@ -41,7 +42,7 @@ internal class IssueReports(
             for (signal in writes) {
                 for ((type, value) in pendingWrites.entries.toList()) {
                     try {
-                        check(prefs().edit().putString(type.name, encode(value)).commit())
+                        check(prefs().edit().putString(type, encode(value)).commit())
                         pendingWrites.remove(type, value)
                     } catch (e: Exception) { error.value = "Could not save issue draft" }
                 }
@@ -49,9 +50,12 @@ internal class IssueReports(
         }
     }
 
-    fun open(type: IssueType, crash: String? = null) {
+    fun open(type: IssueType, crash: String? = null, repository: String = REPOSITORY, relays: List<String> = RELAYS) {
+        if (issueRepositoryFilter(repository) == null) return
+        val routes = (relays + RELAYS).mapNotNull(Protocol::relay).distinct().take(6)
+        val storageKey = draftKey(type, repository)
         if (busy.value) { visible.value = true; return }
-        if (draft.value?.let { it.type == type && it.crash == crash } == true && published.value == null) {
+        if (draft.value?.let { it.type == type && it.crash == crash && it.repository == repository } == true && published.value == null) {
             visible.value = true; return
         }
         loading?.cancel()
@@ -59,16 +63,16 @@ internal class IssueReports(
         loading = scope.launch {
             try {
             draft.value = withContext(Dispatchers.IO) {
-                val saved = pendingWrites[type] ?: prefs().getString(type.name, null)?.let { raw -> runCatching {
+                val saved = pendingWrites[storageKey] ?: prefs().getString(storageKey, null)?.let { raw -> runCatching {
                     val obj = JSONObject(raw)
                     IssueDraft(type, obj.getString("title").take(160), obj.getString("body").take(40_000),
-                        obj.optString("crash").takeIf { it.isNotEmpty() }, obj.getString("build"))
+                        obj.optString("crash").takeIf { it.isNotEmpty() }, obj.getString("build"), repository = repository, relays = routes)
                 }.getOrNull() }
                 saved?.takeIf { it.crash == crash && (it.title.isNotBlank() || it.body.isNotBlank()) } ?: IssueDraft(type,
                     if (type == IssueType.CRASH) "Crash: " + redactIssueDiagnostics(crash.orEmpty()).lineSequence()
                         .firstOrNull { it.contains("Exception") || it.contains("Error:") }?.take(130).orEmpty() else "",
                     if (crash != null) "```text\n" + redactIssueDiagnostics(crash).take(38_000).replace("```", "'''") + "\n```"
-                    else "", crash)
+                    else "", crash, repository = repository, relays = routes)
             }
             draft.value?.let(::save)
             } catch (e: CancellationException) { throw e }
@@ -76,7 +80,9 @@ internal class IssueReports(
         }
     }
 
-    private fun save(value: IssueDraft) { pendingWrites[value.type] = value; writes.trySend(Unit) }
+    private fun draftKey(type: IssueType, repository: String) =
+        if (repository == REPOSITORY) type.name else "${type.name}:$repository"
+    private fun save(value: IssueDraft) { pendingWrites[draftKey(value.type, value.repository)] = value; writes.trySend(Unit) }
 
     fun edit(title: String, body: String) {
         if (busy.value || published.value != null) return
@@ -96,14 +102,14 @@ internal class IssueReports(
         job = scope.launch {
             try {
                 val id = withContext(Dispatchers.IO) {
-                    val body = current.body.trimEnd() + if (current.type == IssueType.CRASH) "" else
+                    val body = current.body.trimEnd() + if (current.type == IssueType.CRASH || current.repository != REPOSITORY) "" else
                         "\n\n---\n${current.build}"
                     require(body.toByteArray(Charsets.UTF_8).size <= 55_000) { "Issue is too long. Please shorten the details." }
-                    val tags = arrayOf(arrayOf("a", REPOSITORY, RELAYS.first()), arrayOf("p", MAINTAINER),
+                    val tags = arrayOf(arrayOf("a", current.repository, current.relays.first()), arrayOf("p", current.repository.split(':', limit = 3)[1]),
                         arrayOf("subject", current.title.trim()), arrayOf("t", if (current.type == IssueType.FEATURE) "enhancement" else "bug"),
                         arrayOf("client", "Feather")) + if (current.type == IssueType.CRASH) arrayOf(arrayOf("t", "crash")) else emptyArray()
-                    val key = "signed:${identity.pubKey}:${current.type.name}"
-                    check(prefs().edit().putString(current.type.name, encode(current)).commit()) { "Could not save issue draft" }
+                    val key = "signed:${identity.pubKey}:${draftKey(current.type, current.repository)}"
+                    check(prefs().edit().putString(draftKey(current.type, current.repository), encode(current)).commit()) { "Could not save issue draft" }
                     val saved = prefs().getString(key, null)?.let { runCatching { Event.fromJson(it) }.getOrNull() }
                         ?.takeIf { it.pubKey == identity.pubKey && it.kind == 1621 && it.content == body && it.tags.contentDeepEquals(tags) && it.verify() }
                     val event = saved ?: requests.run {
@@ -119,7 +125,7 @@ internal class IssueReports(
                     val edit = prefs().edit().putString(key, event.toJson())
                     prefs().all.keys.filter { it.startsWith("signed:") && it != key }.drop(15).forEach(edit::remove)
                     check(edit.commit()) { "Could not save signed issue for retry" }
-                    val failures = supervisorScope { RELAYS.map { relay -> async {
+                    val failures = supervisorScope { current.relays.map { relay -> async {
                         try { publishIssue(relay, event); null }
                         catch (e: CancellationException) { throw e }
                         catch (e: Exception) { "${relay.removePrefix("wss://")}: ${e.message.orEmpty().take(300)}" }
@@ -129,7 +135,7 @@ internal class IssueReports(
                     catch (e: CancellationException) { throw e }
                     catch (_: Exception) { /* A cache failure must not turn an acknowledged issue into a failed submission. */ }
                     com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(event.id, event.pubKey, event.kind,
-                        relay = RELAYS[failures.indexOfFirst { it == null }].normalizeRelayUrl())
+                        relay = current.relays[failures.indexOfFirst { it == null }].normalizeRelayUrl())
                 }
                 published.value = id
                 current.crash?.let { (context.applicationContext as FeatherApplication).crashes.dismiss(it) }

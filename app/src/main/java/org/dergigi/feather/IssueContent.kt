@@ -20,7 +20,7 @@ import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 @Composable
 internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit, status: Int? = null, state: FeedState? = null) {
-    val context = LocalContext.current
+    val openIssues = LocalOpenRepositoryIssues.current
     val repository = remember(event.id) { event.tags.firstOrNull { it.firstOrNull() == "a" && it.getOrNull(1)?.startsWith("30617:") == true } }
     val address = remember(repository) { repository?.getOrNull(1)?.split(':', limit = 3) }
     val repoLink = remember(repository) {
@@ -49,7 +49,7 @@ internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrCon
             else Icon(painterResource(if (feature) R.drawable.feature_request else R.drawable.bug_report),
                 statusLabel, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             if (repoLink != null) Text(address?.getOrNull(2).orEmpty().take(120),
-                modifier = Modifier.weight(1f, fill = false).clickable(onClickLabel = "Open repository issues") { context.openWebLink("https://gitworkshop.dev/$repoLink") },
+                modifier = Modifier.weight(1f, fill = false).clickable(onClickLabel = "Open repository issues") { openIssues(repository?.getOrNull(1).orEmpty(), listOfNotNull(repository?.getOrNull(2)?.let(Protocol::relay))) },
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
