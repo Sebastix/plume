@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
@@ -40,11 +39,12 @@ internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrCon
             })
             val statusIcon = when (status) {
                 1631 -> Icons.Outlined.CheckCircle
-                1632 -> Icons.Outlined.Cancel
                 1633 -> Icons.Outlined.Edit
                 else -> null
             }
-            if (statusIcon != null) Icon(statusIcon, statusLabel, Modifier.size(20.dp),
+            if (status == 1632) Icon(painterResource(R.drawable.issue_closed), statusLabel, Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (statusIcon != null) Icon(statusIcon, statusLabel, Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
             else Icon(painterResource(if (feature) R.drawable.feature_request else R.drawable.bug_report),
                 statusLabel, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
