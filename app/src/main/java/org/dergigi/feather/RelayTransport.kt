@@ -20,21 +20,27 @@ class RelayTransport : WebsocketBuilder {
         override fun connect() {
             if (ended.get() || !started.compareAndSet(false, true)) return
             val beginning = System.nanoTime()
-            val created = http.newWebSocket(Request.Builder().url(url.url).build(), object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    if (ended.get()) { webSocket.cancel(); return }
-                    out.onOpen(((System.nanoTime() - beginning) / 1_000_000).toInt(), false)
-                }
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    if (ended.get()) return
-                    if (text.length > 131_072) { webSocket.cancel(); fail(IllegalStateException("Relay message too large")); return }
-                    try { runBlocking { if (!ended.get()) out.onMessage(text) } }
-                    catch (e: Exception) { webSocket.cancel(); fail(e) }
-                }
-                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(code, reason) }
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (ended.compareAndSet(false, true)) out.onClosed(code, reason) }
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(t) }
-            })
+            val created = try {
+                val validated = Protocol.relay(url.url) ?: throw IllegalArgumentException("Invalid relay URL")
+                http.newWebSocket(Request.Builder().url(validated).build(), object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        if (ended.get()) { webSocket.cancel(); return }
+                        out.onOpen(((System.nanoTime() - beginning) / 1_000_000).toInt(), false)
+                    }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        if (ended.get()) return
+                        if (text.length > 131_072) { webSocket.cancel(); fail(IllegalStateException("Relay message too large")); return }
+                        try { runBlocking { if (!ended.get()) out.onMessage(text) } }
+                        catch (e: Exception) { webSocket.cancel(); fail(e) }
+                    }
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(code, reason) }
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (ended.compareAndSet(false, true)) out.onClosed(code, reason) }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(t) }
+                })
+            } catch (e: Exception) {
+                fail(e)
+                return
+            }
             socket = created
             if (ended.get()) created.cancel()
         }

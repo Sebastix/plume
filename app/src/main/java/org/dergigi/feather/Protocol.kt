@@ -6,6 +6,7 @@ import com.vitorpamplona.quartz.nip19Bech32.entities.NPub
 import com.vitorpamplona.quartz.nip19Bech32.entities.NProfile
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 import java.net.URI
+import okhttp3.Request
 
 object Protocol {
     private val hex = Regex("[0-9a-fA-F]{64}")
@@ -27,6 +28,9 @@ object Protocol {
             // URI accepts some strings Quartz rejects, including concatenated relay URLs.
             // Reject them at the untrusted-input boundary, not during subscription setup.
             it.normalizeRelayUrl()
+            // Quartz/URI normalization alone does not enforce OkHttp's host rules.
+            // Validate with the actual socket URL parser before storing or using a relay.
+            Request.Builder().url(it).build()
         }
     }.getOrNull()
     fun follows(event: Event?): Set<String> = event?.tags.orEmpty().filter { it.size >= 2 && it[0] == "p" && hex.matches(it[1]) }.map { it[1] }.toSet()

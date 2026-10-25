@@ -39,36 +39,40 @@ internal class ProfileRelayQuery {
 
     private data class Read(val found: Boolean, val complete: Boolean)
     private suspend fun fetchOne(url: String, filters: List<String>, timeoutMs: Long = 10_000, accept: suspend (Event) -> Boolean): Read {
+        val validated = Protocol.relay(url) ?: return Read(false, false)
         val done = CompletableDeferred<Unit>()
         val stopped = AtomicBoolean(false)
         val found = AtomicBoolean(false)
         val complete = AtomicBoolean(false)
         var count = 0
-        val socket = http.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                if (stopped.get()) { webSocket.cancel(); return }
-                webSocket.send("[\"REQ\",\"profile-page\",${filters.joinToString(",")}]")
-            }
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                if (stopped.get() || done.isCompleted) return
-                if (text.length > 524_288 || ++count > 1024) { done.complete(Unit); webSocket.cancel(); return }
-                try {
-                    val frame = JSONArray(text)
-                    if (frame.optString(1) != "profile-page") return
-                    when (frame.optString(0)) {
-                        "EVENT" -> {
-                            val event = Event.fromJson(frame.getJSONObject(2).toString())
-                            // Backpressure on this socket's reader; never enqueue an unbounded event stream.
-                            runBlocking { if (!stopped.get() && accept(event)) found.set(true) }
+        val socket = try {
+            http.newWebSocket(Request.Builder().url(validated).build(), object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (stopped.get()) { webSocket.cancel(); return }
+                    webSocket.send("[\"REQ\",\"profile-page\",${filters.joinToString(",")}]")
+                }
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (stopped.get() || done.isCompleted) return
+                    if (text.length > 524_288 || ++count > 1024) { done.complete(Unit); webSocket.cancel(); return }
+                    try {
+                        val frame = JSONArray(text)
+                        if (frame.optString(1) != "profile-page") return
+                        when (frame.optString(0)) {
+                            "EVENT" -> {
+                                val event = Event.fromJson(frame.getJSONObject(2).toString())
+                                // Backpressure on this socket's reader; never enqueue an unbounded event stream.
+                                runBlocking { if (!stopped.get() && accept(event)) found.set(true) }
+                            }
+                            "EOSE" -> { complete.set(true); done.complete(Unit) }
+                            "CLOSED" -> done.complete(Unit)
                         }
-                        "EOSE" -> { complete.set(true); done.complete(Unit) }
-                        "CLOSED" -> done.complete(Unit)
-                    }
-                } catch (_: Exception) { done.complete(Unit) }
-            }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { done.complete(Unit) }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { done.complete(Unit) }
-        })
+                    } catch (_: Exception) { done.complete(Unit) }
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { done.complete(Unit) }
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { done.complete(Unit) }
+            })
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { return Read(false, false) }
         try { withTimeoutOrNull(timeoutMs) { done.await() } }
         finally { stopped.set(true); socket.cancel() }
         return Read(found.get(), complete.get())
