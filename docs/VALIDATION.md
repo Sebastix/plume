@@ -1950,3 +1950,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 28s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `849e976179aa0928f528b600de079235f1c087d5c9d9876dd7d8db52940ec996`; 16,356,106 bytes. GitHub asset digest matches; SHA256SUMS uploaded. GitHub and both GRASP mirrors verified at the release source/tag.
 - Zapstore release `04cc942b832177ac5264fc3854d156cf963c9e9c205cbb94c2c476808869cb2e` references asset `df9a2435ac707175851d8f59ccc6fc6e1d58e45c6776e2693d33d853d934d01c`; hash, size, certificate and versionCode match. Publisher reported success before public availability; repeated publication and rebroadcast signed catalog events. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
+
+## 2026-10-25 — 1.3.0 release
+
+- Version 1.3.0 (214), source `9429a0ccceb807ab3786cd2c7b9fdbcaf0a9b540`. Queue signed reactions, reposts and social undo requests for offline/background delivery; atomically replace queued originals with undo events, preserve optimistic state, and guard journals against late confirmations. Keep two shared delivery slots. Also move note/profile Copy and Open in app into an icon-only overflow beside Share.
+- Signed release build passed in 50s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `465d720849e93f96cfedc0fdd27661c4b0a7f26d416df5dd34d54f916530efe2`; 16,372,954 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release source/tag.
+- Zapstore release `2cdfc29b2593d61a26fb6e4087792f1e1c73a6f581b4e12caa19e58abba06f39` references asset `02f4b6c387e19253745b135a6ce6578a3537c53fd2a566f4fb91013e10af7a2b`; hash, size, certificate and versionCode match. Interactive publisher uploaded the APK; rebroadcast signed catalog events after the initial read-back returned no release. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
