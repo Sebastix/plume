@@ -736,6 +736,22 @@ class FeatherRepository(context: Context) {
             _state.update { it.copy(notificationsLoading = false) }
         }
     }
+    private suspend fun cachedIssueStatuses(countTargets: List<Event>): Map<String, Int> {
+        visibleIssues = countTargets.filter { it.kind == 1621 }.take(8)
+        return mutex.withLock {
+            issueRepositoryEvents = visibleIssues.associate { issue -> issue.id to issueRepositories(issue).mapNotNull { address ->
+                db.query<Event>(issueRepositoryFilter(address)!!).sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).firstOrNull()
+            } }
+            visibleIssues.associate { issue ->
+                val repos = issueRepositoryEvents[issue.id].orEmpty()
+                issue.id to latestIssueStatus(issue, repos, db.query<Event>(Filter(
+                    kinds = issueStatusKinds, authors = issueStatusAuthors(issue, repos),
+                    tags = mapOf("e" to listOf(issue.id)), limit = 64,
+                )))
+            }
+        }
+    }
+
     private fun subscribeNotifications() {
         val owner = state.value.publicKey
         if (!viewingNotifications || owner == null) { client.unsubscribe("notifications"); return }
@@ -1382,19 +1398,7 @@ class FeatherRepository(context: Context) {
             byId + byAddress
         }
         val countTargets = (visible.filter { it.kind in readableKinds } + embedded.values.filterNot(contentFilter::hides)).distinctBy { it.id }.take(24)
-        visibleIssues = countTargets.filter { it.kind == 1621 }.take(8)
-        val issueStatuses = mutex.withLock {
-            issueRepositoryEvents = visibleIssues.associate { issue -> issue.id to issueRepositories(issue).mapNotNull { address ->
-                db.query<Event>(issueRepositoryFilter(address)!!).sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).firstOrNull()
-            } }
-            visibleIssues.associate { issue ->
-                val repos = issueRepositoryEvents[issue.id].orEmpty()
-                issue.id to latestIssueStatus(issue, repos, db.query<Event>(Filter(
-                    kinds = issueStatusKinds, authors = issueStatusAuthors(issue, repos),
-                    tags = mapOf("e" to listOf(issue.id)), limit = 64,
-                )))
-            }
-        }
+        val issueStatuses = cachedIssueStatuses(countTargets)
         visiblePolls = countTargets.filter { it.kind == 1068 }.take(8)
         val pollResults = mutex.withLock {
             visiblePolls.associate { poll -> poll.id to tallyPoll(poll,
