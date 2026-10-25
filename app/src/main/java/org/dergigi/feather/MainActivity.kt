@@ -667,11 +667,11 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     if (activeListState.isScrollInProgress) 0.4f else 1f, tween(180), label = "Profile feather scroll opacity")
                 FeatherComposeButton(onClick = {
                     if (s.publicKey == null) showAccount = true
-                    else vm.openReply(mentionProfile = profileKey.takeUnless { it == s.publicKey })
+                    else vm.openReply(mentionProfile = profileKey.takeUnless { it == s.publicKey }, picturePost = profileTab == ProfileTab.PHOTOS)
                 }, modifier = Modifier.padding(end = 8.dp, bottom = 8.dp).graphicsLayer {
                     alpha = opacity
                     compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
-                }, showShadow = !activeListState.isScrollInProgress && opacity == 1f,
+                }, showShadow = !activeListState.isScrollInProgress && opacity == 1f, picturePost = profileTab == ProfileTab.PHOTOS,
                     description = if (profileKey == s.publicKey) "Create post" else "Create post mentioning ${s.profiles[profileKey]?.name ?: FeatherRepository.shortKey(profileKey)}")
             }
         },
@@ -1298,7 +1298,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, note = note, onClick = onProfile)
                 Text(name, modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 1111), onClick = onOpen), maxLines = 1,
+                    .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 20, 1111), onClick = onOpen), maxLines = 1,
                     overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
             }
             if (showHashtagMatch) {
@@ -1658,7 +1658,7 @@ internal fun EmbeddedNote(reference: NostrContent.Reference, note: Event?, profi
                     ModerationAvatar(note.pubKey, name, profile?.picture, expansionKey = moderationKey, note = note,
                         onClick = { onReference(NostrContent.Reference(note.pubKey, profile = true)) })
                     Text(name, modifier = Modifier.weight(1f)
-                        .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 1111)) { onReference(reference) },
+                        .avatarModerationName(note.pubKey, moderationKey, ownNote = note.kind in listOf(1, 20, 1111)) { onReference(reference) },
                         style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     NoteTimestamp(note)
                 }

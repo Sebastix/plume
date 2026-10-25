@@ -58,7 +58,7 @@ import org.json.JSONObject
 import org.json.JSONArray
 
 internal val LocalReply = staticCompositionLocalOf<(Event) -> Unit> { {} }
-internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList(), val uploads: List<UploadedAttachment> = emptyList())
+internal data class ReplyDraft(val owner: String, val target: Event?, val text: String = "", val initialCursor: Int? = null, val gifs: List<GifItem> = emptyList(), val uploads: List<UploadedAttachment> = emptyList(), val picturePost: Boolean = false)
 
 /** A selected passage is a blockquote in a real reply, not a standalone quote post. */
 internal fun ReplyDraft.withQuotedSelection(selection: String): ReplyDraft {
@@ -79,55 +79,55 @@ internal class ReplyStore(context: Context) {
     private val media = context.getSharedPreferences("reply-gifs", Context.MODE_PRIVATE)
     private val uploads = context.getSharedPreferences("reply-uploads", Context.MODE_PRIVATE)
     private val pending = context.getSharedPreferences("reply-pending", Context.MODE_PRIVATE)
-    private fun key(owner: String, target: Event?) = "$owner:${target?.id ?: "post"}"
-    @Synchronized fun load(owner: String, target: Event?): ReplyDraft = ReplyDraft(owner, target,
-        drafts.getString(key(owner, target), "").orEmpty().take(8000),
-        gifs = GifItem.list(media.getString(key(owner, target), "[]").orEmpty()),
+    private fun key(owner: String, target: Event?, picturePost: Boolean = false) = "$owner:${target?.id ?: if (picturePost) "picture" else "post"}"
+    @Synchronized fun load(owner: String, target: Event?, picturePost: Boolean = false): ReplyDraft = ReplyDraft(owner, target,
+        drafts.getString(key(owner, target, picturePost), "").orEmpty().take(8000),
+        gifs = GifItem.list(media.getString(key(owner, target, picturePost), "[]").orEmpty()),
         uploads = runCatching {
-            val array = JSONArray(uploads.getString(key(owner, target), "[]"))
+            val array = JSONArray(uploads.getString(key(owner, target, picturePost), "[]"))
             (0 until minOf(array.length(), 32)).mapNotNull { index ->
                 runCatching {
                     val item = array.getJSONObject(index)
-                    UploadedAttachment(item.getString("url"), item.getLong("originalSize"), item.getLong("size"), item.optBoolean("compressed", false))
+                    UploadedAttachment(item.getString("url"), item.getLong("originalSize"), item.getLong("size"), item.optBoolean("compressed", false), item.optString("mime"), item.optString("hash"))
                         .takeIf { it.url.length <= 2048 && it.originalSize in 1..250L * 1024 * 1024 && it.size in 1..250L * 1024 * 1024 }
                 }.getOrNull()
             }
-        }.getOrDefault(emptyList()))
+        }.getOrDefault(emptyList()), picturePost = picturePost)
     @Synchronized fun save(draft: ReplyDraft) {
-        val key = key(draft.owner, draft.target)
+        val key = key(draft.owner, draft.target, draft.picturePost)
         val edit = drafts.edit()
         if (draft.text.isBlank()) edit.remove(key) else edit.putString(key, draft.text)
         drafts.all.keys.filter { it != key }.drop(15).forEach(edit::remove)
         check(edit.commit()) { "Could not save reply draft" }
-        val attachments = draft.gifs.filter { it.url in draft.text }.distinctBy { it.url }.take(32)
+        val attachments = draft.gifs.filter { draft.picturePost || it.url in draft.text }.distinctBy { it.url }.take(32)
         val mediaEdit = media.edit()
         if (attachments.isEmpty()) mediaEdit.remove(key)
         else mediaEdit.putString(key, JSONArray(attachments.map { it.json() }).toString())
         media.all.keys.filter { it != key }.drop(15).forEach(mediaEdit::remove)
         check(mediaEdit.commit()) { "Could not save GIF attachments" }
-        val sizes = draft.uploads.filter { it.url in draft.text }.distinctBy { it.url }.take(32)
+        val sizes = draft.uploads.filter { draft.picturePost || it.url in draft.text }.distinctBy { it.url }.take(32)
         val uploadEdit = uploads.edit()
         if (sizes.isEmpty()) uploadEdit.remove(key)
         else uploadEdit.putString(key, JSONArray(sizes.map {
-            JSONObject().put("url", it.url).put("originalSize", it.originalSize).put("size", it.size).put("compressed", it.compressed)
+            JSONObject().put("url", it.url).put("originalSize", it.originalSize).put("size", it.size).put("compressed", it.compressed).put("mime", it.mime).put("hash", it.hash)
         }).toString())
         uploads.all.keys.filter { it != key }.drop(15).forEach(uploadEdit::remove)
         check(uploadEdit.commit()) { "Could not save attachment sizes" }
     }
-    @Synchronized fun signed(draft: ReplyDraft): Event? = pending.getString(key(draft.owner, draft.target), null)?.let {
+    @Synchronized fun signed(draft: ReplyDraft): Event? = pending.getString(key(draft.owner, draft.target, draft.picturePost), null)?.let {
         runCatching { Event.fromJson(JSONObject(it).getString("event")) }.getOrNull()
-    }?.takeIf { it.pubKey == draft.owner && it.content == draft.text }
+    }?.takeIf { it.pubKey == draft.owner && it.content == draft.text && (!draft.picturePost || (it.kind == 20 && it.tags.filter { tag -> tag.firstOrNull() == "imeta" }.mapNotNull { tag -> tag.firstOrNull { field -> field.startsWith("url ") }?.removePrefix("url ") } == draft.pictureUrls())) }
     @Synchronized fun saveSigned(draft: ReplyDraft, event: Event) {
-        val key = key(draft.owner, draft.target)
+        val key = key(draft.owner, draft.target, draft.picturePost)
         val edit = pending.edit().putString(key, JSONObject().put("event", event.toJson()).toString())
         pending.all.keys.filter { it != key }.drop(15).forEach(edit::remove)
         check(edit.commit()) { "Could not save signed reply for retry" }
     }
     @Synchronized fun complete(draft: ReplyDraft) {
-        check(uploads.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear attachment sizes" }
-        check(media.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear GIF attachments" }
-        check(drafts.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply draft" }
-        check(pending.edit().remove(key(draft.owner, draft.target)).commit()) { "Could not clear reply retry" }
+        check(uploads.edit().remove(key(draft.owner, draft.target, draft.picturePost)).commit()) { "Could not clear attachment sizes" }
+        check(media.edit().remove(key(draft.owner, draft.target, draft.picturePost)).commit()) { "Could not clear GIF attachments" }
+        check(drafts.edit().remove(key(draft.owner, draft.target, draft.picturePost)).commit()) { "Could not clear reply draft" }
+        check(pending.edit().remove(key(draft.owner, draft.target, draft.picturePost)).commit()) { "Could not clear reply retry" }
     }
 }
 
@@ -237,15 +237,15 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
     }
     val media = (LocalContext.current.applicationContext as FeatherApplication).media
     val resources by media.resources.collectAsStateWithLifecycle()
-    val focus = remember(current.owner, current.target?.id) { FocusRequester() }
-    var editor by remember(current.owner, current.target?.id) { mutableStateOf(TextFieldValue(current.text, TextRange((current.initialCursor ?: if (current.text.startsWith("\nnostr:")) 0 else current.text.length).coerceIn(0, current.text.length)))) }
-    var chosenNames by remember(current.owner, current.target?.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val focus = remember(current.owner, current.target?.id, current.picturePost) { FocusRequester() }
+    var editor by remember(current.owner, current.target?.id, current.picturePost) { mutableStateOf(TextFieldValue(current.text, TextRange((current.initialCursor ?: if (current.text.startsWith("\nnostr:")) 0 else current.text.length).coerceIn(0, current.text.length)))) }
+    var chosenNames by remember(current.owner, current.target?.id, current.picturePost) { mutableStateOf<Map<String, String>>(emptyMap()) }
     LaunchedEffect(current.text) {
         if (editor.text != current.text) editor = TextFieldValue(current.text, TextRange(current.text.length))
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> vm.uploadImages(uris) }
-    val images by produceState<List<String>>(emptyList(), current.text) {
-        value = withContext(Dispatchers.Default) {
+    val images by produceState<List<String>>(emptyList(), current.text, current.uploads, current.gifs) {
+        value = if (current.picturePost) current.pictureUrls() else withContext(Dispatchers.Default) {
             Regex("https://[^\\s<>]+", RegexOption.IGNORE_CASE).findAll(current.text).map { it.value }
                 .filter { url -> runCatching { java.net.URI(url).path?.substringAfterLast('.')?.lowercase() in listOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "mp4", "m4v", "mov", "webm") }.getOrDefault(false) }
                 .distinct().toList()
@@ -277,10 +277,10 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
     }
     val transform = remember(current.text, labels) { mentionTransformation(current.text, labels) }
-    var gifPicker by remember(current.owner, current.target?.id) { mutableStateOf(false) }
+    var gifPicker by remember(current.owner, current.target?.id, current.picturePost) { mutableStateOf(false) }
     val gifFocus = remember { FocusRequester() }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    val canSend = !busy && !uploading && current.text.isNotBlank()
+    val canSend = !busy && !uploading && (if (current.picturePost) current.pictureUrls().isNotEmpty() else current.text.isNotBlank())
     val sendButton: @Composable (Modifier) -> Unit = { modifier ->
         FilledIconButton(onClick = vm::sendReply, enabled = canSend,
             modifier = modifier, shape = CircleShape,
@@ -327,11 +327,44 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer), onClick = {
-                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    imagePicker.launch(PickVisualMediaRequest(if (current.picturePost) ActivityResultContracts.PickVisualMedia.ImageOnly else ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 }) {
-                    Icon(painterResource(R.drawable.photos), stringResource(R.string.ui_attach_images_or_videos))
+                    Icon(painterResource(R.drawable.photos), stringResource(if (current.picturePost) R.string.ui_add_photos else R.string.ui_attach_images_or_videos))
                 }
         }
+    }
+    val attachments: @Composable () -> Unit = {
+            val openGallery = LocalOpenGallery.current
+            val tileSize = if (current.picturePost) 200 else 88
+            val tileStep = tileSize + 8
+            if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
+                Box(Modifier.width((images.size * tileStep + 16).dp).height((tileSize + 24).dp)) {
+                    images.forEachIndexed { index, url ->
+                        val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
+                        val tile = Modifier.offset(x = (index * tileStep).dp, y = 24.dp).size(tileSize.dp).clip(RoundedCornerShape(16.dp))
+                        if (video) Box(tile.background(MaterialTheme.colorScheme.secondaryContainer)
+                            .clickable(onClickLabel = "Preview attached video") { previewVideo = url }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.PlayArrow, stringResource(R.string.ui_attached_video), Modifier.size(32.dp))
+                        } else RemoteImage(current.gifs.find { it.url == url }?.still ?: url, tile
+                            .clickable(onClickLabel = "Preview attached image") {
+                                val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
+                                openGallery(photos, photos.indexOf(url), expandAlbum = false)
+                            }, "Attached image")
+
+                    }
+                    images.forEachIndexed { index, url ->
+                        IconButton(enabled = !busy,
+                            modifier = Modifier.offset(x = (index * tileStep + tileSize - 24).dp).size(48.dp),
+                            onClick = { if (current.picturePost) vm.removePicture(url) else vm.editReply(current.text.replace(url, "").trim()) }) {
+                            Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Close, stringResource(R.string.ui_remove_attachment_from_post), Modifier.size(18.dp), tint = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
     }
     val composer: @Composable () -> Unit = {
         CopyableMessageHost()
@@ -353,6 +386,16 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             current.target?.let { target ->
                 val profile = state.profiles[target.pubKey]
                 ReplyContextRow(target, profile?.name ?: FeatherRepository.shortKey(target.pubKey))
+            }
+            if (current.picturePost) {
+                attachments()
+                if (images.isEmpty()) Box(Modifier.fillMaxWidth().height(180.dp)
+                    .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .clickable(enabled = !busy && !uploading) {
+                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }, contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.photo_compose), stringResource(R.string.ui_add_photos), Modifier.size(48.dp), tint = Color.Unspecified)
+                }
             }
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
@@ -379,35 +422,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
                     disabledIndicatorColor = Color.Transparent))
-            val openGallery = LocalOpenGallery.current
-            if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
-                Box(Modifier.width((images.size * 96 + 16).dp).height(112.dp)) {
-                    images.forEachIndexed { index, url ->
-                        val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
-                        val tile = Modifier.offset(x = (index * 96).dp, y = 24.dp).size(88.dp).clip(RoundedCornerShape(16.dp))
-                        if (video) Box(tile.background(MaterialTheme.colorScheme.secondaryContainer)
-                            .clickable(onClickLabel = "Preview attached video") { previewVideo = url }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.PlayArrow, stringResource(R.string.ui_attached_video), Modifier.size(32.dp))
-                        } else RemoteImage(current.gifs.find { it.url == url }?.still ?: url, tile
-                            .clickable(onClickLabel = "Preview attached image") {
-                                val photos = images.filterNot { java.net.URI(it).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm") }
-                                openGallery(photos, photos.indexOf(url), expandAlbum = false)
-                            }, "Attached image")
-
-                    }
-                    images.forEachIndexed { index, url ->
-                        IconButton(enabled = !busy,
-                            modifier = Modifier.offset(x = (index * 96 + 64).dp).size(48.dp),
-                            onClick = { vm.editReply(current.text.replace(url, "").trim()) }) {
-                            Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
-                                contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Close, stringResource(R.string.ui_remove_attachment_from_post), Modifier.size(18.dp), tint = Color.White)
-                            }
-                        }
-                    }
-                }
-            }
+            if (!current.picturePost) attachments()
             if (searching) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             }
@@ -443,7 +458,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
         }
         }
         }
-        LaunchedEffect(current.owner, current.target?.id) { focus.requestFocus() }
+        LaunchedEffect(current.owner, current.target?.id, current.picturePost) { if (!current.picturePost) focus.requestFocus() }
     }
     if (current.target == null) {
         Dialog(onDismissRequest = vm::closeReply,

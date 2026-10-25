@@ -321,10 +321,10 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         animationSpec = tween(180), label = "Feather scroll opacity",
     )
     FeatherComposeButton(onClick = {
-        if (state.publicKey == null) requestLogin() else vm.openReply()
+        if (state.publicKey == null) requestLogin() else vm.openReply(picturePost = home.tab == ProfileTab.PHOTOS)
     }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 80.dp)
         .graphicsLayer { alpha = featherAlpha.value; compositingStrategy = CompositingStrategy.ModulateAlpha },
-        showShadow = !scrolling && featherAlpha.value == 1f)
+        showShadow = !scrolling && featherAlpha.value == 1f, picturePost = home.tab == ProfileTab.PHOTOS)
     } // Feed content remains mounted and loads behind the first-launch veil.
     AnimatedVisibility(showHint && hint != null,
         modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 64.dp),
@@ -348,12 +348,12 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
 }
 
 @Composable
-internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Create post", showShadow: Boolean = true) {
+internal fun FeatherComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Create post", showShadow: Boolean = true, picturePost: Boolean = false) {
     FloatingActionButton(onClick = onClick, modifier = modifier,
         elevation = if (showShadow) FloatingActionButtonDefaults.elevation() else FloatingActionButtonDefaults.elevation(
             defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
         shape = CircleShape, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        Icon(painterResource(R.drawable.feather), description, Modifier.size(32.dp), tint = Color.Unspecified)
+        Icon(painterResource(if (picturePost) R.drawable.photo_compose else R.drawable.feather), if (picturePost) stringResource(R.string.ui_create_picture_post) else description, Modifier.size(32.dp), tint = Color.Unspecified)
     }
 }
 

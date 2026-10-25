@@ -29,7 +29,7 @@ internal fun blossomServer(raw: String): String? = raw.toHttpUrlOrNull()?.takeIf
 }?.toString()?.trimEnd('/')
 
 internal data class ImageUploadProgress(val size: Long? = null, val percent: Int? = null, val stage: String = "Opening attachment", val originalSize: Long? = null)
-internal data class UploadedAttachment(val url: String, val originalSize: Long, val size: Long, val compressed: Boolean = false)
+internal data class UploadedAttachment(val url: String, val originalSize: Long, val size: Long, val compressed: Boolean = false, val mime: String = "", val hash: String = "")
 
 /** One bounded attachment at a time; only explicitly selected account servers receive bytes. */
 internal class BlossomUpload(private val context: Context) {
@@ -54,7 +54,7 @@ internal class BlossomUpload(private val context: Context) {
         } ?: false
     }.getOrDefault(false)
 
-    suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, onUploaded: suspend (UploadedAttachment) -> Unit): Result = withContext(Dispatchers.IO) {
+    suspend fun upload(uri: Uri, servers: List<String>, signer: NostrSignerExternal, requests: SignerRequests, onProgress: (ImageUploadProgress) -> Unit, imagesOnly: Boolean = false, onUploaded: suspend (UploadedAttachment) -> Unit): Result = withContext(Dispatchers.IO) {
         require(servers.isNotEmpty()) { "No Blossom servers found on your profile (kind 10063)." }
         // MIME types from file providers are hints, not reliable media identification.
         // Stage at most the video limit, then inspect the bytes before signing or uploading.
@@ -92,6 +92,7 @@ internal class BlossomUpload(private val context: Context) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(original.absolutePath, bounds)
             val image = bounds.outWidth > 0 && bounds.outHeight > 0 && bounds.outMimeType?.startsWith("image/") == true
+            require(!imagesOnly || image) { "Picture posts require images" }
             val label = if (image) "image" else "video"
             val maxBytes = (if (image) 20L else 250L) * 1024 * 1024
             val originalSize = size
@@ -149,7 +150,7 @@ internal class BlossomUpload(private val context: Context) {
                     continue
                 }
                 progress("Uploaded", 100)
-                if (first == null) { first = url; onUploaded(UploadedAttachment(url, originalSize, size, prepared.compressed)) }
+                if (first == null) { first = url; onUploaded(UploadedAttachment(url, originalSize, size, prepared.compressed, mime, hash)) }
             }
             Result(first ?: error("Media upload failed: ${failures.joinToString("; ")}"), failures)
         } finally { original.delete(); file.delete() }

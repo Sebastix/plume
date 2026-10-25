@@ -534,16 +534,18 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                         progress(ImageUploadProgress(stage = "Reading file size"))
                         val selectedSize = blossom.selectedSize(uri)
                         progress(ImageUploadProgress(selectedSize))
-                        val result = blossom.upload(uri, servers, identity, signerRequests, onProgress = { progress ->
+                        val result = blossom.upload(uri, servers, identity, signerRequests, imagesOnly = draft.picturePost, onProgress = { progress ->
                             if (uploadJob.isActive && imageUploadJob === uploadJob)
                                 imageUploadProgress.value = progress.copy(size = progress.size ?: selectedSize)
                         }) { attachment ->
                             withContext(Dispatchers.Main) {
                                 check(currentUpload()) { "Upload canceled" }
                                 val latest = replyDraft.value
-                                check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id) { "Composer closed" }
+                                check(latest != null && latest.owner == draft.owner && latest.target?.id == draft.target?.id && latest.picturePost == draft.picturePost) { "Composer closed" }
                                 val url = attachment.url
-                                val text = latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
+                                require(!latest.picturePost || url in latest.pictureUrls() || latest.pictureUrls().size < 32) { "Photo draft is full" }
+                                require(!latest.picturePost || attachment.mime in pictureMimeTypes) { "Picture posts require images" }
+                                val text = if (latest.picturePost) latest.text else latest.text.trimEnd() + (if (latest.text.isBlank()) "" else "\n") + url
                                 require(text.length <= 8000) { "Draft is full; uploaded attachment: $url" }
                                 replyDraft.value = latest.copy(uploads = (latest.uploads.filterNot { it.url == url } + attachment).takeLast(32))
                                 editReply(text)
@@ -573,7 +575,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         if (!imageUploading.value) imageUploadProgress.compareAndSet(expected, null)
     }
 
-    internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null, selectedText: String? = null) {
+    internal fun openReply(note: Event? = null, mentionProfile: String? = null, quote: Event? = null, selectedText: String? = null, picturePost: Boolean = false) {
         val owner = signer.value?.pubKey ?: return
         if (replyBusy.value || imageUploading.value) return
         imageUploadProgress.value = null
@@ -582,7 +584,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             try {
                 replySaveJob?.join()
                 val draft = withContext(Dispatchers.IO) {
-                    val saved = replyStore.load(owner, note)
+                    val saved = replyStore.load(owner, note, picturePost && note == null)
                     val mention = mentionProfile?.let(Protocol::publicKey)?.takeIf { note == null }
                     if (selectedText != null && note != null) {
                         saved.withQuotedSelection(selectedText).also(replyStore::save)
@@ -608,16 +610,16 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
     }
     internal fun attachGif(gif: GifItem) {
         val draft = replyDraft.value ?: return
-        if (replyBusy.value || draft.owner != signer.value?.pubKey || gif.url in draft.text) return
-        val text = draft.text.trimEnd() + (if (draft.text.isBlank()) "" else "\n") + gif.url
-        if (text.length > 8000 || draft.gifs.size >= 32) { message.value = "Draft is full"; return }
+        if (replyBusy.value || draft.owner != signer.value?.pubKey || gif.url in draft.text || draft.gifs.any { it.url == gif.url }) return
+        val text = if (draft.picturePost) draft.text else draft.text.trimEnd() + (if (draft.text.isBlank()) "" else "\n") + gif.url
+        if (text.length > 8000 || (if (draft.picturePost) draft.pictureUrls().size else draft.gifs.size) >= 32) { message.value = "Draft is full"; return }
         replyDraft.value = draft.copy(gifs = draft.gifs + gif)
         editReply(text)
     }
     internal fun editReply(text: String) {
         if (replyBusy.value) return
         val previous = replyDraft.value ?: return
-        val draft = previous.copy(text = text.take(8000), gifs = previous.gifs.filter { it.url in text }, uploads = previous.uploads.filter { it.url in text })
+        val draft = previous.copy(text = text.take(8000), gifs = previous.gifs.filter { previous.picturePost || it.url in text }, uploads = previous.uploads.filter { previous.picturePost || it.url in text })
         replyDraft.value = draft
         replySaveJob?.cancel()
         replySaveJob = viewModelScope.launch {
@@ -626,6 +628,12 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { message.value = "Could not save draft: ${e.message}" }
         }
+    }
+    internal fun removePicture(url: String) {
+        val draft = replyDraft.value ?: return
+        if (replyBusy.value || !draft.picturePost) return
+        replyDraft.value = draft.copy(uploads = draft.uploads.filterNot { it.url == url }, gifs = draft.gifs.filterNot { it.url == url })
+        editReply(draft.text)
     }
     internal fun closeReply() {
         cancelSharedMedia()
@@ -651,9 +659,9 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                 val open = replyDraft.value
                 // Keep any newer edits in the already-open composer. Save a different
                 // draft before switching back to the failed post or reply.
-                if (open?.owner != draft.owner || open?.target?.id != draft.target?.id) {
+                if (open?.owner != draft.owner || open?.target?.id != draft.target?.id || open?.picturePost != draft.picturePost) {
                     if (open != null) closeReply()
-                    openReply(draft.target)
+                    openReply(draft.target, picturePost = draft.picturePost)
                 }
             }
         }
@@ -663,7 +671,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
         val current = replyDraft.value ?: return
         val draft = current.copy(text = current.text.trimEnd())
         val identity = signer.value ?: return
-        if (replyBusy.value || imageUploading.value || draft.text.isBlank() || draft.owner != identity.pubKey) return
+        if (replyBusy.value || imageUploading.value || (if (draft.picturePost) draft.pictureUrls().isEmpty() else draft.text.isBlank()) || draft.owner != identity.pubKey) return
         publicationFailureMessage?.let(AppMessages::dismiss)
         publicationFailureMessage = null
         replyBusy.value = true
@@ -688,7 +696,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteNote(note: Event) {
         val connected = signer.value ?: return
-        if (note.pubKey != connected.pubKey || note.kind !in listOf(1, 1111) ||
+        if (note.pubKey != connected.pubKey || note.kind !in listOf(1, 20, 1111) ||
             deletingNotes.size >= 8 || !deletingNotes.add(note.id)) return
         viewModelScope.launch {
             try { repo.deleteNote(note, connected, signerRequests) }

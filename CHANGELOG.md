@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- Create kind-20 picture posts from the Photos tab using a photo-with-feather compose button, images above the caption, separate saved drafts, and offline delivery.
+
 ## [1.7.2] - 2026-10-25
 
 ### Fixed

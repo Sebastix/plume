@@ -41,7 +41,7 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
     slotSize: Int = 48, expansionKey: Any? = null, profileToggle: Boolean = false, note: Event? = null, onClick: () -> Unit) {
     val actions = LocalAvatarModeration.current
     val token = remember(pubkey, expansionKey) { expansionKey ?: Any() }
-    val ownNote = actions?.owner == pubkey && note?.kind in listOf(1, 1111)
+    val ownNote = actions?.owner == pubkey && note?.kind in listOf(1, 20, 1111)
     val enabled = actions?.owner != null && (actions.owner != pubkey || ownNote)
     val expanded = enabled && actions?.expanded === token
     DisposableEffect(token, actions) {

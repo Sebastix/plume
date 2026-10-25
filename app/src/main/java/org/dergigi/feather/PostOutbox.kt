@@ -52,7 +52,7 @@ internal class PostOutbox(context: Context) {
         pending.value = cached!!.map { it.event.id }.toSet()
     }
 
-    private fun supported(event: Event): Boolean = event.kind in listOf(1, 1111, 6, 7, 16) ||
+    private fun supported(event: Event): Boolean = event.kind in listOf(1, 20, 1111, 6, 7, 16) ||
         (event.kind == 5 && event.tags.any { it.firstOrNull() == "e" } &&
             event.tags.filter { it.firstOrNull() == "k" }.let { kinds ->
                 kinds.isNotEmpty() && kinds.all { it.getOrNull(1) in listOf("6", "7", "16") }

@@ -1945,11 +1945,12 @@ class FeatherRepository(context: Context) {
         val author = draft.owner
         val target = draft.target
         require(state.value.publicKey == author && signer.pubKey == author) { "Account changed" }
-        require((target == null || target.kind in readableKinds) && draft.text.isNotBlank() && draft.text.length <= 8000)
+        require((target == null || target.kind in readableKinds) && (draft.picturePost || draft.text.isNotBlank()) && draft.text.length <= 8000)
+        val pictureTags = if (draft.picturePost) draft.pictureTags() else emptyArray<Array<String>>()
         val saved = store.signed(draft)
         val signed = saved ?: run {
             val hint = target?.let { relayLists[it.pubKey]?.write?.firstOrNull(::healthy) }.orEmpty()
-            val (kind, threadTags) = target?.let { replyTags(it, hint) } ?: (1 to emptyArray<Array<String>>())
+            val (kind, threadTags) = target?.let { replyTags(it, hint) } ?: ((if (draft.picturePost) 20 else 1) to emptyArray<Array<String>>())
             val participants = threadTags.filter { it.firstOrNull() == "p" }.mapNotNull { it.getOrNull(1) }.toSet()
             val mentions = replyMentions(draft.text).filter { it !in participants }.map { arrayOf("p", it) }
             val quotes = Regex("nostr:(?:nevent|note)1[023456789acdefghjklmnpqrstuvwxyz]+", RegexOption.IGNORE_CASE)
@@ -1957,8 +1958,8 @@ class FeatherRepository(context: Context) {
             val quoteTags = quotes.map { arrayOf("q", it.id, it.relays.firstOrNull().orEmpty(), it.author.orEmpty()) } +
                 quotes.mapNotNull { it.author }.distinct().filter { it !in participants && mentions.none { tag -> tag[1] == it } }.map { arrayOf("p", it) }
             val hashtagTags = NostrContent.hashtags(draft.text).map { arrayOf("t", it) }.toTypedArray()
-            val gifTags = draft.gifs.filter { it.url in draft.text }.distinctBy { it.url }.take(32).map { it.imeta() }.toTypedArray()
-            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + gifTags + arrayOf(arrayOf("client", "Feather"))
+            val gifTags = (if (draft.picturePost) emptyList() else draft.gifs).filter { it.url in draft.text }.distinctBy { it.url }.take(32).map { it.imeta() }.toTypedArray()
+            val tags = threadTags + mentions.toTypedArray() + quoteTags.toTypedArray() + hashtagTags + gifTags + pictureTags + arrayOf(arrayOf("client", "Feather"))
             val now = System.currentTimeMillis() / 1000
             val powEnabled = state.value.proofOfWork
             val mined = ProofOfWork.prepare(author, now, kind, tags, draft.text, ProofOfWork.POST_BITS, powEnabled, onMining)
@@ -1970,7 +1971,7 @@ class FeatherRepository(context: Context) {
                 if (powEnabled) ProofOfWork.verifySigned(it, ProofOfWork.POST_BITS)
             }
         }
-        require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (target == null || target.kind == 1) 1 else 1111) &&
+        require(signed.pubKey == author && signed.content == draft.text && signed.kind == (if (draft.picturePost) 20 else if (target == null || target.kind == 1) 1 else 1111) &&
             replyTarget(signed) == target?.id && signed.verify()) { "Invalid signed post" }
         check(state.value.publicKey == author) { "Account changed" }
         store.saveSigned(draft, signed)
@@ -2233,7 +2234,7 @@ class FeatherRepository(context: Context) {
         socialActions.withLock(target.id) {
             ready.await()
             val author = state.value.publicKey ?: error("Connect a signer first")
-            require(author == signer.pubKey && target.pubKey == author && target.kind in listOf(1, 1111) && target.verify()) {
+            require(author == signer.pubKey && target.pubKey == author && target.kind in listOf(1, 20, 1111) && target.verify()) {
                 "Only your own notes and replies can be deleted"
             }
             if (noteDeletions.hides(target)) return@withLock
