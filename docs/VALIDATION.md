@@ -1966,3 +1966,11 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256 `e25ad32c0b00fe5b86bcb941e6d0648c15fbbe28479fb8e6a3154fdac3a7c796`; 16,372,954 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
 - Zapstore release `5ff80cb481cc9a60f2632f15cbcb15f7f129a934878d1c491e5a58ecf46fa60a` references asset `5b7684b0f6625e23c4de125c584b9dbd93881e3405d1418f8601f2336c4d76b4`; hash, size, certificate and versionCode match. Interactive APK upload completed; rebroadcast signed catalog events after initial publication was not returned by the relay. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
 - Subsequent GitWorkshop issue-sharing and issue-status changes are unreleased and were not part of this build.
+
+## 2026-10-25 — 1.5.0 release
+
+- Version 1.5.0 (216), source `a9bafaa84806c285b4a0273cc9dc9f078ccac8d2`. GitWorkshop issue sharing, status icons in lists/details, and Markdown issue-body Nostr embeds.
+- Signed release build passed in 1m 17s after bundling the closed-status icon and moving issue-status calculation/update out of the oversized feed snapshot method. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `89b39207ef7268ca02b2a8dcde6ac097e8dc14e85e0aace56f25b64cece44403`; 16,375,374 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
+- Zapstore release `1f71c3f81385319bcb4c546849c72e2f4c18031379e96a8fa5e33e0bb9ca3aec` references asset `0baca76f1ba38ea0d5078b14ab5f2b5f6e9be91967931b4ae5fe8ecf5d4ff847`; hash, size, certificate and versionCode match. Rebroadcast signed catalog events after the initial read-back found no release. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
+- The podcast-player deduplication reported during publication is committed separately and remains unreleased.
