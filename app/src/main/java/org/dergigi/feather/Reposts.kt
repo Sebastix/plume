@@ -61,6 +61,11 @@ internal class RepostStore(context: Context) {
     @Synchronized fun records(owner: String): List<Record> = prefs.all.filterKeys { it.startsWith("$owner:") }.values.mapNotNull {
         runCatching { val json = JSONObject(it as String); Record(Event.fromJson(json.getString("event")), json.getBoolean("accepted")) }.getOrNull()
     }
+    @Synchronized fun confirm(event: Event) {
+        val target = repostTarget(event)?.id ?: return
+        if (records(event.pubKey).any { it.event.id == event.id }) put(target, event, accepted = true)
+    }
+
     @Synchronized fun put(target: String, event: Event, accepted: Boolean) {
         val key = "${event.pubKey}:$target"
         val editor = prefs.edit().putString(key, JSONObject().put("event", event.toJson()).put("accepted", accepted).put("saved", System.currentTimeMillis()).toString())

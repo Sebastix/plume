@@ -907,7 +907,7 @@ class FeatherRepository(context: Context) {
         // A local cache hit is not delivery evidence. Independently verify the relay
         // payload even when acceptOnIo took its already-cached fast path.
         if (accepted && seenAt?.let(Protocol::relay) != null && event.id in postOutbox.ids.value && event.verify()) {
-            runCatching { postOutbox.remove(event.id) }
+            runCatching { confirmQueuedEvent(event.id) }
             outboxWake.trySend(Unit)
         }
         if (accepted && event.kind == 5) outboxWake.trySend(Unit)
@@ -1393,14 +1393,14 @@ class FeatherRepository(context: Context) {
         }
         val sentReposts = key?.let { author ->
             val known = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), limit = 256)) }
-            (known + repostStore.records(author).filter { it.accepted }.map { it.event }).filterNot(::engagementDeleted).mapNotNull { repostTarget(it)?.id }.toSet()
+            (known + postOutbox.records().map { it.event }.filter { it.pubKey == author && it.kind in listOf(6, 16) } + repostStore.records(author).filter { it.accepted }.map { it.event }).filterNot(::engagementDeleted).mapNotNull { repostTarget(it)?.id }.toSet()
         }.orEmpty()
         val ownReactions = key?.let { author ->
             val recent = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), limit = 256)) }
             val visibleReactions = if (engagementIds.isEmpty()) emptyList() else mutex.withLock {
                 db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to engagementIds), limit = 512))
             }
-            (reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + visibleReactions + activity.filter { it.kind == 7 && it.pubKey == author })
+            (postOutbox.records().map { it.event }.filter { it.pubKey == author && it.kind == 7 } + reactionStore.records(author).filter { it.accepted }.map { it.event } + recent + visibleReactions + activity.filter { it.kind == 7 && it.pubKey == author })
                 .filterNot(::engagementDeleted).distinctBy { it.id }.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
         }.orEmpty()
         val sentReactions = ownReactions.mapNotNull { event ->
@@ -1681,43 +1681,9 @@ class FeatherRepository(context: Context) {
                 repostTarget(signed)?.id == target.id && signed.tagValue("p") == target.pubKey && signed.verify()) { "Invalid signed repost" }
             check(state.value.publicKey == author)
             repostStore.put(target.id, signed, accepted = false)
-            // The external signer may still cover our Activity as its result arrives.
-            withTimeout(15_000) { foregroundActive.first { it } }
-            check(state.value.publicKey == author) { "Account changed." }
-            beginPublishing(target.pubKey)
-            try {
-                check(publishPostEvent(signed, target)) {
-                    "No relay confirmed the repost after 3 attempts. Tap again to retry the same event."
-                }
-                repostStore.put(target.id, signed, accepted = true)
-                accept(signed)
-                _state.update { if (it.publicKey == author) it.copy(sentReposts = it.sentReposts + target.id) else it }
-            } finally {
-                endPublishing(target.pubKey)
-                if (active) updateRoutingPool()
-            }
+            enqueueSocialEvent(signed, target)
+            _state.update { if (it.publicKey == author) it.copy(sentReposts = it.sentReposts + target.id) else it }
         }
-    }
-
-    /** A retry republishes the same signed ID, so a lost acknowledgement cannot create duplicates. */
-    private suspend fun publishReactionEvent(event: Event, author: String, recipient: String, appDiscussion: Boolean = false): Boolean {
-        repeat(3) { attempt ->
-            if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
-            currentCoroutineContext().ensureActive()
-            check(state.value.publicKey == author) { "Account changed" }
-            updateRoutingPool()
-            client.connect()
-            val routes = (relayLists[author]?.write.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                relayLists[recipient]?.read.orEmpty().filter { it in routingPool && healthy(it) }.take(2) +
-                state.value.relays.filter(::healthy)).distinct().take(4) + if (appDiscussion) listOf(ZAPSTORE_RELAY) else emptyList()
-            val accepted = try {
-                routes.isNotEmpty() && client.publishAndConfirm(event, routes.map { it.normalizeRelayUrl() }.toSet(),
-                    timeoutInSeconds = 15, untilFirstAccept = true)
-            } catch (_: TimeoutCancellationException) { false }
-            catch (_: java.io.IOException) { false }
-            if (accepted) return true
-        }
-        return false
     }
 
     internal fun pollVotersVisible(authors: List<String>) {
@@ -1853,19 +1819,8 @@ class FeatherRepository(context: Context) {
                 reactionTarget(signed)?.id == target.id && signed.tagValue("p") == target.pubKey && signed.verify()) { "Invalid signed reaction." }
             check(state.value.publicKey == author) { "Account changed." }
             reactionStore.put(target.id, signed, accepted = false)
-            // The external signer may still cover our Activity as its result arrives.
-            withTimeout(15_000) { foregroundActive.first { it } }
-            check(state.value.publicKey == author) { "Account changed." }
-            beginPublishing(target.pubKey)
-            try {
-                check(publishReactionEvent(signed, author, target.pubKey, target.isAppDiscussion())) { "Reaction not confirmed" }
-                reactionStore.put(target.id, signed, accepted = true)
-                accept(signed)
-                recordReaction(author, target.id, choice)
-            } finally {
-                endPublishing(target.pubKey)
-                if (active) updateRoutingPool()
-            }
+            enqueueSocialEvent(signed, target)
+            recordReaction(author, target.id, choice)
         }
     }
 
@@ -1938,6 +1893,27 @@ class FeatherRepository(context: Context) {
         changed.tryEmit(Unit)
     }
 
+    /** Saved once; the UI can settle without waiting for a relay or returning from the signer. */
+    private suspend fun enqueueSocialEvent(event: Event, target: Event) {
+        postOutbox.put(event, target)
+        outboxWork.schedule(replace = true)
+        accept(event)
+        outboxWake.trySend(Unit)
+        changed.tryEmit(Unit)
+    }
+
+    private fun confirmQueuedEvent(id: String) {
+        val record = postOutbox.records().firstOrNull { it.event.id == id } ?: return
+        val event = record.event
+        // Never let an older acknowledgement overwrite a newer undo/re-add journal entry.
+        when (event.kind) {
+            7 -> reactionStore.confirm(event)
+            6, 16 -> repostStore.confirm(event)
+            5 -> reactionDeletions.put(event, accepted = true)
+        }
+        postOutbox.remove(id)
+    }
+
     private data class OutboxSession(val owner: String?, val online: Boolean)
 
     /** WorkManager lends the shared delivery loop a bounded background execution window. */
@@ -1976,7 +1952,7 @@ class FeatherRepository(context: Context) {
                         changed.tryEmit(Unit)
                     }
                     // Also repair stale pending markers left by earlier app versions.
-                    records.filter { eventRelays.read(it.event.id).isNotEmpty() }.forEach { postOutbox.remove(it.event.id) }
+                    records.filter { eventRelays.read(it.event.id).isNotEmpty() }.forEach { confirmQueuedEvent(it.event.id) }
                     if (!session.online || session.owner == null) return@collectLatest
                     drainOutbox(session.owner)
                 } catch (e: CancellationException) { throw e }
@@ -2001,7 +1977,7 @@ class FeatherRepository(context: Context) {
                     completed.remove(id)
                     jobs.remove(id)?.join()
                     if (confirmed || id !in postOutbox.ids.value) {
-                        postOutbox.remove(id)
+                        confirmQueuedEvent(id)
                         retryAt.remove(id)
                         failures.remove(id)
                     } else {
@@ -2025,13 +2001,13 @@ class FeatherRepository(context: Context) {
                 for (record in records) {
                     val event = record.event
                     if (event.id in jobs) continue
-                    if (noteDeletions.hides(event) || eventRelays.read(event.id).isNotEmpty()) {
-                        postOutbox.remove(event.id)
+                    if (noteDeletions.hides(event) || engagementDeleted(event) || eventRelays.read(event.id).isNotEmpty()) {
+                        if (eventRelays.read(event.id).isNotEmpty()) confirmQueuedEvent(event.id) else postOutbox.remove(event.id)
                         outboxWake.trySend(Unit) // A child earlier in this pass may now be eligible.
                         continue
                     }
                     if (reactionDeletions.pending(owner, setOf(event.id)) != null) continue
-                    if (record.target?.id in postOutbox.ids.value) continue
+                    if (event.kind != 5 && record.target?.id in postOutbox.ids.value) continue
                     if (jobs.size >= 2) continue
                     val due = retryAt[event.id] ?: 0L
                     if (due > android.os.SystemClock.elapsedRealtime()) {
@@ -2075,8 +2051,19 @@ class FeatherRepository(context: Context) {
             target?.let { relayLists[it.pubKey]?.read }.orEmpty().take(2) + state.value.relays).distinct().take(4) +
             (if (target?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true) IssueReports.RELAYS else emptyList()) +
             (if (target?.isAppDiscussion() == true) listOf(ZAPSTORE_RELAY) else emptyList())
-        return routes.isNotEmpty() && deliveryClient.publishAndConfirm(event,
-            routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)
+        val destinations = routes.map { it.normalizeRelayUrl() }.toSet()
+        val confirmed = routes.isNotEmpty() && deliveryClient.publishAndConfirm(event,
+            destinations, timeoutInSeconds = 15, untilFirstAccept = true)
+        if (confirmed && event.kind in listOf(6, 16) && target != null && target.tags.none { it.firstOrNull() == "-" }) {
+            // Confirmation is durable before optional propagation. A slow relay cannot hold the repost pending.
+            confirmQueuedEvent(event.id)
+            try {
+                deliveryClient.publishAndConfirm(target, destinations, timeoutInSeconds = 5, untilFirstAccept = true)
+            } catch (_: TimeoutCancellationException) { currentCoroutineContext().ensureActive() }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { /* Best effort only. */ }
+        }
+        return confirmed
     }
 
     /** Publish an explicitly signed NIP-56 account report through the account’s existing routes. */
@@ -2124,7 +2111,7 @@ class FeatherRepository(context: Context) {
             val author = state.value.publicKey ?: error("Connect a signer first")
             require(author == signer.pubKey)
             val cached = mutex.withLock { db.query<Event>(Filter(kinds = listOf(7), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 256)) }
-            val reactions = (cached + reactionStore.records(author).map { it.event }).filter {
+            val reactions = (cached + reactionStore.records(author).map { it.event } + postOutbox.records().map { it.event }).filter {
                 !engagementDeleted(it) && it.pubKey == author && it.kind == 7 && reactionTarget(it)?.id == target.id && reactionChoice(it) == choice
             }.distinctBy { it.id }
             if (reactions.isEmpty()) { changed.tryEmit(Unit); return@withLock }
@@ -2138,19 +2125,11 @@ class FeatherRepository(context: Context) {
             }
             require(deletion.pubKey == author && deletion.kind == 5 && deletion.content.isEmpty() && deletion.tags.contentDeepEquals(tags) && deletion.verify())
             check(state.value.publicKey == author)
-            reactionDeletions.put(deletion, accepted = false)
-            withTimeout(15_000) { foregroundActive.first { it } }
-            check(state.value.publicKey == author)
-            beginPublishing(target.pubKey)
-            try {
-                check(publishReactionEvent(deletion, author, target.pubKey, target.isAppDiscussion())) { "Deletion not confirmed" }
-                reactionDeletions.put(deletion, accepted = true)
-                refreshDeletedReactions()
-                _state.update { current -> current.copy(deletedReactions = deletedReactions,
-                    sentReactions = if (current.publicKey == author) current.sentReactions + (target.id to current.sentReactions[target.id].orEmpty().filter { it != choice }) else current.sentReactions) }
-                accept(deletion)
-                changed.tryEmit(Unit)
-            } finally { endPublishing(target.pubKey); if (active) updateRoutingPool() }
+            enqueueSocialEvent(deletion, target)
+            refreshDeletedReactions()
+            _state.update { current -> current.copy(deletedReactions = deletedReactions,
+                sentReactions = if (current.publicKey == author) current.sentReactions + (target.id to current.sentReactions[target.id].orEmpty().filter { it != choice }) else current.sentReactions) }
+            changed.tryEmit(Unit)
         }
     }
 
@@ -2191,7 +2170,7 @@ class FeatherRepository(context: Context) {
             val author = state.value.publicKey ?: error("Connect a signer first")
             require(author == signer.pubKey)
             val cached = mutex.withLock { db.query<Event>(Filter(kinds = listOf(6, 16), authors = listOf(author), tags = mapOf("e" to listOf(target.id)), limit = 256)) }
-            val reposts = (cached + repostStore.records(author).map { it.event }).filter {
+            val reposts = (cached + repostStore.records(author).map { it.event } + postOutbox.records().map { it.event }).filter {
                 !engagementDeleted(it) && it.pubKey == author && it.kind in listOf(6, 16) && repostTarget(it)?.id == target.id
             }.distinctBy { it.id }
             if (reposts.isEmpty()) { changed.tryEmit(Unit); return@withLock }
@@ -2206,19 +2185,11 @@ class FeatherRepository(context: Context) {
             }
             require(deletion.pubKey == author && deletion.kind == 5 && deletion.content.isEmpty() && deletion.tags.contentDeepEquals(tags) && deletion.verify())
             check(state.value.publicKey == author)
-            reactionDeletions.put(deletion, accepted = false)
-            withTimeout(15_000) { foregroundActive.first { it } }
-            check(state.value.publicKey == author)
-            beginPublishing(target.pubKey)
-            try {
-                check(publishPostEvent(deletion, target)) { "Deletion not confirmed" }
-                reactionDeletions.put(deletion, accepted = true)
-                refreshDeletedReactions()
-                _state.update { current -> current.copy(deletedReactions = deletedReactions,
-                    sentReposts = if (current.publicKey == author) current.sentReposts - target.id else current.sentReposts) }
-                accept(deletion)
-                changed.tryEmit(Unit)
-            } finally { endPublishing(target.pubKey); if (active) updateRoutingPool() }
+            enqueueSocialEvent(deletion, target)
+            refreshDeletedReactions()
+            _state.update { current -> current.copy(deletedReactions = deletedReactions,
+                sentReposts = if (current.publicKey == author) current.sentReposts - target.id else current.sentReposts) }
+            changed.tryEmit(Unit)
         }
     }
 

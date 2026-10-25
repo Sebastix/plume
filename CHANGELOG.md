@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-25
+
+### Added
+- Queue signed reactions, reposts, and their undo requests for offline and background delivery. Keep the selected reaction/repost state across restarts, reuse the same signed events on retries, and share the existing two delivery slots.
+- Undo atomically removes the queued original and saves its deletion request, including when the original may already be in flight.
+
 ### Changed
 - Keep Share visible in note and profile title bars; move Copy and Open in another app into a compact overflow menu.
 

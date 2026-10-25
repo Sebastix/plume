@@ -164,6 +164,12 @@ internal class ReactionStore(context: Context) {
     fun get(author: String, target: String, choice: ReactionChoice): Record? = records(author)
         .firstOrNull { reactionTarget(it.event)?.id == target && reactionChoice(it.event) == choice }
 
+    @Synchronized fun confirm(event: Event) {
+        val target = reactionTarget(event)?.id ?: return
+        val choice = reactionChoice(event) ?: return
+        if (get(event.pubKey, target, choice)?.event?.id == event.id) put(target, event, accepted = true)
+    }
+
     @Synchronized
     fun put(target: String, event: Event, accepted: Boolean) {
         val choice = requireNotNull(reactionChoice(event))
