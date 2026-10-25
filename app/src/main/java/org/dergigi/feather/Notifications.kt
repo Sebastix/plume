@@ -346,6 +346,7 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                 // Keep the control within the avatar's height, without Material's layout padding.
                                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 2.dp)) {
+                                        item.actor?.let { ProfileFollowButton(vm, it, size = 36) }
                                         IconButton(onClick = {
                                             item.actor?.let(vm::muteAccount)
                                             muteRow = null

@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-25
+
+### Changed
+- Add Follow/Unfollow to the actions revealed by long-pressing an author avatar or name, reusing the existing follow-list safeguards and Undo.
+- Match revealed action-button diameters to their avatar, including the larger profile avatar.
+
 ## [0.100.1] - 2026-10-24
 
 ### Added

@@ -15,14 +15,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-internal fun ProfileFollowButton(vm: FeatherViewModel, target: String) {
+internal fun ProfileFollowButton(vm: FeatherViewModel, target: String, size: Int? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
     val owner = state.publicKey ?: return
     if (target == owner) return
     val busy by vm.followBusy.collectAsStateWithLifecycle()
-    val pending by vm.firstFollow.collectAsStateWithLifecycle()
     val following = target in state.followedAccounts
-    IconButton(onClick = { vm.changeFollow(target, !following) }, enabled = target !in busy) {
+    IconButton(onClick = { vm.changeFollow(target, !following) }, enabled = target !in busy,
+        modifier = if (size != null) Modifier.size(size.dp) else Modifier,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = if (size != null) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
         if (target in busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         else Box(Modifier.size(24.dp)) {
             Icon(Icons.Default.Person, stringResource(if (following) R.string.ui_unfollow_profile else R.string.ui_follow_profile),
@@ -31,7 +33,17 @@ internal fun ProfileFollowButton(vm: FeatherViewModel, target: String) {
                 Modifier.size(12.dp).align(Alignment.BottomEnd), tint = MaterialTheme.colorScheme.primary)
         }
     }
-    if (pending == (owner to target)) AlertDialog(
+}
+
+@Composable
+internal fun ProfileFollowConfirmation(vm: FeatherViewModel) {
+    val state by vm.state.collectAsStateWithLifecycle()
+    val pending by vm.firstFollow.collectAsStateWithLifecycle()
+    val owner = state.publicKey ?: return
+    val request = pending ?: return
+    if (request.first != owner || request.second.startsWith("#")) return
+    val target = request.second
+    AlertDialog(
         onDismissRequest = { vm.firstFollow.value = null },
         title = { Text(stringResource(R.string.ui_first_follow_title)) },
         text = { Text(stringResource(R.string.ui_first_follow_body)) },

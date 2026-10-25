@@ -482,8 +482,10 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
     val avatarMutedAccounts by rememberUpdatedState((s.mutedAuthors + pendingAvatarMutes) - pendingAvatarUnmutes)
     val avatarModeration = remember(vm, s.publicKey) {
         AvatarModeration(s.publicKey, vm::muteAccount, vm.accountReports::open,
-            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount, mutePending = { it in avatarMutePending }, deleteNote = vm::deleteNote)
+            isMuted = { it in avatarMutedAccounts }, unmute = vm::unmuteAccount, mutePending = { it in avatarMutePending }, deleteNote = vm::deleteNote,
+            followButton = { target, size -> ProfileFollowButton(vm, target, size) })
     }
+    if (activePage) ProfileFollowConfirmation(vm)
     LaunchedEffect(activePage) { if (!activePage) avatarModeration.expanded = null }
     CompositionLocalProvider(LocalAvatarModeration provides avatarModeration, LocalPollActions provides PollActions(votersVisible = vm.repo::pollVotersVisible) { note, choices ->
         if (s.publicKey == null) showAccount = true else vm.vote(note, choices)

@@ -27,7 +27,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 internal class AvatarModeration(val owner: String?, val mute: (String) -> Unit, val report: (String) -> Unit,
-    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit, val mutePending: (String) -> Boolean, val deleteNote: (Event) -> Unit) {
+    val isMuted: (String) -> Boolean, val unmute: (String) -> Unit, val mutePending: (String) -> Boolean, val deleteNote: (Event) -> Unit,
+    val followButton: @Composable (String, Int) -> Unit) {
     var expanded by mutableStateOf<Any?>(null)
     var controlBounds: Pair<Any, Rect>? = null
 }
@@ -62,11 +63,12 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Row(Modifier.onGloballyPositioned { actions?.controlBounds = token to it.boundsInRoot() }.padding(end = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (ownNote && note != null) {
-                        HoldToConfirmButton(note.id, stringResource(R.string.ui_hold_to_delete_note), R.drawable.delete_note, 36) {
+                        HoldToConfirmButton(note.id, stringResource(R.string.ui_hold_to_delete_note), R.drawable.delete_note, size) {
                             actions?.expanded = null
                             actions?.deleteNote?.invoke(note)
                         }
                     } else {
+                        actions?.followButton?.invoke(pubkey, size)
                         val muted = actions?.isMuted?.invoke(pubkey) == true
                         if (profileToggle) {
                             val background = if (muted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer
@@ -74,7 +76,7 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
                             IconToggleButton(checked = muted, enabled = actions?.mutePending?.invoke(pubkey) != true,
                                 onCheckedChange = { checked ->
                                     if (checked) actions?.mute?.invoke(pubkey) else actions?.unmute?.invoke(pubkey)
-                                }, modifier = Modifier.size(36.dp),
+                                }, modifier = Modifier.size(size.dp),
                                 colors = IconButtonDefaults.iconToggleButtonColors(
                                     containerColor = background, contentColor = foreground,
                                     checkedContainerColor = background, checkedContentColor = foreground,
@@ -84,17 +86,17 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
                                     Modifier.size(22.dp))
                             }
                         } else if (muted) {
-                            HoldToUnmuteButton(pubkey, name, size = 36) {
+                            HoldToUnmuteButton(pubkey, name, size = size) {
                                 actions?.expanded = null
                                 actions?.unmute?.invoke(pubkey)
                             }
                         } else IconButton(onClick = { actions?.expanded = null; actions?.mute?.invoke(pubkey) },
-                            modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
+                            modifier = Modifier.size(size.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
                             Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_mute_account, name),
                                 Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                         }
                         IconButton(onClick = { actions?.expanded = null; actions?.report?.invoke(pubkey) },
-                            modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
+                            modifier = Modifier.size(size.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
                             Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
                                 Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                         }
