@@ -1957,3 +1957,12 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 50s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `465d720849e93f96cfedc0fdd27661c4b0a7f26d416df5dd34d54f916530efe2`; 16,372,954 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release source/tag.
 - Zapstore release `2cdfc29b2593d61a26fb6e4087792f1e1c73a6f581b4e12caa19e58abba06f39` references asset `02f4b6c387e19253745b135a6ce6578a3537c53fd2a566f4fb91013e10af7a2b`; hash, size, certificate and versionCode match. Interactive publisher uploaded the APK; rebroadcast signed catalog events after the initial read-back returned no release. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
+
+
+## 2026-10-25 — 1.4.0 release
+
+- Version 1.4.0 (215), source `acbb7769442f9f6d9767ae971e19cea238105d59`. Horizontally draggable navigation pill with bounded flick and snapping; labeled note/profile/gallery overflow actions.
+- Signed release build passed in 36s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `e25ad32c0b00fe5b86bcb941e6d0648c15fbbe28479fb8e6a3154fdac3a7c796`; 16,372,954 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
+- Zapstore release `5ff80cb481cc9a60f2632f15cbcb15f7f129a934878d1c491e5a58ecf46fa60a` references asset `5b7684b0f6625e23c4de125c584b9dbd93881e3405d1418f8601f2336c4d76b4`; hash, size, certificate and versionCode match. Interactive APK upload completed; rebroadcast signed catalog events after initial publication was not returned by the relay. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
+- Subsequent GitWorkshop issue-sharing and issue-status changes are unreleased and were not part of this build.
