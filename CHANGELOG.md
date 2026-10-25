@@ -4,6 +4,12 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-25
+
+### Added
+- Persist signed posts and replies in an on-device outbox, close the composer after saving, and display them immediately. Retry the same events when relay connections return while Feather is open, including after restarts; preserve queued posts outside the disposable cache.
+- Show a muted hourglass beside pending posts’ timestamps, flipping every two seconds until a relay confirms delivery.
+
 ### Changed
 - Order revealed avatar actions as Follow/Unfollow, Report, then Mute/Unmute in feeds, profiles, and notifications.
 

@@ -135,6 +135,7 @@ class FeatherRepository(context: Context) {
     private val socialActions = ActionLanes(4)
     private val repostStore = RepostStore(context)
     private val reactionStore = ReactionStore(context)
+    internal val postOutbox = PostOutbox(context)
     private val reactionDeletions = ReactionDeletions(context)
     private val noteDeletions = NoteDeletions(context)
     @Volatile private var deletionTargets: List<Event> = emptyList()
@@ -316,6 +317,7 @@ class FeatherRepository(context: Context) {
         }
     }
     init {
+        scope.launch { deliverOutbox() }
         // Migrate legacy device preferences only to the currently connected account.
         state.value.publicKey?.let { owner ->
             prefs.edit().putBoolean("show-sensitive:$owner", state.value.showSensitive)
@@ -806,6 +808,7 @@ class FeatherRepository(context: Context) {
             s.notifications.asSequence(), s.feedPreviews.values.asSequence().flatten(),
             olderEvents.asSequence(), listOfNotNull(galleryNote).asSequence(),
             recentThreads.events(wanted).asSequence(),
+            postOutbox.records().asSequence().flatMap { listOfNotNull(it.event, it.target).asSequence() },
         ).flatten().filter { it.id in wantedIds }.associateBy { it.id }
         val missing = wanted.filterNot(memory::containsKey)
         val disk = if (missing.isEmpty()) emptyList() else db.query<Event>(Filter(ids = missing, limit = missing.size))
@@ -991,7 +994,7 @@ class FeatherRepository(context: Context) {
     private suspend fun timeline(filter: Filter, previous: List<Event>, limit: Int): List<Event> = mutex.withLock {
         val filters = filter.activityFilters()
         val now = System.currentTimeMillis() / 1000
-        val matching = (db.query<Event>(filters) + previous + olderEvents).filter { event -> !noteDeletions.hides(event) && filters.any { it.match(event) } &&
+        val matching = (db.query<Event>(filters) + previous + olderEvents + postOutbox.records().map { it.event }).filter { event -> !noteDeletions.hides(event) && filters.any { it.match(event) } &&
             (filter.kinds != podcastKinds || isPodcastActivity(event)) }
         // Sparse posts/replies tabs can have visible items far ahead of their raw-event tail.
         // Keep these anchors when advancing the bounded window.
@@ -1898,18 +1901,81 @@ class FeatherRepository(context: Context) {
             replyTarget(signed) == target?.id && signed.verify()) { "Invalid signed post" }
         check(state.value.publicKey == author) { "Account changed" }
         store.saveSigned(draft, signed)
-        withTimeout(15_000) { foregroundActive.first { it } }
-        check(state.value.publicKey == author) { "Account changed" }
-        beginPublishing(target?.pubKey ?: author)
-        try {
-            check(publishPostEvent(signed, target)) {
-                "No relay confirmed the post after 3 attempts. Draft saved; send again to retry the same event."
+        postOutbox.put(signed, target)
+        // Delivery owns the event now. Cache/display it without waiting for any relay.
+        accept(signed)
+        _state.update {
+            if (it.publicKey != author) it else it.copy(
+                notes = if (target == null && it.feedTab == ProfileTab.POSTS) (listOf(signed) + it.notes).distinctBy { note -> note.id }.take(600) else it.notes,
+                threadNotes = if (target != null && it.threadId == target.id)
+                    (it.threadNotes + signed).distinctBy { note -> note.id } else it.threadNotes)
+        }
+        changed.tryEmit(Unit)
+    }
+
+    /** One bounded delivery lane; retries never sign again or touch wallet requests. */
+    private suspend fun deliverOutbox() {
+        ready.await()
+        val retryAt = mutableMapOf<String, Long>()
+        val failures = mutableMapOf<String, Int>()
+        var restoredOwner: String? = null
+        var wasConnected = false
+        while (currentCoroutineContext().isActive) {
+            if (!foregroundActive.value) {
+                wasConnected = false
+                foregroundActive.first { it }
             }
-            accept(signed)
-            _state.update { if (target != null && it.threadId == target.id) it.copy(threadNotes = (it.threadNotes + signed).distinctBy { note -> note.id }) else it }
-        } finally {
-            endPublishing(target?.pubKey ?: author)
-            if (active) updateRoutingPool()
+            try {
+                val owner = state.value.publicKey
+                val records = postOutbox.records().filter { it.event.pubKey == owner }
+                val ids = records.map { it.event.id }.toSet()
+                retryAt.keys.retainAll(ids)
+                failures.keys.retainAll(ids)
+                if (owner != restoredOwner) {
+                    records.forEach { accept(it.event) }
+                    restoredOwner = owner
+                    retryAt.clear()
+                    failures.clear()
+                    changed.tryEmit(Unit)
+                }
+                val connected = foregroundActive.value && state.value.connected.isNotEmpty()
+                if (connected && !wasConnected) retryAt.clear()
+                wasConnected = connected
+                if (connected) for (record in records) {
+                    if (!foregroundActive.value || state.value.publicKey != owner) break
+                    val event = record.event
+                    if (noteDeletions.hides(event) || reactionDeletions.pending(event.pubKey, setOf(event.id)) != null) {
+                        postOutbox.remove(event.id)
+                        continue
+                    }
+                    // A reply can name a locally signed parent; deliver that parent first.
+                    if (record.target?.id in postOutbox.ids.value) continue
+                    if ((retryAt[event.id] ?: 0L) > android.os.SystemClock.elapsedRealtime()) continue
+                    val author = record.target?.pubKey ?: event.pubKey
+                    beginPublishing(author)
+                    val confirmed = try {
+                        publishPostEvent(event, record.target, attempts = 1)
+                    } catch (e: TimeoutCancellationException) {
+                        currentCoroutineContext().ensureActive()
+                        false
+                    } catch (e: CancellationException) { throw e }
+                    catch (_: Exception) { false }
+                    finally { endPublishing(author); if (active) updateRoutingPool() }
+                    if (confirmed) {
+                        postOutbox.remove(event.id)
+                        retryAt.remove(event.id)
+                        failures.remove(event.id)
+                    } else {
+                        val count = ((failures[event.id] ?: 0) + 1).coerceAtMost(5)
+                        failures[event.id] = count
+                        retryAt[event.id] = android.os.SystemClock.elapsedRealtime() + (5_000L shl (count - 1))
+                    }
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                // Keep durable records on disk if storage or relay delivery is unavailable.
+            }
+            delay(2_000)
         }
     }
 
@@ -1920,8 +1986,8 @@ class FeatherRepository(context: Context) {
     }
 
     /** Sign and persist once; only relay delivery is retried, never signing or image uploads. */
-    private suspend fun publishPostEvent(event: Event, target: Event?): Boolean {
-        repeat(3) { attempt ->
+    private suspend fun publishPostEvent(event: Event, target: Event?, attempts: Int = 3): Boolean {
+        repeat(attempts) { attempt ->
             if (attempt > 0) delay(if (attempt == 1) 1_000 else 3_000)
             currentCoroutineContext().ensureActive()
             check(state.value.publicKey == event.pubKey) { "Account changed" }

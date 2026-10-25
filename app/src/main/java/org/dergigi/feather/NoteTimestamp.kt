@@ -5,6 +5,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +53,10 @@ private fun relativeTime(createdAt: Long): RelativeTime {
 internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignment.End) {
     val context = LocalContext.current
     val view = LocalView.current
-    val blocktime = (context.applicationContext as FeatherApplication).repository.blocktime
+    val repository = (context.applicationContext as FeatherApplication).repository
+    val blocktime = repository.blocktime
+    val pendingIds by repository.postOutbox.ids.collectAsStateWithLifecycle()
+    val pending = note.id in pendingIds
     // Order: absolute date/time, block height, relative age. Start with relative age.
     val preference = (context.applicationContext as FeatherApplication).timestamps
     val mode by preference.mode.collectAsStateWithLifecycle()
@@ -57,6 +65,14 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     var relative by remember(note.createdAt) { mutableStateOf(relativeTime(note.createdAt)) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && visible
+    val flip = remember(note.id) { Animatable(0f) }
+    LaunchedEffect(pending, active) {
+        if (pending && active) while (true) {
+            delay(1_650)
+            flip.animateTo(flip.value + 180f, tween(350))
+            flip.snapTo(flip.value % 360f)
+        }
+    }
     val date = remember(note.createdAt) {
         val zone = ZoneId.systemDefault()
         val time = Instant.ofEpochSecond(note.createdAt)
@@ -94,6 +110,9 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp, alignment),
     ) {
+        if (pending) Icon(painterResource(R.drawable.pending_hourglass), stringResource(R.string.ui_post_pending),
+            Modifier.size(14.dp).graphicsLayer { rotationZ = flip.value },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f))
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = if (mode == 1 && height != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
     }
