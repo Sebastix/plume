@@ -1988,3 +1988,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 41s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `8127537e6f10a88bd4971d7a72d5b73941128864c306375dabaaf01977bd43e3`; 16,395,198 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
 - Zapstore release `5281fbe6d92f85cc801fab1675be0a664b688a8689ca41366ff881844149e922` references asset `b91fda1f85798b1654f0618e4c1b27dafbd4fef05c71a020f068280210af2529`; hash, size, certificate and versionCode match. Rebroadcast signed catalog events after initial publication was not returned by the relay. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
+
+## 2026-10-25 — 1.6.1 release
+
+- Version 1.6.1 (219), source `3ea2b24784144da0437e9b3e3b24b54f8e8f6249`. Article note embeds and profile mention labels; navigation-pill grace period after paging.
+- Signed release build passed in 30s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `4c02bbc0f3d1e8f5f0c9f31f05c1ca2e3cd68d6c7f91edd7d7b45edbd074ff43`; 16,395,202 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
+- Zapstore release `c1e564775e93f446da427491ed318a9e63f7e6ea4e16ebbc80687730c6b79b48` references asset `8a4dccf15f56706a0ffe38c70ae373b52477967b7a83c77a10dc8f832e968e34`; hash, size, certificate and versionCode match. Rebroadcast signed catalog events after initial publication was not returned by the relay. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
