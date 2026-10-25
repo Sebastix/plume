@@ -1305,6 +1305,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
                 MatchedHashtagBadge(note, state.followedHashtags, onReference)
                 Spacer(Modifier.width(8.dp))
             }
+            TranslationControl(note)
             NoteTimestamp(note)
         }
         Column(Modifier.padding(start = if (inset) 48.dp else 0.dp)) {
@@ -1386,7 +1387,6 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         }
             }
         }
-        TranslationControl(note)
         } // Surrounding replies stay beside the rail; roots and the selected note use the full width.
         if (note.kind !in listOf(7, 17, 30030)) {
             val counts = state.engagement[note.id] ?: Engagement()
