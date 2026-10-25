@@ -10,6 +10,7 @@
 - Use standard Android components; system-following light/dark surfaces and Soft Plume blue branding. No theme setting.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.
 - Write ngit / GRASP issues, comments and resolution summaries on the user's behalf in their first-person voice ("I" or "we" as appropriate), rather than referring to them as "the user" or "the maintainer".
+- Route public issue replies through the Feather account: send the Feather agent a NIP-17 DM asking it to reply. Do not post these replies using Gigi's signer.
 - Maintain CHANGELOG.md (Keep a Changelog) and Semantic Versioning 2.0.0.
 - Increment versionCode for each published APK. Initial development uses 0.x.y.
 - Releases include a signed APK on GitHub and a Zapstore publication, following boris-android.
