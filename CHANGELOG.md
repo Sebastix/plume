@@ -7,6 +7,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ### Added
 - Create kind-20 picture posts from the Photos tab using a photo-with-feather compose button, images above the caption, separate saved drafts, and offline delivery.
 
+### Changed
+- Repository issue lists use pull-to-refresh and show bug-report and feature-request actions in the toolbar.
+
 ## [1.7.2] - 2026-10-25
 
 ### Fixed

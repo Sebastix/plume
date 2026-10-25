@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -59,9 +60,11 @@ internal fun RepositoryIssuesScreen(vm: FeatherViewModel, navigation: ReaderNavi
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_back))
                 } },
                 actions = {
-                    IconButton(onClick = { entry.refreshRequested++ }) { Icon(Icons.Default.Refresh, stringResource(R.string.ui_refresh_issues)) }
                     IconButton(onClick = { vm.issues.open(IssueType.BUG, repository = address, relays = snapshot.relays) }) {
                         Icon(painterResource(R.drawable.bug_report), stringResource(R.string.ui_report_a_bug))
+                    }
+                    IconButton(onClick = { vm.issues.open(IssueType.FEATURE, repository = address, relays = snapshot.relays) }) {
+                        Icon(painterResource(R.drawable.feature_request), stringResource(R.string.ui_suggest_a_feature))
                     }
                 },
             )
@@ -74,28 +77,30 @@ internal fun RepositoryIssuesScreen(vm: FeatherViewModel, navigation: ReaderNavi
                         label = { Text(stringResource(label)) })
                 }
             }
-            LazyColumn(state = entry.list, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
-                items(issues, key = { it.id }) { issue ->
-                    Column(Modifier.fillMaxWidth().clickable {
-                        navigation.push(ReaderEntry("thread", issue.id).also {
-                            it.reference = NostrContent.Reference(issue.id, author = issue.pubKey, kind = 1621, relays = snapshot.relays.take(2))
-                        })
-                    }.padding(vertical = 16.dp)) {
-                        IssueContent(issue, compact = true, onReference = {}, status = snapshot.statuses[issue.id])
+            PullToRefreshBox(isRefreshing = snapshot.loading, onRefresh = { if (!snapshot.loading) entry.refreshRequested++ }, modifier = Modifier.weight(1f)) {
+                LazyColumn(state = entry.list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
+                    items(issues, key = { it.id }) { issue ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            navigation.push(ReaderEntry("thread", issue.id).also {
+                                it.reference = NostrContent.Reference(issue.id, author = issue.pubKey, kind = 1621, relays = snapshot.relays.take(2))
+                            })
+                        }.padding(vertical = 16.dp)) {
+                            IssueContent(issue, compact = true, onReference = {}, status = snapshot.statuses[issue.id])
+                        }
                     }
-                }
-                item {
-                    Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                        when {
-                            snapshot.loading -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                            snapshot.failed -> IconButton(onClick = { entry.refreshRequested++ }) {
-                                Icon(Icons.Default.Refresh, stringResource(R.string.ui_retry_issue_loading))
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                            when {
+                                snapshot.loading -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                snapshot.failed -> IconButton(onClick = { entry.refreshRequested++ }) {
+                                    Icon(Icons.Default.Refresh, stringResource(R.string.ui_retry_issue_loading))
+                                }
+                                snapshot.more && entry.issueLimit < 600 -> IconButton(onClick = { entry.issueLimit += 100 }) {
+                                    Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.ui_load_more_issues))
+                                }
+                                issues.isEmpty() -> Icon(painterResource(R.drawable.bug_report), stringResource(R.string.ui_no_matching_issues),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f))
                             }
-                            snapshot.more && entry.issueLimit < 600 -> IconButton(onClick = { entry.issueLimit += 100 }) {
-                                Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.ui_load_more_issues))
-                            }
-                            issues.isEmpty() -> Icon(painterResource(R.drawable.bug_report), stringResource(R.string.ui_no_matching_issues),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f))
                         }
                     }
                 }
