@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Render embedded Nostr notes in long-form articles using the shared cache, with up to 16 references per article instead of the short-note limit of three.
+
 ## [1.6.0] - 2026-10-25
 
 ### Added

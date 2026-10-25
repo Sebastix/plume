@@ -73,7 +73,7 @@ private fun ArticleLinkText(content: String, node: ASTNode, style: TextStyle, he
         else {
             val allowed = NostrContent.references(embeds.event).filter {
                 !it.profile && it.hashtag == null && it.external == null && it.id != embeds.event.id
-            }.take(3).map { it.id }.toSet()
+            }.take(if (embeds.event.kind == 30023) 16 else 3).map { it.id }.toSet()
             val links = text.getLinkAnnotations(0, text.length).mapNotNull { range ->
                 val ref = (range.item as? LinkAnnotation.Url)?.url?.let(NostrContent::decode)
                 ref?.let { NostrContent.Token(range.start, range.end, text.text.substring(range.start, range.end), it) }

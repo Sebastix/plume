@@ -30,12 +30,12 @@ import java.util.Locale
 private val markdownImage = Regex("!\\[([^]\\n]*)]\\((https?://[^\\s)]+)(?:\\s+\"[^\"]*\")?\\)")
 
 @Composable
-internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit) {
+internal fun ArticleContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit, state: FeedState? = null) {
     if (compact) {
         ArticlePreview(event)
         return
     }
-    ArticleMarkdown(event, onReference)
+    ArticleMarkdown(event, onReference, embedState = state)
 }
 
 @Composable

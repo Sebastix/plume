@@ -116,6 +116,6 @@ object NostrContent {
 
     fun quotes(event: Event): List<Reference> {
         val parent = replyReference(event)?.id
-        return references(event).filter { !it.profile && it.external == null && it.id != event.id && it.id != parent }.take(3)
+        return references(event).filter { !it.profile && it.external == null && it.id != event.id && it.id != parent }.take(if (event.kind == 30023) 16 else 3)
     }
 }

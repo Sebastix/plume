@@ -1313,7 +1313,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
             note.kind == 1621 -> IssueContent(note, compact, onReference, state.issueStatuses[note.id], state)
             note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
-            note.kind == 30023 -> ArticleContent(note, compact, onReference)
+            note.kind == 30023 -> ArticleContent(note, compact, onReference, state)
             note.kind == 9802 -> HighlightContent(note, state.profiles, compact, onReference)
             note.kind == 17 -> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
