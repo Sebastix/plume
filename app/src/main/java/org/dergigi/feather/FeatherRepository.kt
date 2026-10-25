@@ -136,6 +136,11 @@ class FeatherRepository(context: Context) {
     private val repostStore = RepostStore(context)
     private val reactionStore = ReactionStore(context)
     internal val postOutbox = PostOutbox(context)
+    private val networkAvailability = NetworkAvailability(context)
+    internal val networkOnline = networkAvailability.online
+    private val outboxWake = Channel<Unit>(Channel.CONFLATED)
+    private val sendingPosts = MutableStateFlow<Set<String>>(emptySet())
+    internal val outboxSending = sendingPosts.asStateFlow()
     private val reactionDeletions = ReactionDeletions(context)
     private val noteDeletions = NoteDeletions(context)
     @Volatile private var deletionTargets: List<Event> = emptyList()
@@ -889,7 +894,15 @@ class FeatherRepository(context: Context) {
     }
 
     private suspend fun accept(event: Event, history: Boolean = false, seenAt: String? = null): Boolean = withContext(Dispatchers.IO) {
-        acceptOnIo(event, history, seenAt)
+        val accepted = acceptOnIo(event, history, seenAt)
+        // A local cache hit is not delivery evidence. Independently verify the relay
+        // payload even when acceptOnIo took its already-cached fast path.
+        if (accepted && seenAt?.let(Protocol::relay) != null && event.id in postOutbox.ids.value && event.verify()) {
+            runCatching { postOutbox.remove(event.id) }
+            outboxWake.trySend(Unit)
+        }
+        if (accepted && event.kind == 5) outboxWake.trySend(Unit)
+        accepted
     }
 
     private suspend fun acceptOnIo(event: Event, history: Boolean, seenAt: String?): Boolean {
@@ -1902,6 +1915,7 @@ class FeatherRepository(context: Context) {
         check(state.value.publicKey == author) { "Account changed" }
         store.saveSigned(draft, signed)
         postOutbox.put(signed, target)
+        outboxWake.trySend(Unit)
         // Delivery owns the event now. Cache/display it without waiting for any relay.
         accept(signed)
         _state.update {
@@ -1913,49 +1927,87 @@ class FeatherRepository(context: Context) {
         changed.tryEmit(Unit)
     }
 
-    /** One bounded delivery lane; retries never sign again or touch wallet requests. */
+    private data class OutboxSession(val owner: String?, val online: Boolean)
+
+    /** Wake on account/foreground/connectivity changes, never poll an idle queue. */
     private suspend fun deliverOutbox() {
         ready.await()
+        var restoredOwner: String? = null
+        combine(state.map { it.publicKey to it.connected.isNotEmpty() }.distinctUntilChanged(),
+            foregroundActive, networkOnline) { account, foreground, online ->
+            OutboxSession(account.first, foreground && online && account.second)
+        }.distinctUntilChanged().collectLatest { session ->
+            while (currentCoroutineContext().isActive) {
+                try {
+                    val records = postOutbox.records().filter { it.event.pubKey == session.owner }
+                    if (restoredOwner != session.owner) {
+                        records.forEach { accept(it.event) }
+                        restoredOwner = session.owner
+                        changed.tryEmit(Unit)
+                    }
+                    // Also repair stale pending markers left by earlier app versions.
+                    records.filter { eventRelays.read(it.event.id).isNotEmpty() }.forEach { postOutbox.remove(it.event.id) }
+                    if (!session.online || session.owner == null) return@collectLatest
+                    drainOutbox(session.owner)
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { delay(5_000) } // Retain durable records on storage failure.
+            }
+        }
+    }
+
+    /** Two independent deliveries; a queued reply waits for its parent's confirmation. */
+    private suspend fun drainOutbox(owner: String) = coroutineScope {
+        val jobs = mutableMapOf<String, Job>()
+        val completed = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
         val retryAt = mutableMapOf<String, Long>()
         val failures = mutableMapOf<String, Int>()
-        var restoredOwner: String? = null
-        var wasConnected = false
-        while (currentCoroutineContext().isActive) {
-            if (!foregroundActive.value) {
-                wasConnected = false
-                foregroundActive.first { it }
-            }
-            try {
-                val owner = state.value.publicKey
-                val records = postOutbox.records().filter { it.event.pubKey == owner }
-                val ids = records.map { it.event.id }.toSet()
-                retryAt.keys.retainAll(ids)
-                failures.keys.retainAll(ids)
-                if (owner != restoredOwner) {
-                    records.forEach { accept(it.event) }
-                    restoredOwner = owner
-                    retryAt.clear()
-                    failures.clear()
-                    changed.tryEmit(Unit)
+        while (isActive) {
+            for ((id, confirmed) in completed.entries.toList()) {
+                completed.remove(id)
+                jobs.remove(id)?.join()
+                if (confirmed || id !in postOutbox.ids.value) {
+                    postOutbox.remove(id)
+                    retryAt.remove(id)
+                    failures.remove(id)
+                } else {
+                    val count = ((failures[id] ?: 0) + 1).coerceAtMost(5)
+                    failures[id] = count
+                    retryAt[id] = android.os.SystemClock.elapsedRealtime() + (5_000L shl (count - 1))
                 }
-                val connected = foregroundActive.value && state.value.connected.isNotEmpty()
-                if (connected && !wasConnected) retryAt.clear()
-                wasConnected = connected
-                if (connected) for (record in records) {
-                    if (!foregroundActive.value || state.value.publicKey != owner || state.value.connected.isEmpty()) break
-                    val event = record.event
-                    if (noteDeletions.hides(event)) {
-                        postOutbox.remove(event.id)
-                        continue
-                    }
-                    // Keep the durable original pending until its deletion is confirmed,
-                    // but never send it while a signed deletion request is outstanding.
-                    if (reactionDeletions.pending(event.pubKey, setOf(event.id)) != null) continue
-                    // A reply can name a locally signed parent; deliver that parent first.
-                    if (record.target?.id in postOutbox.ids.value) continue
-                    if ((retryAt[event.id] ?: 0L) > android.os.SystemClock.elapsedRealtime()) continue
-                    val author = record.target?.pubKey ?: event.pubKey
+            }
+            // Relay echoes can confirm a post while its publish acknowledgement is still waiting.
+            for (id in jobs.keys.toList()) if (id !in postOutbox.ids.value) {
+                jobs.remove(id)?.cancelAndJoin()
+                completed.remove(id)
+                retryAt.remove(id)
+                failures.remove(id)
+            }
+            val records = postOutbox.records().filter { it.event.pubKey == owner }
+            val ids = records.map { it.event.id }.toSet()
+            retryAt.keys.retainAll(ids)
+            failures.keys.retainAll(ids)
+            var nextRetry: Long? = null
+            for (record in records) {
+                val event = record.event
+                if (event.id in jobs) continue
+                if (noteDeletions.hides(event) || eventRelays.read(event.id).isNotEmpty()) {
+                    postOutbox.remove(event.id)
+                    outboxWake.trySend(Unit) // A child earlier in this pass may now be eligible.
+                    continue
+                }
+                if (reactionDeletions.pending(owner, setOf(event.id)) != null) continue
+                if (record.target?.id in postOutbox.ids.value) continue
+                if (jobs.size >= 2) continue
+                val due = retryAt[event.id] ?: 0L
+                if (due > android.os.SystemClock.elapsedRealtime()) {
+                    nextRetry = minOf(nextRetry ?: due, due)
+                    continue
+                }
+                if (event.id !in postOutbox.ids.value) continue
+                jobs[event.id] = launch {
+                    val author = record.target?.pubKey ?: owner
                     beginPublishing(author)
+                    sendingPosts.update { it + event.id }
                     val confirmed = try {
                         publishPostEvent(event, record.target, attempts = 1)
                     } catch (e: TimeoutCancellationException) {
@@ -1963,22 +2015,17 @@ class FeatherRepository(context: Context) {
                         false
                     } catch (e: CancellationException) { throw e }
                     catch (_: Exception) { false }
-                    finally { endPublishing(author); if (active) updateRoutingPool() }
-                    if (confirmed) {
-                        postOutbox.remove(event.id)
-                        retryAt.remove(event.id)
-                        failures.remove(event.id)
-                    } else {
-                        val count = ((failures[event.id] ?: 0) + 1).coerceAtMost(5)
-                        failures[event.id] = count
-                        retryAt[event.id] = android.os.SystemClock.elapsedRealtime() + (5_000L shl (count - 1))
+                    finally {
+                        sendingPosts.update { it - event.id }
+                        endPublishing(author)
+                        if (active) updateRoutingPool()
                     }
+                    completed[event.id] = confirmed
+                    outboxWake.trySend(Unit)
                 }
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) {
-                // Keep durable records on disk if storage or relay delivery is unavailable.
             }
-            delay(2_000)
+            if (nextRetry == null || jobs.size >= 2) outboxWake.receive()
+            else withTimeoutOrNull((nextRetry - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(1)) { outboxWake.receive() }
         }
     }
 

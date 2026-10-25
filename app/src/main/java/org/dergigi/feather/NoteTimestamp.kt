@@ -57,6 +57,9 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     val blocktime = repository.blocktime
     val pendingIds by repository.postOutbox.ids.collectAsStateWithLifecycle()
     val pending = note.id in pendingIds
+    val sendingIds by repository.outboxSending.collectAsStateWithLifecycle()
+    val online by repository.networkOnline.collectAsStateWithLifecycle()
+    val sending = online && note.id in sendingIds
     // Order: absolute date/time, block height, relative age. Start with relative age.
     val preference = (context.applicationContext as FeatherApplication).timestamps
     val mode by preference.mode.collectAsStateWithLifecycle()
@@ -66,8 +69,13 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && visible
     val flip = remember(note.id) { Animatable(0f) }
-    LaunchedEffect(pending, active) {
-        if (pending && active) while (true) {
+    LaunchedEffect(pending, active, sending) {
+        // Return to an upright hourglass instead of leaving a partial flip frozen offline.
+        if (!pending || !active || !sending) {
+            flip.snapTo(0f)
+            return@LaunchedEffect
+        }
+        while (true) {
             delay(1_650)
             flip.animateTo(flip.value + 180f, tween(350))
             flip.snapTo(flip.value % 360f)

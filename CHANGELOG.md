@@ -4,6 +4,15 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-25
+
+### Fixed
+- Clear pending posts when a relay returns the exact verified event, even if its publishing acknowledgement was missed. Reconcile existing pending posts against saved relay provenance.
+- Keep the hourglass still while offline or waiting between delivery attempts; animate only during active publication.
+
+### Changed
+- Wake post delivery immediately on enqueue and reconnection, with up to two concurrent deliveries while preserving queued parent-before-reply ordering.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added
