@@ -3,6 +3,12 @@ package org.dergigi.feather
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.withLink
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -109,7 +115,40 @@ private fun ArticleLinkText(content: String, node: ASTNode, style: TextStyle, he
 
 @Composable
 @Suppress("DEPRECATION")
-private fun ArticleAnnotatedText(text: AnnotatedString, style: TextStyle, heading: Boolean = false, tableCell: Boolean = false) {
+private fun ArticleAnnotatedText(source: AnnotatedString, style: TextStyle, heading: Boolean = false, tableCell: Boolean = false) {
+    val embeds = LocalMarkdownEmbeds.current
+    val open by rememberUpdatedState(embeds?.onReference)
+    val linkColor = MaterialTheme.colorScheme.primary
+    val text = remember(source, embeds?.event?.id, embeds?.state?.profiles, linkColor) {
+        if (embeds == null) source else {
+            val mentions = NostrContent.tokens(source.text, embeds.event).filter { token ->
+                token.reference?.profile == true &&
+                    source.spanStyles.none { it.start < token.end && it.end > token.start && it.item.fontFamily == FontFamily.Monospace } &&
+                    source.getLinkAnnotations(token.start, token.end).all { range ->
+                        val url = (range.item as? LinkAnnotation.Url)?.url
+                        url != null && NostrContent.decode(url)?.id == token.reference?.id
+                    }
+            }
+            if (mentions.isEmpty()) source else buildAnnotatedString {
+                var cursor = 0
+                mentions.forEach { token ->
+                    append(source.subSequence(cursor, token.start))
+                    val ref = token.reference!!
+                    val start = length
+                    withLink(LinkAnnotation.Clickable(ref.copyableLink(token.text),
+                        TextLinkStyles(SpanStyle(color = linkColor))) { open?.invoke(ref) }) {
+                        append("@${embeds.state.profiles[ref.id]?.name ?: FeatherRepository.shortKey(ref.id)}")
+                    }
+                    // Preserve surrounding emphasis, font size and other Markdown styling.
+                    source.spanStyles.filter { it.start < token.end && it.end > token.start }.forEach {
+                        addStyle(it.item, start, length)
+                    }
+                    cursor = token.end
+                }
+                append(source.subSequence(cursor, source.length))
+            }
+        }
+    }
     val layout = remember { TextLinkLayout() }
     val references = LocalReferenceLinkHandler.current
     val modifier = (if (heading) Modifier.semantics { heading() } else Modifier)

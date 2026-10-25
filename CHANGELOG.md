@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Display raw profile mentions in articles and issue bodies as tappable names, preserving Markdown styling and literal code.
 - Keep the main navigation pill visible for a short grace period after switching tabs, then gently return to its scroll-hidden position.
 - Render embedded Nostr notes in long-form articles using the shared cache, with up to 16 references per article instead of the short-note limit of three.
 
