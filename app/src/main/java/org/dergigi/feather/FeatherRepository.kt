@@ -736,9 +736,9 @@ class FeatherRepository(context: Context) {
             _state.update { it.copy(notificationsLoading = false) }
         }
     }
-    private suspend fun cachedIssueStatuses(countTargets: List<Event>): Map<String, Int> {
+    private suspend fun refreshIssueStatuses(countTargets: List<Event>) {
         visibleIssues = countTargets.filter { it.kind == 1621 }.take(8)
-        return mutex.withLock {
+        val statuses = mutex.withLock {
             issueRepositoryEvents = visibleIssues.associate { issue -> issue.id to issueRepositories(issue).mapNotNull { address ->
                 db.query<Event>(issueRepositoryFilter(address)!!).sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id }).firstOrNull()
             } }
@@ -750,6 +750,8 @@ class FeatherRepository(context: Context) {
                 )))
             }
         }
+        _state.update { current -> current.copy(issueStatuses =
+            (current.issueStatuses + statuses).entries.toList().takeLast(128).associate { it.toPair() }) }
     }
 
     private fun subscribeNotifications() {
@@ -1398,7 +1400,7 @@ class FeatherRepository(context: Context) {
             byId + byAddress
         }
         val countTargets = (visible.filter { it.kind in readableKinds } + embedded.values.filterNot(contentFilter::hides)).distinctBy { it.id }.take(24)
-        val issueStatuses = cachedIssueStatuses(countTargets)
+        refreshIssueStatuses(countTargets)
         visiblePolls = countTargets.filter { it.kind == 1068 }.take(8)
         val pollResults = mutex.withLock {
             visiblePolls.associate { poll -> poll.id to tallyPoll(poll,
@@ -1477,7 +1479,7 @@ class FeatherRepository(context: Context) {
         val previous = _state.value.following
         val mutesChanged = _state.value.mutedAuthors != mutedAuthors
         val previousThreadAuthor = _state.value.threadNotes.find { it.matchesThread(viewedThread) }?.pubKey
-        _state.update { it.copy(issueStatuses = (it.issueStatuses + issueStatuses).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = mergeHashtagSnapshot(it, hashtagNotes, hashtag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount), hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = mergeProfileSnapshot(it, profileEvents, profile, tab, profileCeiling, profileCount), profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, mutedWords = mutedWords, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
+        _state.update { it.copy(pollResults = (it.pollResults.mapValues { (_, result) -> if (result.ballots.isEmpty()) result else result.copy(ballots = emptyList()) } + pollResults).entries.toList().takeLast(64).associate { entry -> entry.toPair() }, notes = all, notifications = notifications, notificationsFor = key, feedTab = feed, feedTabs = feedTabs, feedPreviews = feedPreviews, hashtagNotes = mergeHashtagSnapshot(it, hashtagNotes, hashtag, hashtagAuthor, hashtagTab, hashtagCeiling, hashtagCount), hashtagFor = hashtag, hashtagAuthor = hashtagAuthor, hashtagTab = hashtagTab, hashtagCategories = hashtagCategories, profileEvents = mergeProfileSnapshot(it, profileEvents, profile, tab, profileCeiling, profileCount), profileTabsFor = profile, profileTabs = availableTabs, embedded = (it.embedded + embedded).entries.toList().takeLast(128).associate { entry -> entry.toPair() }, engagement = (it.engagement - counts.keys + counts).entries.toList().takeLast(800).associate { entry -> entry.toPair() }, profiles = (it.profiles - profiles.keys + profiles).entries.toList().takeLast(1000).associate { entry -> entry.toPair() }, following = following, sentReposts = sentReposts, sentReactions = sentReactions, deletedReactions = deletedReactions, reactionChoices = reactionChoices, recentEmojis = recentEmojis, customEmojis = customEmojis, mutedAuthors = mutedAuthors, mutedWords = mutedWords, pendingMuteList = pendingMuteList).withFollowedAccounts(contact).withFollowedHashtags(interestList, privateTags) }
         if (mutesChanged) threadChanges.tryEmit(Unit)
         if (active && (readingChanged || following != previous || previousHashtags != hashtagFollows || routesChanged || previousThreadAuthor != threadNotes.find { it.matchesThread(viewedThread) }?.pubKey)) subscribeFeed()
         else if (active) { viewedThread?.let(::subscribeThread); subscribeReadingData() }
