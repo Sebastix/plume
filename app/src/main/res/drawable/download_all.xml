@@ -1,4 +1,4 @@
-<!-- Material Icons, Google, Apache-2.0. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-
+    <path android:fillColor="#00000000" android:strokeColor="#000000" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M12,3 L12,13 M8,9 L12,13 L16,9 M5,14 L5,17 L19,17 L19,14 M3,19 L3,21 L21,21 L21,19" />
 </vector>

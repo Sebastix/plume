@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Restore the missing Save all images icon in the gallery menu.
+
 ## [1.8.0] - 2026-10-25
 
 ### Added
