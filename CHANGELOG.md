@@ -11,7 +11,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 - Share issues through GitWorkshop instead of njump.
 
 ### Added
-- Compact open, resolved, closed, and draft indicators on issues, using cached NIP-34 status updates from their author or repository maintainers.
+- Issue icons show open, resolved, closed, or draft status directly in lists and detail views, using cached NIP-34 status updates from their author or repository maintainers.
 
 ## [1.4.0] - 2026-10-25
 
