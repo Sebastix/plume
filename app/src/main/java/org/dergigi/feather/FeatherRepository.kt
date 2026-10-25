@@ -138,6 +138,9 @@ class FeatherRepository(context: Context) {
     internal val postOutbox = PostOutbox(context)
     private val networkAvailability = NetworkAvailability(context)
     internal val networkOnline = networkAvailability.online
+    private val outboxWork = PostDeliveryWork(context.applicationContext)
+    private val backgroundOutboxOwner = MutableStateFlow<String?>(null)
+    private val backgroundOutboxMutex = Mutex()
     private val outboxWake = Channel<Unit>(Channel.CONFLATED)
     private val sendingPosts = MutableStateFlow<Set<String>>(emptySet())
     internal val outboxSending = sendingPosts.asStateFlow()
@@ -323,6 +326,12 @@ class FeatherRepository(context: Context) {
     }
     init {
         scope.launch { deliverOutbox() }
+        scope.launch {
+            ready.await()
+            if (postOutbox.records().any { it.event.pubKey == state.value.publicKey }) {
+                runCatching { outboxWork.schedule(replace = false) }
+            }
+        }
         // Migrate legacy device preferences only to the currently connected account.
         state.value.publicKey?.let { owner ->
             prefs.edit().putBoolean("show-sensitive:$owner", state.value.showSensitive)
@@ -1915,6 +1924,8 @@ class FeatherRepository(context: Context) {
         check(state.value.publicKey == author) { "Account changed" }
         store.saveSigned(draft, signed)
         postOutbox.put(signed, target)
+        // Persist Android's wake-up before acknowledging the composer hand-off.
+        outboxWork.schedule(replace = true)
         outboxWake.trySend(Unit)
         // Delivery owns the event now. Cache/display it without waiting for any relay.
         accept(signed)
@@ -1929,13 +1940,32 @@ class FeatherRepository(context: Context) {
 
     private data class OutboxSession(val owner: String?, val online: Boolean)
 
+    /** WorkManager lends the shared delivery loop a bounded background execution window. */
+    internal suspend fun deliverPostsInBackground(): Boolean = withContext(Dispatchers.IO) {
+        backgroundOutboxMutex.withLock {
+            ready.await()
+            val owner = state.value.publicKey ?: return@withLock true
+            if (postOutbox.records().none { it.event.pubKey == owner }) return@withLock true
+            backgroundOutboxOwner.value = owner
+            try {
+                withTimeoutOrNull(120_000) {
+                    combine(postOutbox.ids, state.map { it.publicKey }.distinctUntilChanged()) { _, account ->
+                        account != owner || postOutbox.records().none { it.event.pubKey == owner }
+                    }.first { it }
+                } != null
+            } finally {
+                backgroundOutboxOwner.value = null
+            }
+        }
+    }
+
     /** Wake on account/foreground/connectivity changes, never poll an idle queue. */
     private suspend fun deliverOutbox() {
         ready.await()
         var restoredOwner: String? = null
-        combine(state.map { it.publicKey to it.connected.isNotEmpty() }.distinctUntilChanged(),
-            foregroundActive, networkOnline) { account, foreground, online ->
-            OutboxSession(account.first, foreground && online && account.second)
+        combine(state.map { it.publicKey }.distinctUntilChanged(),
+            foregroundActive, networkOnline, backgroundOutboxOwner) { owner, foreground, online, backgroundOwner ->
+            OutboxSession(owner, online && (foreground || (owner != null && backgroundOwner == owner)))
         }.distinctUntilChanged().collectLatest { session ->
             while (currentCoroutineContext().isActive) {
                 try {
@@ -1957,76 +1987,96 @@ class FeatherRepository(context: Context) {
 
     /** Two independent deliveries; a queued reply waits for its parent's confirmation. */
     private suspend fun drainOutbox(owner: String) = coroutineScope {
-        val jobs = mutableMapOf<String, Job>()
-        val completed = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
-        val retryAt = mutableMapOf<String, Long>()
-        val failures = mutableMapOf<String, Int>()
-        while (isActive) {
-            for ((id, confirmed) in completed.entries.toList()) {
-                completed.remove(id)
-                jobs.remove(id)?.join()
-                if (confirmed || id !in postOutbox.ids.value) {
-                    postOutbox.remove(id)
+        // A publishing-only connection pool survives UI backgrounding without keeping feed REQs alive.
+        val deliveryScope = CoroutineScope(currentCoroutineContext() + SupervisorJob(currentCoroutineContext()[Job]))
+        val deliveryClient = NostrClient(RelayTransport(), deliveryScope)
+        deliveryClient.connect()
+        try {
+            val jobs = mutableMapOf<String, Job>()
+            val completed = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+            val retryAt = mutableMapOf<String, Long>()
+            val failures = mutableMapOf<String, Int>()
+            while (isActive) {
+                for ((id, confirmed) in completed.entries.toList()) {
+                    completed.remove(id)
+                    jobs.remove(id)?.join()
+                    if (confirmed || id !in postOutbox.ids.value) {
+                        postOutbox.remove(id)
+                        retryAt.remove(id)
+                        failures.remove(id)
+                    } else {
+                        val count = ((failures[id] ?: 0) + 1).coerceAtMost(5)
+                        failures[id] = count
+                        retryAt[id] = android.os.SystemClock.elapsedRealtime() + (5_000L shl (count - 1))
+                    }
+                }
+                // Relay echoes can confirm a post while its publish acknowledgement is still waiting.
+                for (id in jobs.keys.toList()) if (id !in postOutbox.ids.value) {
+                    jobs.remove(id)?.cancelAndJoin()
+                    completed.remove(id)
                     retryAt.remove(id)
                     failures.remove(id)
-                } else {
-                    val count = ((failures[id] ?: 0) + 1).coerceAtMost(5)
-                    failures[id] = count
-                    retryAt[id] = android.os.SystemClock.elapsedRealtime() + (5_000L shl (count - 1))
                 }
-            }
-            // Relay echoes can confirm a post while its publish acknowledgement is still waiting.
-            for (id in jobs.keys.toList()) if (id !in postOutbox.ids.value) {
-                jobs.remove(id)?.cancelAndJoin()
-                completed.remove(id)
-                retryAt.remove(id)
-                failures.remove(id)
-            }
-            val records = postOutbox.records().filter { it.event.pubKey == owner }
-            val ids = records.map { it.event.id }.toSet()
-            retryAt.keys.retainAll(ids)
-            failures.keys.retainAll(ids)
-            var nextRetry: Long? = null
-            for (record in records) {
-                val event = record.event
-                if (event.id in jobs) continue
-                if (noteDeletions.hides(event) || eventRelays.read(event.id).isNotEmpty()) {
-                    postOutbox.remove(event.id)
-                    outboxWake.trySend(Unit) // A child earlier in this pass may now be eligible.
-                    continue
-                }
-                if (reactionDeletions.pending(owner, setOf(event.id)) != null) continue
-                if (record.target?.id in postOutbox.ids.value) continue
-                if (jobs.size >= 2) continue
-                val due = retryAt[event.id] ?: 0L
-                if (due > android.os.SystemClock.elapsedRealtime()) {
-                    nextRetry = minOf(nextRetry ?: due, due)
-                    continue
-                }
-                if (event.id !in postOutbox.ids.value) continue
-                jobs[event.id] = launch {
-                    val author = record.target?.pubKey ?: owner
-                    beginPublishing(author)
-                    sendingPosts.update { it + event.id }
-                    val confirmed = try {
-                        publishPostEvent(event, record.target, attempts = 1)
-                    } catch (e: TimeoutCancellationException) {
-                        currentCoroutineContext().ensureActive()
-                        false
-                    } catch (e: CancellationException) { throw e }
-                    catch (_: Exception) { false }
-                    finally {
-                        sendingPosts.update { it - event.id }
-                        endPublishing(author)
-                        if (active) updateRoutingPool()
+                val records = postOutbox.records().filter { it.event.pubKey == owner }
+                val ids = records.map { it.event.id }.toSet()
+                retryAt.keys.retainAll(ids)
+                failures.keys.retainAll(ids)
+                var nextRetry: Long? = null
+                for (record in records) {
+                    val event = record.event
+                    if (event.id in jobs) continue
+                    if (noteDeletions.hides(event) || eventRelays.read(event.id).isNotEmpty()) {
+                        postOutbox.remove(event.id)
+                        outboxWake.trySend(Unit) // A child earlier in this pass may now be eligible.
+                        continue
                     }
-                    completed[event.id] = confirmed
-                    outboxWake.trySend(Unit)
+                    if (reactionDeletions.pending(owner, setOf(event.id)) != null) continue
+                    if (record.target?.id in postOutbox.ids.value) continue
+                    if (jobs.size >= 2) continue
+                    val due = retryAt[event.id] ?: 0L
+                    if (due > android.os.SystemClock.elapsedRealtime()) {
+                        nextRetry = minOf(nextRetry ?: due, due)
+                        continue
+                    }
+                    if (event.id !in postOutbox.ids.value) continue
+                    jobs[event.id] = launch {
+                        val author = record.target?.pubKey ?: owner
+                        beginPublishing(author)
+                        sendingPosts.update { it + event.id }
+                        val confirmed = try {
+                            publishQueuedPost(deliveryClient, event, record.target)
+                        } catch (e: TimeoutCancellationException) {
+                            currentCoroutineContext().ensureActive()
+                            false
+                        } catch (e: CancellationException) { throw e }
+                        catch (_: Exception) { false }
+                        finally {
+                            sendingPosts.update { it - event.id }
+                            endPublishing(author)
+                            if (active) updateRoutingPool()
+                        }
+                        completed[event.id] = confirmed
+                        outboxWake.trySend(Unit)
+                    }
                 }
+                if (nextRetry == null || jobs.size >= 2) outboxWake.receive()
+                else withTimeoutOrNull((nextRetry - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(1)) { outboxWake.receive() }
             }
-            if (nextRetry == null || jobs.size >= 2) outboxWake.receive()
-            else withTimeoutOrNull((nextRetry - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(1)) { outboxWake.receive() }
+        } finally {
+            deliveryClient.disconnect()
+            deliveryScope.cancel()
         }
+    }
+
+    private suspend fun publishQueuedPost(deliveryClient: NostrClient, event: Event, target: Event?): Boolean {
+        currentCoroutineContext().ensureActive()
+        check(state.value.publicKey == event.pubKey) { "Account changed" }
+        val routes = (relayLists[event.pubKey]?.write.orEmpty().take(2) +
+            target?.let { relayLists[it.pubKey]?.read }.orEmpty().take(2) + state.value.relays).distinct().take(4) +
+            (if (target?.let { it.kind == 1621 || it.tagValue("K") == "1621" } == true) IssueReports.RELAYS else emptyList()) +
+            (if (target?.isAppDiscussion() == true) listOf(ZAPSTORE_RELAY) else emptyList())
+        return routes.isNotEmpty() && deliveryClient.publishAndConfirm(event,
+            routes.map { it.normalizeRelayUrl() }.toSet(), timeoutInSeconds = 15, untilFirstAccept = true)
     }
 
     /** Publish an explicitly signed NIP-56 account report through the account’s existing routes. */
@@ -2233,7 +2283,9 @@ class FeatherRepository(context: Context) {
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
         _state.update { it.copy(pollResults = emptyMap(), publicKey = pubkey, signerPackage = signer, settingsEvent = null, showSensitive = prefs.getBoolean("show-sensitive:$pubkey", false), proofOfWork = prefs.getBoolean("proof-of-work:$pubkey", true), following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), mutedWords = emptySet(), pendingMuteList = null, loading = true) }
-        ready.await(); refreshAccountData(force = true); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
+        ready.await()
+        if (postOutbox.records().any { it.event.pubKey == pubkey }) outboxWork.schedule(replace = true)
+        refreshAccountData(force = true); threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     suspend fun logout() = withContext(Dispatchers.IO) {
         prefs.edit().remove("pubkey").remove("signer").remove("draft").remove("draftReply").remove("pending").apply()
@@ -2241,6 +2293,7 @@ class FeatherRepository(context: Context) {
         client.unsubscribe("emoji-packs")
         feedUntil = null; feedCeilings.clear(); selectedFeed = ProfileTab.POSTS
         _state.update { it.copy(pollResults = emptyMap(), publicKey = null, signerPackage = null, settingsEvent = null, showSensitive = false, proofOfWork = true, following = emptySet(), followedAccounts = emptySet(), followedAccountsVersion = null, followedHashtags = emptySet(), followedHashtagsVersion = null, pendingHashtagList = null, notes = emptyList(), notifications = emptyList(), notificationsFor = null, notificationsLoading = false, feedTab = ProfileTab.POSTS, feedTabs = listOf(ProfileTab.POSTS), feedPreviews = emptyMap(), sentReposts = emptySet(), sentReactions = emptyMap(), reactionChoices = defaultReactions, recentEmojis = emptyList(), customEmojis = emptyList(), mutedAuthors = emptySet(), mutedWords = emptySet(), pendingMuteList = null) }
+        outboxWork.cancel()
         threadChanges.tryEmit(Unit); snapshot(); if (active) subscribeFeed()
     }
     fun feedTab(tab: ProfileTab) {

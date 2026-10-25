@@ -32,8 +32,8 @@ android {
         applicationId = "org.dergigi.feather"
         minSdk = 26
         targetSdk = 37
-        versionCode = 212
-        versionName = "1.1.1"
+        versionCode = 213
+        versionName = "1.2.0"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         buildConfigField("String", "GIFS_NOSTR_BUILD_API_KEY", "\"$gifApiKey\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -65,6 +65,7 @@ android {
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
 dependencies {
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.vitorpamplona.quartz:quartz:1.17.0")
     implementation("androidx.core:core-ktx:1.19.1")

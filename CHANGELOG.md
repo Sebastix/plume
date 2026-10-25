@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-25
+
+### Added
+- Deliver already-signed queued posts and replies in the background using Android WorkManager when connectivity returns, including after process restarts and device reboots. Share the existing two delivery slots and parent-before-reply ordering with foreground delivery; pause on logout.
+
 ## [1.1.1] - 2026-10-25
 
 ### Fixed
