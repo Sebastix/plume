@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-25
+
 ### Fixed
 - Render Nostr references in issue bodies as embedded cards in place, preserving Markdown and using cached notes and profiles.
 
