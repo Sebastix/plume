@@ -93,19 +93,30 @@ internal fun LinkPreviewContent(content: String, limit: Int = 2, event: Event? =
     val layout by produceState(PreviewLayout(listOf(PreviewPart(content))), content, limit, event?.id) {
         value = withContext(Dispatchers.Default) { previewLayout(content, limit, event) }
     }
+    val extraLinks = remember(layout) {
+        layout.podcasts.map { reference -> reference.url?.let { previewLink(it, listOf(reference)) }
+            ?: PreviewLink("https://fountain.fm", "Fountain", null, reference) }
+    }
+    val episodeOrder = remember(layout) { layout.parts.mapNotNull { it.link } + extraLinks }
+    // Two different websites may resolve to the same episode. Share only this note's
+    // bounded preview results; never merge merely by title or podcast/feed identity.
+    val episodeAudio = remember(content, event?.id, limit) { mutableStateMapOf<PreviewLink, String>() }
+    fun duplicateEpisode(link: PreviewLink, audio: String): Boolean =
+        episodeOrder.firstOrNull { episodeAudio[it] == audio }?.let { it != link } == true
+    val recordEpisode: (PreviewLink, String) -> Unit = { link, audio -> episodeAudio[link] = audio }
     layout.parts.forEachIndexed { index, part -> key(index, part.link?.url, part.link?.podcast) {
         val link = part.link
         if (link == null) text(part.text)
         else {
             if (link.youtube != null) YouTubePreview(link.youtube)
-            else OpenGraphCard(link, event, fallback = { text(part.text) })
+            else OpenGraphCard(link, event, fallback = { text(part.text) },
+                onEpisode = recordEpisode, duplicateEpisode = ::duplicateEpisode)
             if (index < layout.parts.lastIndex) Spacer(Modifier.height(8.dp))
         }
     } }
-    layout.podcasts.forEach { reference -> key(reference) {
-        val link = reference.url?.let { previewLink(it, listOf(reference)) }
-        OpenGraphCard(link ?: PreviewLink("https://fountain.fm", "Fountain", null, reference), event,
-            fallback = { PodcastIdentifierCard(reference) })
+    layout.podcasts.forEachIndexed { index, reference -> key(reference) {
+        OpenGraphCard(extraLinks[index], event,
+            fallback = { PodcastIdentifierCard(reference) }, onEpisode = recordEpisode, duplicateEpisode = ::duplicateEpisode)
     } }
 }
 
@@ -372,7 +383,11 @@ private suspend fun Call.awaitPreview(): Response = suspendCancellableCoroutine 
 }
 
 @Composable
-private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composable () -> Unit)? = null) {
+private fun OpenGraphCard(
+    link: PreviewLink, event: Event?, fallback: (@Composable () -> Unit)? = null,
+    onEpisode: (PreviewLink, String) -> Unit = { _, _ -> },
+    duplicateEpisode: (PreviewLink, String) -> Boolean = { _, _ -> false },
+) {
     val context = LocalContext.current
     val view = LocalView.current
     val media = LocalMedia.current
@@ -393,6 +408,9 @@ private fun OpenGraphCard(link: PreviewLink, event: Event?, fallback: (@Composab
     }
     val episode = metadata?.takeIf { it.audio != null }
     if (episode != null) {
+        val audio = episode.audio!!.toHttpUrlOrNull()?.newBuilder()?.fragment(null)?.build()?.toString() ?: episode.audio
+        SideEffect { onEpisode(link, audio) }
+        if (duplicateEpisode(link, audio)) return
         Spacer(Modifier.height(12.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth().onGloballyPositioned {

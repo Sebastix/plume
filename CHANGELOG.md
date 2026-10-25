@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Show one podcast player when different links in a note resolve to the same audio episode.
+
 ## [1.5.0] - 2026-10-25
 
 ### Fixed
