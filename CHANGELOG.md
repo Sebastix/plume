@@ -4,6 +4,14 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-25
+
+### Added
+- Drag or flick the main navigation pill horizontally to reach distant feeds quickly.
+
+### Changed
+- Show text labels alongside icons in note, profile, and image-gallery overflow menus.
+
 ## [1.3.0] - 2026-10-25
 
 ### Added

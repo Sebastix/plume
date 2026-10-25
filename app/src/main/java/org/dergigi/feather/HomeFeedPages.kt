@@ -12,6 +12,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.DragScope
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.Role
@@ -150,9 +156,41 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         CenterAlignedTopAppBar(
             title = {
                 val slots = tabs.size.coerceIn(1, 5)
+                val slotPixels = with(LocalDensity.current) { 48.dp.toPx() }
+                val dragState = remember(switcherPager, slotPixels) {
+                    object : DraggableState {
+                        fun scale() = switcherPager.layoutInfo.pageSize.toFloat() / slotPixels
+                        override fun dispatchRawDelta(delta: Float) {
+                            switcherPager.dispatchRawDelta(-delta * scale())
+                        }
+                        override suspend fun drag(
+                            dragPriority: MutatePriority,
+                            block: suspend DragScope.() -> Unit,
+                        ) {
+                            switcherPager.scroll(dragPriority) {
+                                val scroll = this
+                                block(object : DragScope {
+                                    override fun dragBy(pixels: Float) {
+                                        scroll.scrollBy(-pixels * scale())
+                                    }
+                                })
+                            }
+                        }
+                    }
+                }
                 BoxWithConstraints(Modifier.widthIn(max = (slots * 48).dp).fillMaxWidth().height(48.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))) {
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+                    .draggable(
+                        state = dragState, orientation = Orientation.Horizontal, enabled = enabled,
+                        onDragStopped = { velocity ->
+                            // One icon width per page, with a bounded flick toward distant tabs.
+                            val position = switcherPager.currentPage + switcherPager.currentPageOffsetFraction
+                            val momentum = (-velocity / slotPixels * 0.12f).coerceIn(-3f, 3f)
+                            val target = (position + momentum).roundToInt().coerceIn(0, switcherPager.pageCount - 1)
+                            switcherPager.animateScrollToPage(target)
+                        },
+                    )) {
                     val slotWidth = maxWidth / slots
                     val maxStart = (tabs.size - slots).coerceAtLeast(0).toFloat()
                     // Clamp the visible window at either end. The selection moves within

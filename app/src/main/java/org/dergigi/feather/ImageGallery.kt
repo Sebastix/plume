@@ -297,17 +297,22 @@ private fun ImageGallery(urls: List<String>, initialIndex: Int, noteIds: List<St
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.ui_more_image_actions), tint = foreground) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        Row {
-                            IconButton(enabled = !busy, onClick = { menu = false; download(urls.toList()) }) {
-                                Icon(painterResource(R.drawable.download_all), stringResource(R.string.ui_save_all_images))
-                            }
-                            IconButton(onClick = { menu = false; clipboard.setText(AnnotatedString(urls[pager.currentPage])) }) {
-                                Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_image_url))
-                            }
-                            IconButton(onClick = { menu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(urls[pager.currentPage]))) } }) {
-                                Icon(painterResource(R.drawable.open_external), stringResource(R.string.ui_open_image_in_browser))
-                            }
-                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.ui_save_all_images)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.download_all), null) },
+                            enabled = !busy,
+                            onClick = { menu = false; download(urls.toList()) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.ui_copy_image_url)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.copy), null) },
+                            onClick = { menu = false; clipboard.setText(AnnotatedString(urls[pager.currentPage])) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.ui_open_image_in_browser)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.open_external), null) },
+                            onClick = { menu = false; runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(urls[pager.currentPage]))) } },
+                        )
                     }
                 }
             }
