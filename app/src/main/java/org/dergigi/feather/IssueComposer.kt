@@ -76,8 +76,12 @@ internal fun IssueComposer(vm: FeatherViewModel) {
                 } else {
                     Column(Modifier.weight(1f).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(if (current.type == IssueType.FEATURE) stringResource(R.string.ui_suggest_a_feature) else stringResource(R.string.ui_report_a_bug), style = MaterialTheme.typography.titleLarge)
-                        Text(current.repository.split(':', limit = 3).last(), style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(painterResource(if (current.type == IssueType.FEATURE) R.drawable.feature_request else R.drawable.bug_report),
+                                contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text(current.repository.split(':', limit = 3).last(), style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         OutlinedTextField(current.title, { reports.edit(it, current.body) }, enabled = !busy,
                             label = { Text(stringResource(R.string.ui_title)) }, singleLine = true, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth())
                         TextField(current.body, { reports.edit(current.title, it) }, enabled = !busy,

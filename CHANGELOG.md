@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Show the bug or feature icon beside the repository name in the issue composer.
+
 ## [1.7.0] - 2026-10-25
 
 ### Added
