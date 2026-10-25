@@ -1942,12 +1942,15 @@ class FeatherRepository(context: Context) {
                 if (connected && !wasConnected) retryAt.clear()
                 wasConnected = connected
                 if (connected) for (record in records) {
-                    if (!foregroundActive.value || state.value.publicKey != owner) break
+                    if (!foregroundActive.value || state.value.publicKey != owner || state.value.connected.isEmpty()) break
                     val event = record.event
-                    if (noteDeletions.hides(event) || reactionDeletions.pending(event.pubKey, setOf(event.id)) != null) {
+                    if (noteDeletions.hides(event)) {
                         postOutbox.remove(event.id)
                         continue
                     }
+                    // Keep the durable original pending until its deletion is confirmed,
+                    // but never send it while a signed deletion request is outstanding.
+                    if (reactionDeletions.pending(event.pubKey, setOf(event.id)) != null) continue
                     // A reply can name a locally signed parent; deliver that parent first.
                     if (record.target?.id in postOutbox.ids.value) continue
                     if ((retryAt[event.id] ?: 0L) > android.os.SystemClock.elapsedRealtime()) continue
