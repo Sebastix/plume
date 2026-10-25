@@ -209,4 +209,8 @@
     <string name="ui_hold_to_delete_note">長押ししてノートを削除</string>
     <string name="ui_report_ai_slop">低品質なAI生成コンテンツ</string>
     <string name="ui_more_reference_actions">その他の操作</string>
+    <string name="ui_issue_open">未解決の課題</string>
+    <string name="ui_issue_resolved">解決済みの課題</string>
+    <string name="ui_issue_closed">終了した課題</string>
+    <string name="ui_issue_draft">下書きの課題</string>
 </resources>

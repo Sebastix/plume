@@ -3,6 +3,12 @@ package org.dergigi.feather
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Cancel
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,7 +21,7 @@ import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 @Composable
-internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit) {
+internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit, status: Int? = null) {
     val context = LocalContext.current
     val repository = remember(event.id) { event.tags.firstOrNull { it.firstOrNull() == "a" && it.getOrNull(1)?.startsWith("30617:") == true } }
     val address = remember(repository) { repository?.getOrNull(1)?.split(':', limit = 3) }
@@ -30,9 +36,24 @@ internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrCon
             Icon(painterResource(if (feature) R.drawable.feature_request else R.drawable.bug_report),
                 if (feature) "Feature request" else "Issue", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             if (repoLink != null) Text(address?.getOrNull(2).orEmpty().take(120),
-                modifier = Modifier.clickable(onClickLabel = "Open repository issues") { context.openWebLink("https://gitworkshop.dev/$repoLink") },
+                modifier = Modifier.weight(1f, fill = false).clickable(onClickLabel = "Open repository issues") { context.openWebLink("https://gitworkshop.dev/$repoLink") },
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.weight(1f))
+            status?.let {
+                val label = stringResource(when (it) {
+                    1631 -> R.string.ui_issue_resolved
+                    1632 -> R.string.ui_issue_closed
+                    1633 -> R.string.ui_issue_draft
+                    else -> R.string.ui_issue_open
+                })
+                Icon(when (it) {
+                    1631 -> Icons.Outlined.CheckCircle
+                    1632 -> Icons.Outlined.Cancel
+                    1633 -> Icons.Outlined.Edit
+                    else -> Icons.Outlined.RadioButtonUnchecked
+                }, label, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         event.tagValue("subject")?.takeIf { it.isNotBlank() }?.let {
             Text(it.take(500), style = MaterialTheme.typography.titleLarge, maxLines = if (compact) 2 else Int.MAX_VALUE,

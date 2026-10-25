@@ -612,7 +612,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(detailNote.id)
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
+                        putExtra(Intent.EXTRA_TEXT, if (detailNote.kind == 1621) "https://gitworkshop.dev/$pointer" else "https://njump.to/$pointer")
                     }, "Share note"))
                 }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_note)) }
                 if (detailNote != null) ReferenceOverflow(
@@ -1297,7 +1297,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         when {
             note.kind == 1068 -> PollContent(note, state, onReference, repost?.id ?: note.id)
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
-            note.kind == 1621 -> IssueContent(note, compact, onReference)
+            note.kind == 1621 -> IssueContent(note, compact, onReference, state.issueStatuses[note.id])
             note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
             note.kind == 30023 -> ArticleContent(note, compact, onReference)
