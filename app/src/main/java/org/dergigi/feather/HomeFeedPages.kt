@@ -10,6 +10,7 @@ import com.vitorpamplona.quartz.nip55AndroidSigner.client.ExternalSignerLogin
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.MutatePriority
@@ -91,6 +92,16 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
             .sortedBy { it.orderPriority })
     }
     val pager = rememberPagerState(initialPage = tabs.indexOf(home.tab).coerceAtLeast(0), pageCount = { tabs.size })
+    // Keep the switcher reachable after a horizontal gesture settles. A new swipe
+    // cancels the pending hide and starts a fresh grace period.
+    val pillReveal = remember(pager) { Animatable(0f) }
+    LaunchedEffect(pager.isScrollInProgress) {
+        if (pager.isScrollInProgress) pillReveal.snapTo(1f)
+        else if (pillReveal.value > 0f) {
+            kotlinx.coroutines.delay(2200)
+            pillReveal.animateTo(0f, tween(240))
+        }
+    }
     val currentTabs by rememberUpdatedState(tabs)
     SideEffect { home.tabs = tabs }
     LaunchedEffect(home.requestedFeedTab) {
@@ -267,9 +278,9 @@ internal fun HomeFeedPages(vm: FeatherViewModel, navigation: ReaderNavigation, h
         } else FeatherReader(vm, navigation, home.feedPage(category),
             activePage = category == home.tab, homeToolbar = home)
     }
-    // Swipes temporarily reveal only the pill, without changing vertical-scroll visibility.
+    // Keep vertical-scroll visibility intact beneath the temporary horizontal-navigation reveal.
     Box(Modifier.align(Alignment.BottomCenter)
-        .scrollAway(if (pager.isScrollInProgress) 1f else home.toolbarFraction, fromBottom = true) {
+        .scrollAway(if (pager.isScrollInProgress) 1f else maxOf(home.toolbarFraction, pillReveal.value), fromBottom = true) {
             home.toolbarTravelPx = it
         }) {
         feedSwitcher(pager, true)
