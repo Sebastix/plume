@@ -348,16 +348,6 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 2.dp)) {
                                         item.actor?.let { ProfileFollowButton(vm, it, size = 36) }
                                         IconButton(onClick = {
-                                            item.actor?.let(vm::muteAccount)
-                                            muteRow = null
-                                        }, modifier = Modifier.size(36.dp)) {
-                                            Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
-                                                contentAlignment = Alignment.Center) {
-                                                Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer)
-                                            }
-                                        }
-                                        IconButton(onClick = {
                                             item.actor?.let(vm.accountReports::open)
                                             muteRow = null
                                         }, modifier = Modifier.size(36.dp)) {
@@ -365,6 +355,16 @@ internal fun NotificationsPage(vm: FeatherViewModel, navigation: ReaderNavigatio
                                                 contentAlignment = Alignment.Center) {
                                                 Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
                                                     Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            }
+                                        }
+                                        IconButton(onClick = {
+                                            item.actor?.let(vm::muteAccount)
+                                            muteRow = null
+                                        }, modifier = Modifier.size(36.dp)) {
+                                            Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.account_hidden), muteLabel, Modifier.size(22.dp),
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer)
                                             }
                                         }
                                     }

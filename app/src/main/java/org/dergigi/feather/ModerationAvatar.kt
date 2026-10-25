@@ -69,6 +69,11 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
                         }
                     } else {
                         actions?.followButton?.invoke(pubkey, size)
+                        IconButton(onClick = { actions?.expanded = null; actions?.report?.invoke(pubkey) },
+                            modifier = Modifier.size(size.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
+                            Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
+                                Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                        }
                         val muted = actions?.isMuted?.invoke(pubkey) == true
                         if (profileToggle) {
                             val background = if (muted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer
@@ -95,11 +100,7 @@ internal fun ModerationAvatar(pubkey: String, name: String, picture: String?, si
                             Icon(painterResource(R.drawable.account_hidden), stringResource(R.string.ui_mute_account, name),
                                 Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                         }
-                        IconButton(onClick = { actions?.expanded = null; actions?.report?.invoke(pubkey) },
-                            modifier = Modifier.size(size.dp).background(MaterialTheme.colorScheme.errorContainer, CircleShape)) {
-                            Icon(painterResource(R.drawable.report_flag), stringResource(R.string.ui_report_account, name),
-                                Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
-                        }
+
                     }
                 }
             }

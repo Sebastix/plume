@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Order revealed avatar actions as Follow/Unfollow, Report, then Mute/Unmute in feeds, profiles, and notifications.
+
 ## [1.0.0] - 2026-10-25
 
 ### Changed
