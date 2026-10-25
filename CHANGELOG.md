@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-25
+
 ### Fixed
 - Move the translation control and its progress indicator immediately left of the note timestamp.
 - Show the bug or feature icon beside the repository name in the issue composer.
