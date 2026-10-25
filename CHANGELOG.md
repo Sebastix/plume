@@ -4,6 +4,8 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-25
+
 ### Fixed
 - Reject malformed relay hosts using the socket client's URL parser and handle connection setup failures without crashing. Invalid profile relays no longer abort reads from the remaining relays.
 
