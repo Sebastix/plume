@@ -36,7 +36,7 @@ import kotlinx.coroutines.withContext
 
 /** Full document renderer shared with Boris; keep parsing asynchronous and use Feather's media cache. */
 @Composable
-internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference) -> Unit, articleLayout: Boolean = true) {
+internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference) -> Unit, articleLayout: Boolean = true, embedState: FeedState? = null) {
     val context = LocalContext.current
     val navigate by rememberUpdatedState(onReference)
     val links = remember(context) { object : UriHandler {
@@ -75,7 +75,10 @@ internal fun ArticleMarkdown(event: Event, onReference: (NostrContent.Reference)
             }
         } else if (title != null) Text(title, Modifier.padding(horizontal = 24.dp), style = typography.headlineLarge)
         if (body == null) CircularProgressIndicator(Modifier.padding(horizontal = 24.dp).size(24.dp), strokeWidth = 2.dp)
-        else CompositionLocalProvider(LocalUriHandler provides links) {
+        else CompositionLocalProvider(
+            LocalUriHandler provides links,
+            LocalMarkdownEmbeds provides embedState?.let { MarkdownEmbeds(event, it, onReference) },
+        ) {
             NoteSelection(event) {
                 Markdown(markdownState = markdown, modifier = Modifier.fillMaxWidth().padding(horizontal = if (articleLayout) 24.dp else 0.dp),
                     components = articleLinkComponents,

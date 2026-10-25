@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- Render Nostr references in issue bodies as embedded cards in place, preserving Markdown and using cached notes and profiles.
+
 ### Changed
 - Share issues through GitWorkshop instead of njump.
 

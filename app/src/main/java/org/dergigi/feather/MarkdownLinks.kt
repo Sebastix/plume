@@ -3,6 +3,12 @@ package org.dergigi.feather
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import com.vitorpamplona.quartz.nip01Core.core.Event
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -24,6 +30,13 @@ import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
+
+internal data class MarkdownEmbeds(
+    val event: Event,
+    val state: FeedState,
+    val onReference: (NostrContent.Reference) -> Unit,
+)
+internal val LocalMarkdownEmbeds = staticCompositionLocalOf<MarkdownEmbeds?> { null }
 
 /** Keep the renderer's formatting, inline images and table layout; add the shared link gesture. */
 internal val articleLinkComponents = markdownComponents(
@@ -54,6 +67,49 @@ private fun ArticleLinkText(content: String, node: ASTNode, style: TextStyle, he
         buildMarkdownAnnotatedString(content = content, node = child, annotatorSettings = settings)
         pop()
     }
+    val embeds = LocalMarkdownEmbeds.current
+    val embeddedTokens = remember(text, embeds?.event?.id, heading, tableCell) {
+        if (embeds == null || heading || tableCell) emptyList()
+        else {
+            val allowed = NostrContent.references(embeds.event).filter {
+                !it.profile && it.hashtag == null && it.external == null && it.id != embeds.event.id
+            }.take(3).map { it.id }.toSet()
+            val links = text.getLinkAnnotations(0, text.length).mapNotNull { range ->
+                val ref = (range.item as? LinkAnnotation.Url)?.url?.let(NostrContent::decode)
+                ref?.let { NostrContent.Token(range.start, range.end, text.text.substring(range.start, range.end), it) }
+            }
+            (links + NostrContent.tokens(text.text, embeds.event))
+                .filter { token -> token.reference?.id in allowed &&
+                    text.spanStyles.none { span -> span.start < token.end && span.end > token.start && span.item.fontFamily == FontFamily.Monospace } }
+                .sortedBy { it.start }.fold(emptyList<NostrContent.Token>()) { tokens, next ->
+                    if (tokens.lastOrNull()?.end?.let { it > next.start } == true) tokens else tokens + next
+                }
+        }
+    }
+    if (embeds != null && embeddedTokens.isNotEmpty()) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            var cursor = 0
+            embeddedTokens.forEach { token ->
+                if (token.start > cursor) {
+                    val before = text.subSequence(cursor, token.start)
+                    if (before.text.isNotBlank()) ArticleAnnotatedText(before, style)
+                }
+                val reference = token.reference!!
+                EmbeddedNote(reference, embeds.state.embedded[reference.id], embeds.state.profiles,
+                    embeds.event.id, embeds.onReference)
+                cursor = token.end
+            }
+            if (cursor < text.length) {
+                val after = text.subSequence(cursor, text.length)
+                if (after.text.isNotBlank()) ArticleAnnotatedText(after, style)
+            }
+        }
+    } else ArticleAnnotatedText(text, style, heading, tableCell)
+}
+
+@Composable
+@Suppress("DEPRECATION")
+private fun ArticleAnnotatedText(text: AnnotatedString, style: TextStyle, heading: Boolean = false, tableCell: Boolean = false) {
     val layout = remember { TextLinkLayout() }
     val references = LocalReferenceLinkHandler.current
     val modifier = (if (heading) Modifier.semantics { heading() } else Modifier)

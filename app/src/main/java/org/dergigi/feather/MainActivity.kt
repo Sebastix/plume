@@ -1297,7 +1297,7 @@ private fun NoteRow(note: Event, state: FeedState, onReference: (NostrContent.Re
         when {
             note.kind == 1068 -> PollContent(note, state, onReference, repost?.id ?: note.id)
             note.kind == 32267 -> SoftwareAppContent(note, onReference)
-            note.kind == 1621 -> IssueContent(note, compact, onReference, state.issueStatuses[note.id])
+            note.kind == 1621 -> IssueContent(note, compact, onReference, state.issueStatuses[note.id], state)
             note.kind in voiceKinds -> AudioContent(note, compact, name)
             note.kind == 30030 -> EmojiPackContent(note)
             note.kind == 30023 -> ArticleContent(note, compact, onReference)

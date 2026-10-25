@@ -21,7 +21,7 @@ import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 
 @Composable
-internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit, status: Int? = null) {
+internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrContent.Reference) -> Unit, status: Int? = null, state: FeedState? = null) {
     val context = LocalContext.current
     val repository = remember(event.id) { event.tags.firstOrNull { it.firstOrNull() == "a" && it.getOrNull(1)?.startsWith("30617:") == true } }
     val address = remember(repository) { repository?.getOrNull(1)?.split(':', limit = 3) }
@@ -61,6 +61,6 @@ internal fun IssueContent(event: Event, compact: Boolean, onReference: (NostrCon
         }
         if (compact) Text(event.content.take(1200).withoutObjectMarkers(), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Ellipsis)
-        else ArticleMarkdown(event, onReference, articleLayout = false)
+        else ArticleMarkdown(event, onReference, articleLayout = false, embedState = state)
     }
 }
