@@ -1943,3 +1943,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - Signed release build passed in 1m 23s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
 - APK SHA-256 `23571951bb79c1e2399175a887ca5e919ee0b0dca1d15129dad7f5461d06bd9a`; 16,252,409 bytes. GitHub asset digest matches. Both GRASP mirrors verified at the release source and tag.
 - Zapstore release `d43e7f14f5972b80a7a47ef00c44b92f7e85bf72e3d6f03a2d48fab0fea6c21a` references asset `e2b64a1d84c89aaa1ee88c92c2b6290f7b34f79663b974a3b6f883ebb03bf53b`; hash, size, certificate and versionCode match. Publication required retries; the CDN initially returned 404 after metadata publication, then returned HTTP 200. Downloaded the complete CDN APK and verified its SHA-256. No website deployment.
+
+## 2026-10-25 — 1.2.0 release
+
+- Version 1.2.0 (213), source `dbcac02b612e21ca4d27974b0264e3fa80d7b9ef`. Add network-constrained Android WorkManager delivery for signed posts/replies, sharing the foreground loop’s two slots and dependency ordering. Pause on logout, recover on login/startup, and close publishing-only connections when the execution window ends. Android battery scheduling and force-stop restrictions still apply.
+- Signed release build passed in 1m 28s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `849e976179aa0928f528b600de079235f1c087d5c9d9876dd7d8db52940ec996`; 16,356,106 bytes. GitHub asset digest matches; SHA256SUMS uploaded. GitHub and both GRASP mirrors verified at the release source/tag.
+- Zapstore release `04cc942b832177ac5264fc3854d156cf963c9e9c205cbb94c2c476808869cb2e` references asset `df9a2435ac707175851d8f59ccc6fc6e1d58e45c6776e2693d33d853d934d01c`; hash, size, certificate and versionCode match. Publisher reported success before public availability; repeated publication and rebroadcast signed catalog events. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
