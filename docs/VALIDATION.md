@@ -1974,3 +1974,10 @@ Confirmed the Eurosky getBlob URL shown in the report returns HTTP 200 and image
 - APK SHA-256 `89b39207ef7268ca02b2a8dcde6ac097e8dc14e85e0aace56f25b64cece44403`; 16,375,374 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
 - Zapstore release `1f71c3f81385319bcb4c546849c72e2f4c18031379e96a8fa5e33e0bb9ca3aec` references asset `0baca76f1ba38ea0d5078b14ab5f2b5f6e9be91967931b4ae5fe8ecf5d4ff847`; hash, size, certificate and versionCode match. Rebroadcast signed catalog events after the initial read-back found no release. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
 - The podcast-player deduplication reported during publication is committed separately and remains unreleased.
+
+## 2026-10-25 — 1.5.1 release
+
+- Version 1.5.1 (217), source `c3fabb35906c3e8c30bfc319c437099ed544a4dc`. Deduplicate podcast players within each note by resolved audio URL, preserving distinct episodes and existing metadata request limits.
+- Signed release build passed in 48s. No tests or emulators run. Package/version and expected signing certificate verified; mapping archived.
+- APK SHA-256 `24c808b728f99583d7f05b9dc2f30e6499bef08e26c54ad36f601a31eba217c8`; 16,375,374 bytes. GitHub asset digest matches; SHA256SUMS uploaded. Both GRASP mirrors verified at the release tag.
+- Zapstore release `8286a361f8f286d3d22567e0121058b44ef93883e2007003a3837912ed64d26f` references asset `0ceedf66a9a8290ed661ea8c1ec84198b07579690b738907b8712b2ee6169172`; hash, size, certificate and versionCode match. Rebroadcast signed catalog events after initial publication was not returned by the relay. Complete CDN APK downloaded and SHA-256 verified. No website deployment.
