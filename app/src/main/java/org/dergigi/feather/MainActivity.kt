@@ -578,26 +578,27 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                 if (screen == "profile" && profileKey != null) {
                     val pointer = Protocol.npub(profileKey)
                     IconButton(onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", pointer))
-                    }, modifier = toolbarButtonSurface) {
-                        Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_profile_public_key), Modifier.size(20.dp))
-                    }
-                    IconButton(enabled = !openingInApp, onClick = {
-                        openingInApp = true
-                        scrollScope.launch {
-                            try { context.openInNostrApp(pointer) }
-                            finally { openingInApp = false }
-                        }
-                    }, modifier = toolbarButtonSurface) {
-                        Icon(painterResource(R.drawable.open_in_app), stringResource(R.string.ui_open_profile_in_another_nostr_app))
-                    }
-                    IconButton(onClick = {
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
                         }, context.getString(R.string.ui_share_profile)))
                     }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_profile)) }
+                    ReferenceOverflow(
+                        identity = pointer, modifier = toolbarButtonSurface,
+                        copyDescription = stringResource(R.string.ui_copy_profile_public_key),
+                        openDescription = stringResource(R.string.ui_open_profile_in_another_nostr_app),
+                        opening = openingInApp,
+                        onCopy = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr public key", pointer))
+                        },
+                        onOpen = {
+                            openingInApp = true
+                            scrollScope.launch {
+                                try { context.openInNostrApp(pointer) }
+                                finally { openingInApp = false }
+                            }
+                        })
                 }
                 if (screen == "hashtag") HashtagFollowButton(vm, hashtag.orEmpty()) { showAccount = true }
                 val detailNote = if (screen == "thread") {
@@ -605,20 +606,6 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         ?: entry.notes[profileTab]?.firstOrNull { it.matchesThread(threadId) })
                         ?.takeUnless { contentFilter.hides(it) || it.id in s.conversation?.deleted.orEmpty() }
                 } else null
-                if (detailNote != null) IconButton(onClick = {
-                    val pointer = detailNote.nostrPointer()
-                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:$pointer"))
-                }, modifier = toolbarButtonSurface) { Icon(painterResource(R.drawable.copy), stringResource(R.string.ui_copy_nostr_reference), Modifier.size(20.dp)) }
-                if (detailNote != null) IconButton(enabled = !openingInApp, onClick = {
-                    openingInApp = true
-                    scrollScope.launch {
-                        try { context.openInNostrApp(detailNote) }
-                        finally { openingInApp = false }
-                    }
-                }, modifier = toolbarButtonSurface) {
-                    Icon(painterResource(R.drawable.open_in_app), stringResource(R.string.ui_open_note_in_another_nostr_app))
-                }
                 if (detailNote != null) IconButton(onClick = {
                     val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
                         com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
@@ -628,6 +615,22 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         putExtra(Intent.EXTRA_TEXT, "https://njump.to/$pointer")
                     }, "Share note"))
                 }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_note)) }
+                if (detailNote != null) ReferenceOverflow(
+                    identity = detailNote.id, modifier = toolbarButtonSurface,
+                    copyDescription = stringResource(R.string.ui_copy_nostr_reference),
+                    openDescription = stringResource(R.string.ui_open_note_in_another_nostr_app),
+                    opening = openingInApp,
+                    onCopy = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${detailNote.nostrPointer()}"))
+                    },
+                    onOpen = {
+                        openingInApp = true
+                        scrollScope.launch {
+                            try { context.openInNostrApp(detailNote) }
+                            finally { openingInApp = false }
+                        }
+                    })
                 if (screen == "profile" && s.publicKey != null && profileKey == s.publicKey) IconButton(onClick = { showSettings = true }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Settings, stringResource(R.string.ui_settings)) }
                 if (screen == "feed") {
                     IconButton(onClick = { s.publicKey?.let { openProfile(it) } ?: run { showAccount = true } }, modifier = (if (s.publicKey != null) Modifier.size(RoundControlSize) else toolbarButtonSurface).semantics { contentDescription = "Account" }) {

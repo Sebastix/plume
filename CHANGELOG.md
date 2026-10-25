@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Keep Share visible in note and profile title bars; move Copy and Open in another app into a compact overflow menu.
+
 ## [1.2.0] - 2026-10-25
 
 ### Added

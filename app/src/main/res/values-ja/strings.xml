@@ -208,4 +208,5 @@
     <string name="ui_muted_account_actions">%1$sはミュート中です。アカウントの操作を表示</string>
     <string name="ui_hold_to_delete_note">長押ししてノートを削除</string>
     <string name="ui_report_ai_slop">低品質なAI生成コンテンツ</string>
+    <string name="ui_more_reference_actions">その他の操作</string>
 </resources>
