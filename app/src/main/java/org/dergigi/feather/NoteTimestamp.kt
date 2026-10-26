@@ -152,7 +152,7 @@ internal fun NotificationTimestamp(note: Event, onLongClick: (() -> Unit)? = nul
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
         }.combinedClickable(onClick = onClick,
             onLongClickLabel = longClickLabel ?: stringResource(R.string.ui_copy_nostr_reference),
-            onLongClick = onLongClick ?: { copyScope.launch { context.copyTimestampReference(note) } })
+            onLongClick = onLongClick ?: { copyScope.launch { context.copyTimestampReference(note) }; Unit })
             .semantics { contentDescription = relative.spoken })
 }
 
