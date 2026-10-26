@@ -5,6 +5,7 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Fixed
+- Stop copying photo captions into the title, which displayed the same text twice in other clients.
 - Restore the missing Save all images icon in the gallery menu.
 
 ## [1.8.0] - 2026-10-25
