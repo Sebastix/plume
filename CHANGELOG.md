@@ -4,6 +4,11 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-10-26
+
+### Fixed
+- Include relay hints in replies, quotes, reactions, reposts, and shared or copied Nostr references. Prefer the relay that delivered the event so other clients can find app listings too.
+
 ## [1.8.2] - 2026-10-26
 
 ### Changed

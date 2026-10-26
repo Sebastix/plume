@@ -1,5 +1,6 @@
 package org.dergigi.feather
 
+import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -19,8 +20,8 @@ internal fun NostrContent.Reference.copyableLink(original: String? = null): Stri
     external?.let { return if (it.startsWith("http", true)) it else "nostr:$it" }
     if (profile) return "nostr:${Protocol.npub(id)}"
     val address = id.split(':', limit = 3)
-    return if (address.size == 3 && kind != null) "nostr:${NAddress.create(kind, address[1], address[2], relay = null)}"
-    else "nostr:${NEvent.create(id, author, kind, relay = null)}"
+    return if (address.size == 3 && kind != null) "nostr:${NAddress.create(kind, address[1], address[2], relay = relays.firstOrNull()?.normalizeRelayUrl())}"
+    else "nostr:${NEvent.create(id, author, kind, relay = relays.firstOrNull()?.normalizeRelayUrl())}"
 }
 
 /** Explicit app routing also works when Android has not verified NewPipe's web links. */

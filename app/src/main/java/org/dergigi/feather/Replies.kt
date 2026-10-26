@@ -133,7 +133,7 @@ internal class ReplyStore(context: Context) {
 }
 
 /** Preserve thread scope; ordinary notes remain interoperable NIP-10 replies. */
-internal fun replyTags(target: Event, relay: String): Pair<Int, Array<Array<String>>> {
+internal fun replyTags(target: Event, relay: String, rootRelay: (String) -> String? = { null }): Pair<Int, Array<Array<String>>> {
     val hex = Regex("[0-9a-f]{64}")
     val tags = mutableListOf<Array<String>>()
     if (target.kind == 1) {
@@ -142,7 +142,7 @@ internal fun replyTags(target: Event, relay: String): Pair<Int, Array<Array<Stri
             ?: es.firstOrNull { it.size < 4 || it[3].isEmpty() }
         if (root == null) tags += arrayOf("e", target.id, relay, "root", target.pubKey)
         else {
-            tags += arrayOf("e", root[1], root.getOrNull(2)?.let(Protocol::relay).orEmpty(), "root", root.getOrNull(4)?.takeIf(hex::matches).orEmpty())
+            tags += arrayOf("e", root[1], (root.getOrNull(2)?.let(Protocol::relay) ?: rootRelay(root[1])).orEmpty(), "root", root.getOrNull(4)?.takeIf(hex::matches).orEmpty())
             tags += arrayOf("e", target.id, relay, "reply", target.pubKey)
         }
         (listOf(target.pubKey) + target.tags.filter { it.firstOrNull() == "p" }.mapNotNull { it.getOrNull(1)?.takeIf(hex::matches) })
@@ -153,7 +153,12 @@ internal fun replyTags(target: Event, relay: String): Pair<Int, Array<Array<Stri
         val root = target.tags.firstOrNull { it.size >= 2 && it[0] in listOf("E", "A", "I") }
             ?: error("The parent comment has no root scope")
         val kind = target.tagValue("K") ?: error("The parent comment has no root kind")
-        tags += root.copyOf()
+        tags += if (root[0] in listOf("E", "A") && root.getOrNull(2)?.let(Protocol::relay) == null) {
+            root.toMutableList().apply {
+                while (size < 3) add("")
+                this[2] = rootRelay(root[1]).orEmpty()
+            }.toTypedArray()
+        } else root.copyOf()
         tags += arrayOf("K", kind)
         target.tags.firstOrNull { it.size >= 2 && it[0] == "P" }?.let { tags += it.copyOf() }
     } else {

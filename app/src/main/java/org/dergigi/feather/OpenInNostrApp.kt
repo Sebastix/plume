@@ -9,15 +9,20 @@ import android.net.Uri
 import com.vitorpamplona.quartz.nip01Core.core.Event
 import com.vitorpamplona.quartz.nip19Bech32.entities.NAddress
 import com.vitorpamplona.quartz.nip19Bech32.entities.NEvent
+import com.vitorpamplona.quartz.nip01Core.relay.normalizer.normalizeRelayUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal fun Event.nostrPointer(): String = tagValue("d")?.takeIf { kind in 30000..39999 }?.let {
-    NAddress.create(kind, pubKey, it, relay = null)
-} ?: NEvent.create(id, pubKey, kind, relay = null)
+internal fun Event.nostrPointer(relay: String? = null): String = tagValue("d")?.takeIf { kind in 30000..39999 }?.let {
+    NAddress.create(kind, pubKey, it, relay = relay?.let(Protocol::relay)?.let { it.normalizeRelayUrl() })
+} ?: NEvent.create(id, pubKey, kind, relay = relay?.let(Protocol::relay)?.let { it.normalizeRelayUrl() })
+
+/** Resolve saved provenance off-main without fetching the event again. */
+internal suspend fun Context.nostrPointer(event: Event): String =
+    (applicationContext as FeatherApplication).repository.reference(event)
 
 /** Explicit chooser, even if Feather is the default nostr: handler. Resolve packages off-main. */
-internal suspend fun Context.openInNostrApp(event: Event) = openInNostrApp(event.nostrPointer())
+internal suspend fun Context.openInNostrApp(event: Event) = openInNostrApp(nostrPointer(event))
 
 internal suspend fun Context.openInNostrApp(pointer: String) {
     try {

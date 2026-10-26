@@ -616,13 +616,13 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                         ?.takeUnless { contentFilter.hides(it) || it.id in s.conversation?.deleted.orEmpty() }
                 } else null
                 if (detailNote != null) IconButton(onClick = {
-                    val pointer = detailNote.tagValue("d")?.takeIf { detailNote.kind in 30000..39999 }?.let {
-                        com.vitorpamplona.quartz.nip19Bech32.entities.NAddress.create(detailNote.kind, detailNote.pubKey, it, relay = null)
-                    } ?: com.vitorpamplona.quartz.nip19Bech32.entities.NNote.create(detailNote.id)
-                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, if (detailNote.kind == 1621) "https://gitworkshop.dev/$pointer" else "https://njump.to/$pointer")
-                    }, "Share note"))
+                    scrollScope.launch {
+                        val pointer = context.nostrPointer(detailNote)
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, if (detailNote.kind == 1621) "https://gitworkshop.dev/$pointer" else "https://njump.to/$pointer")
+                        }, "Share note"))
+                    }
                 }, modifier = toolbarButtonSurface) { Icon(Icons.Default.Share, stringResource(R.string.ui_share_note)) }
                 val translations = LocalTranslations.current
                 if (detailNote != null) ReferenceOverflow(
@@ -636,7 +636,7 @@ internal fun FeatherReader(vm: FeatherViewModel, navigation: ReaderNavigation, e
                     opening = openingInApp,
                     onCopy = {
                         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${detailNote.nostrPointer()}"))
+                        scrollScope.launch { clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${context.nostrPointer(detailNote)}")) }
                     },
                     onOpen = {
                         openingInApp = true

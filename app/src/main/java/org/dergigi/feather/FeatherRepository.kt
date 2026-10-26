@@ -1755,12 +1755,12 @@ class FeatherRepository(context: Context) {
                 return@withLock
             }
             val kind = if (target.kind == 1) 6 else 16
-            val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy)
+            val hint = relayHint(target)
                 ?: state.value.relays.firstOrNull(::healthy) ?: error("No relay available.")
             val tags = buildList {
                 add(arrayOf("e", target.id, hint)); add(arrayOf("p", target.pubKey))
                 if (kind == 16) add(arrayOf("k", target.kind.toString()))
-                if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
+                if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it", hint.orEmpty())) }
                 add(arrayOf("client", "Feather"))
             }.toTypedArray()
             val content = if (target.tags.any { it.firstOrNull() == "-" }) "" else target.toJson().takeIf { it.length <= 64_000 }.orEmpty()
@@ -1891,13 +1891,13 @@ class FeatherRepository(context: Context) {
                 recordReaction(author, target.id, choice)
                 return@withLock
             }
-            val hint = relayLists[target.pubKey]?.write?.firstOrNull(::healthy)
+            val hint = relayHint(target)
             val tags = buildList {
                 add(arrayOf("e", target.id, hint.orEmpty(), target.pubKey))
                 add(arrayOf("p", target.pubKey))
                 add(arrayOf("k", target.kind.toString()))
                 choice.image?.let { add(arrayOf("emoji", choice.content.removeSurrounding(":"), it)) }
-                if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it")) }
+                if (target.kind in 30000..39999) target.tagValue("d")?.let { add(arrayOf("a", "${target.kind}:${target.pubKey}:$it", hint.orEmpty())) }
             }.toTypedArray()
             val createdAt = maxOf(System.currentTimeMillis() / 1000, (previous?.event?.createdAt ?: 0) + 1)
             val signed = saved?.event ?: run {
@@ -1940,6 +1940,16 @@ class FeatherRepository(context: Context) {
         servers
     }
 
+    /** Prefer a relay that actually delivered this event, including catalog-only app listings. */
+    private fun relayHint(target: Event): String? =
+        eventRelays.read(target.id).firstOrNull()
+            ?: ZAPSTORE_RELAY.takeIf { target.kind == 32267 }
+            ?: relayLists[target.pubKey]?.write?.firstOrNull(::healthy)
+
+    internal suspend fun reference(target: Event): String = withContext(Dispatchers.IO) {
+        target.nostrPointer(relayHint(target))
+    }
+
     internal suspend fun reply(draft: ReplyDraft, signer: NostrSignerExternal, signerRequests: SignerRequests, store: ReplyStore, onMining: (Boolean) -> Unit = {}) = withContext(Dispatchers.IO) {
         ready.await()
         val author = draft.owner
@@ -1949,8 +1959,10 @@ class FeatherRepository(context: Context) {
         val pictureTags = if (draft.picturePost) draft.pictureTags() else emptyArray<Array<String>>()
         val saved = store.signed(draft)
         val signed = saved ?: run {
-            val hint = target?.let { relayLists[it.pubKey]?.write?.firstOrNull(::healthy) }.orEmpty()
-            val (kind, threadTags) = target?.let { replyTags(it, hint) } ?: ((if (draft.picturePost) 20 else 1) to emptyArray<Array<String>>())
+            val hint = target?.let(::relayHint).orEmpty()
+            val (kind, threadTags) = target?.let { replyTags(it, hint) { id ->
+                eventRelays.read(id).firstOrNull() ?: ZAPSTORE_RELAY.takeIf { id.startsWith("32267:") }
+            } } ?: ((if (draft.picturePost) 20 else 1) to emptyArray<Array<String>>())
             val participants = threadTags.filter { it.firstOrNull() == "p" }.mapNotNull { it.getOrNull(1) }.toSet()
             val mentions = replyMentions(draft.text).filter { it !in participants }.map { arrayOf("p", it) }
             val quotes = Regex("nostr:(?:nevent|note)1[023456789acdefghjklmnpqrstuvwxyz]+", RegexOption.IGNORE_CASE)

@@ -589,7 +589,7 @@ class FeatherViewModel(application: Application) : AndroidViewModel(application)
                     if (selectedText != null && note != null) {
                         saved.withQuotedSelection(selectedText).also(replyStore::save)
                     } else if (quote != null && note == null) {
-                        val pointer = com.vitorpamplona.quartz.nip19Bech32.entities.NEvent.create(quote.id, quote.pubKey, quote.kind, relay = null)
+                        val pointer = repo.reference(quote)
                         val reference = "nostr:$pointer"
                         if (reference in saved.text) saved else {
                             val text = saved.text.trimEnd() + "\n" + reference

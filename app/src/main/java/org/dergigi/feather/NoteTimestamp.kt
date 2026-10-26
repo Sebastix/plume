@@ -1,5 +1,7 @@
 package org.dergigi.feather
 
+import kotlinx.coroutines.launch
+
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
@@ -52,6 +54,7 @@ private fun relativeTime(createdAt: Long): RelativeTime {
 @Composable
 internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignment.End) {
     val context = LocalContext.current
+    val copyScope = androidx.compose.runtime.rememberCoroutineScope()
     val view = LocalView.current
     val repository = (context.applicationContext as FeatherApplication).repository
     val blocktime = repository.blocktime
@@ -109,7 +112,7 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
         }.combinedClickable(onClickLabel = "$nextLabel for all notes", onClick = { preference.cycle() },
             onLongClickLabel = stringResource(R.string.ui_copy_nostr_reference),
-            onLongClick = { context.copyTimestampReference(note) })
+            onLongClick = { copyScope.launch { context.copyTimestampReference(note) } })
             .semantics { contentDescription = when {
                 mode == 1 && blockLabel != null -> "Bitcoin block $blockLabel at note time"
                 mode == 2 -> relative.spoken
@@ -130,6 +133,7 @@ internal fun NoteTimestamp(note: Event, alignment: Alignment.Horizontal = Alignm
 @Composable
 internal fun NotificationTimestamp(note: Event, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
     val context = LocalContext.current
+    val copyScope = androidx.compose.runtime.rememberCoroutineScope()
     val view = LocalView.current
     var visible by remember(note.id) { mutableStateOf(false) }
     var relative by remember(note.createdAt) { mutableStateOf(relativeTime(note.createdAt)) }
@@ -148,11 +152,11 @@ internal fun NotificationTimestamp(note: Event, onLongClick: (() -> Unit)? = nul
             visible = bounds.bottom > 0 && bounds.top < view.height && bounds.right > 0 && bounds.left < view.width
         }.combinedClickable(onClick = onClick,
             onLongClickLabel = longClickLabel ?: stringResource(R.string.ui_copy_nostr_reference),
-            onLongClick = onLongClick ?: { context.copyTimestampReference(note) })
+            onLongClick = onLongClick ?: { copyScope.launch { context.copyTimestampReference(note) } })
             .semantics { contentDescription = relative.spoken })
 }
 
-private fun android.content.Context.copyTimestampReference(note: Event) {
+private suspend fun android.content.Context.copyTimestampReference(note: Event) {
     val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${note.nostrPointer()}"))
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nostr reference", "nostr:${nostrPointer(note)}"))
 }
