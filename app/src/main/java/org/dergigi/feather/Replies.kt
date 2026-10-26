@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
@@ -333,13 +334,41 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                 }
         }
     }
+    val addPhotoTile: @Composable (Modifier) -> Unit = { modifier ->
+        Box(modifier.clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(enabled = !busy && !uploading, onClickLabel = stringResource(R.string.ui_add_photos)) {
+                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }, contentAlignment = Alignment.Center) {
+            if (uploading) Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                    val percent = uploadProgress?.percent
+                    if (percent == null) CircularProgressIndicator(Modifier.size(34.dp), strokeWidth = 2.dp)
+                    else {
+                        CircularProgressIndicator(progress = { percent / 100f }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp)
+                        Text("$percent%", fontSize = 11.sp)
+                    }
+                }
+                uploadProgress?.let { progress ->
+                    Text(progress.stage, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    progress.size?.let { size ->
+                        Text(attachmentSizeLabel(LocalContext.current, size, progress.originalSize), fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else Icon(Icons.Default.Add, stringResource(R.string.ui_add_photos), Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.primary)
+        }
+    }
     val attachments: @Composable () -> Unit = {
             val openGallery = LocalOpenGallery.current
             val tileSize = if (current.picturePost) 200 else 88
             val tileStep = tileSize + 8
             if (images.isNotEmpty()) Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 // Images have an 8dp gap; render controls last so adjacent thumbnails never steal their taps.
-                Box(Modifier.width((images.size * tileStep + 16).dp).height((tileSize + 24).dp)) {
+                Box(Modifier.width((images.size * tileStep + if (current.picturePost) 112 else 16).dp).height((tileSize + 24).dp)) {
                     images.forEachIndexed { index, url ->
                         val video = java.net.URI(url).path.substringAfterLast('.').lowercase() in listOf("mp4", "m4v", "mov", "webm")
                         val tile = Modifier.offset(x = (index * tileStep).dp, y = 24.dp).size(tileSize.dp).clip(RoundedCornerShape(16.dp))
@@ -353,6 +382,8 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                             }, "Attached image")
 
                     }
+                    if (current.picturePost) addPhotoTile(Modifier.offset(x = (images.size * tileStep + 8).dp, y = 24.dp)
+                        .width(96.dp).height(tileSize.dp))
                     images.forEachIndexed { index, url ->
                         IconButton(enabled = !busy,
                             modifier = Modifier.offset(x = (index * tileStep + tileSize - 24).dp).size(48.dp),
@@ -389,13 +420,7 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
             }
             if (current.picturePost) {
                 attachments()
-                if (images.isEmpty()) Box(Modifier.fillMaxWidth().height(180.dp)
-                    .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(enabled = !busy && !uploading) {
-                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }, contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.photo_compose), stringResource(R.string.ui_add_photos), Modifier.size(48.dp), tint = Color.Unspecified)
-                }
+                if (images.isEmpty()) addPhotoTile(Modifier.fillMaxWidth().height(180.dp))
             }
             TextField(value = editor, onValueChange = { next ->
                 if (next.text.length <= 8000) { editor = next; vm.editReply(next.text) }
@@ -470,9 +495,9 @@ internal fun ReplyComposer(vm: FeatherViewModel) {
                     if (gifPicker) GifPicker(onDismiss = { gifPicker = false; gifFocus.requestFocus() }, onPick = { vm.attachGif(it); gifPicker = false; gifFocus.requestFocus() })
                     Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 80.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        gifButton()
+                        if (!current.picturePost) gifButton()
                         Spacer(Modifier.weight(1f))
-                        imageButton()
+                        if (!current.picturePost) imageButton()
                         sendButton(Modifier.size(56.dp))
                     }
                 }

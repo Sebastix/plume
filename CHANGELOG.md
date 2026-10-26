@@ -4,6 +4,9 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Changed
+- Simplify photo composition: add photos with a plus tile beside the images, keep upload progress there, and show only Send at the bottom.
+
 ## [1.8.1] - 2026-10-26
 
 ### Fixed
