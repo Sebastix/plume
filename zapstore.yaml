@@ -1,14 +1,12 @@
-repository: https://github.com/dergigi/feather
-pubkey: npub1dergggklka99wwrs92yz8wdjs952h2ux2ha2ed598ngwu9w7a6fsh9xzpc
+repository: https://gitworkshop.dev/sebastix.dev/plum3
+pubkey: npub1qe3e5wrvnsgpggtkytxteaqfprz0rgxr8c3l34kk3a9t7e2l3acslezefe
 release_notes: ./CHANGELOG.md
-name: Feather
+name: Plume
 summary: Nostr with nothing in the way.
 description: |
-  A minimal nostr client for Android. Opinionated, lightweight, and fast enough. Feather aims to be pleasant to use with a focus on simplicity and discoverability.
-
-  https://feather.dergigi.com/
+  A minimal nostr client for Android (forked from Feather). Opinionated, lightweight, and fast enough. Plume aims to be pleasant to use with a focus on simplicity and discoverability.
 license: MIT
-website: https://feather.dergigi.com/
+website: https://nostrver.se
 icon: ./zapstore-icon.png
 tags:
   - nostr
