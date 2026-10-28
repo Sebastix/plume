@@ -1,0 +1,310 @@
+package plume.sebastix.dev
+
+import com.vitorpamplona.quartz.nip01Core.core.Event
+import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
+
+/** Immediate parent and root scope are different edges. Quotes are never thread edges. */
+internal object ThreadRelations {
+    private val hex = Regex("[0-9a-f]{64}")
+    fun address(event: Event): String? = event.tagValue("d")?.takeIf { event.kind in 30000..39999 }
+        ?.let { "${event.kind}:${event.pubKey}:$it" }
+
+    private fun eventRef(tag: Array<String>, authorIndex: Int, kind: Int? = null): NostrContent.Reference? =
+        tag.getOrNull(1)?.takeIf(hex::matches)?.let { id ->
+            NostrContent.Reference(id, author = tag.getOrNull(authorIndex)?.takeIf(hex::matches), kind = kind,
+                relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)))
+        }
+
+    private fun addressRef(tag: Array<String>): NostrContent.Reference? {
+        val parts = tag.getOrNull(1)?.split(':', limit = 3) ?: return null
+        if (parts.size != 3 || !hex.matches(parts[1])) return null
+        val kind = parts[0].toIntOrNull()?.takeIf { it in 30000..39999 } ?: return null
+        return NostrContent.Reference(tag[1], author = parts[1], kind = kind,
+            relays = listOfNotNull(tag.getOrNull(2)?.let(Protocol::relay)))
+    }
+
+    fun parent(event: Event): NostrContent.Reference? {
+        val reference = when (event.kind) {
+            1 -> {
+                val tags = event.tags.filter { it.firstOrNull() == "e" && it.getOrNull(1)?.let(hex::matches) == true }
+                val marked = tags.firstOrNull { it.getOrNull(3) == "reply" }
+                    ?: tags.firstOrNull { it.getOrNull(3) == "root" }
+                val quoted = event.tags.filter { it.firstOrNull() == "q" }.mapNotNull { it.getOrNull(1) }.toSet()
+                val tag = marked ?: tags.lastOrNull { it.getOrNull(3).isNullOrEmpty() && it[1] !in quoted }
+                tag?.let { eventRef(it, 4, 1) }
+            }
+            1111, 1244 -> {
+                val kind = event.tagValue("k")?.toIntOrNull()
+                event.tags.firstNotNullOfOrNull { tag -> if (tag.firstOrNull() == "a" && (kind == null || kind in 30000..39999)) addressRef(tag) else null }
+                    ?: event.tags.firstNotNullOfOrNull { tag -> if (tag.firstOrNull() == "e") eventRef(tag, 3, kind) else null }
+                    ?.let { it.copy(author = it.author ?: event.tagValue("p")?.takeIf(hex::matches)) }
+                    // Older Zapstore top-level comments omit lowercase parent tags.
+                    ?: event.tags.firstNotNullOfOrNull { tag ->
+                        if (tag.firstOrNull() == "A" && event.tagValue("K") == "32267" && event.tagValue("k") != "1111") addressRef(tag) else null
+                    }
+            }
+            else -> null
+        }
+        return reference?.takeUnless { it.id == event.id || it.id == address(event) }
+    }
+
+    fun root(event: Event): NostrContent.Reference? = when (event.kind) {
+        1 -> {
+            val tags = event.tags.filter { it.firstOrNull() == "e" && it.getOrNull(1)?.let(hex::matches) == true }
+            val quoted = event.tags.filter { it.firstOrNull() == "q" }.mapNotNull { it.getOrNull(1) }.toSet()
+            val tag = tags.firstOrNull { it.getOrNull(3) == "root" }
+                ?: tags.firstOrNull { it.getOrNull(3).isNullOrEmpty() && it[1] !in quoted }.takeIf { tags.none { it.getOrNull(3) in listOf("root", "reply") } }
+            tag?.let { eventRef(it, 4, 1) }
+        }
+        1111, 1244 -> event.tags.firstNotNullOfOrNull { tag -> if (tag.firstOrNull() == "A") addressRef(tag) else null }
+            ?: event.tags.firstNotNullOfOrNull { tag -> if (tag.firstOrNull() == "E") eventRef(tag, 3, event.tagValue("K")?.toIntOrNull()) else null }
+        else -> null
+    }?.takeUnless { it.id == event.id }
+
+    fun repliesTo(child: Event, parent: Event): Boolean {
+        val ref = this.parent(child) ?: return false
+        if (ref.id == parent.id) return true
+        val address = address(parent) ?: return false
+        return ref.id == address
+    }
+
+    fun discovery(focus: Event?, id: String, parents: List<String>): List<Filter> = buildList {
+        val ids = (listOfNotNull(focus?.id ?: id.takeIf(hex::matches)) + parents).distinct().take(12).sorted()
+        if (ids.isNotEmpty()) {
+            add(Filter(kinds = listOf(1), tags = mapOf("e" to ids), limit = 200))
+            add(Filter(kinds = listOf(1111, 1244), tags = mapOf("e" to ids), limit = 200))
+        }
+        // Root scope finds nested comments without mistaking them for direct replies.
+        (focus?.id ?: id.takeIf(hex::matches))?.let {
+            add(Filter(kinds = listOf(1111, 1244), tags = mapOf("E" to listOf(it)), limit = 200))
+        }
+        (focus?.let(::address) ?: id.takeIf { ':' in it })?.let {
+            add(Filter(kinds = listOf(1111, 1244), tags = mapOf("a" to listOf(it)), limit = 200))
+            add(Filter(kinds = listOf(1111, 1244), tags = mapOf("A" to listOf(it)), limit = 200))
+        }
+    }
+}
+
+enum class ThreadGap { MISSING, HIDDEN, MUTED, SPAM, DELETED, LIMIT, CYCLE }
+
+internal const val INITIAL_THREAD_ANCESTORS = 31
+internal const val MAX_THREAD_ANCESTORS = 255
+
+data class ConversationRow(
+    val key: String,
+    val event: Event? = null,
+    val reference: NostrContent.Reference? = null,
+    val gap: ThreadGap? = null,
+    val above: Boolean = false,
+    val below: Boolean = false,
+    val focused: Boolean = false,
+    val ancestor: Boolean = false,
+    val more: Boolean = false,
+    // A real root has no reply parent; an unresolved or hidden parent is still a reply.
+    val root: Boolean = false,
+    // Only an already-cached copy; never a source of relay lookups or engagement actions.
+    val deletedCopy: Event? = null,
+    val mutedCopy: Event? = null,
+    val mutedTailStart: Boolean = false,
+    val reposts: List<Event> = emptyList(),
+)
+
+data class Conversation(
+    val target: String,
+    val rows: List<ConversationRow> = emptyList(),
+    val missing: List<NostrContent.Reference> = emptyList(),
+    val deleted: Set<String> = emptySet(),
+)
+
+/** Bounded graph projection. Run off-main; never infer ancestry from time, author, or root tags. */
+internal fun conversation(target: String, focus: Event, events: List<Event>, filter: ContentFilter, deleted: Set<String>, expanded: Set<String> = emptySet(),
+    ancestorLimit: Int = INITIAL_THREAD_ANCESTORS, spam: Set<String> = emptySet()): Conversation {
+    val parentLimit = ancestorLimit.coerceIn(INITIAL_THREAD_ANCESTORS, MAX_THREAD_ANCESTORS)
+    val byId = events.associateBy { it.id }
+    val byAddress = events.sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+        .mapNotNull { e -> ThreadRelations.address(e)?.let { it to e } }.distinctBy { it.first }.toMap()
+    val parents = events.associate { it.id to ThreadRelations.parent(it) }
+    fun resolve(ref: NostrContent.Reference) = byId[ref.id] ?: byAddress[ref.id]
+    fun blocked(e: Event) = filter.hides(e) || e.id in deleted || e.id in spam
+    val revealFilter = filter.copy(deletedNotes = emptySet())
+    val chainFilter = filter.copy(authors = emptySet(), words = emptySet())
+    val candidateFilter = chainFilter.copy(deletedNotes = emptySet())
+    fun muted(e: Event) = e.pubKey in filter.authors || filter.mutedText(e) || e.id in spam
+    fun concealedReason(e: Event) = if (e.id in spam && e.pubKey !in filter.authors && !filter.mutedText(e)) ThreadGap.SPAM else ThreadGap.MUTED
+    fun boundary(e: Event) = chainFilter.hides(e) || e.id in deleted
+    fun cachedCopy(e: Event?) = e?.takeUnless(revealFilter::hides)?.takeUnless {
+        it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
+    }
+    fun mutedCopy(e: Event) = e.takeIf(::muted)?.takeUnless(chainFilter::hides)?.takeUnless {
+        it.tagValue("expiration")?.toLongOrNull()?.let { expiry -> expiry <= System.currentTimeMillis() / 1000 } == true
+    }
+    val rows = mutableListOf<ConversationRow>()
+    val missing = linkedMapOf<String, NostrContent.Reference>()
+    val used = mutableSetOf(focus.id)
+    val ancestors = mutableListOf<Event>()
+    var cursor = focus
+    var gap: ConversationRow? = null
+    for (depth in 0..parentLimit) {
+        if (boundary(cursor)) break
+        val ref = parents[cursor.id] ?: break
+        val parent = resolve(ref)
+        val reason = when {
+            ref.id in used || parent?.id in used -> ThreadGap.CYCLE
+            ref.id in deleted || parent?.id in deleted -> ThreadGap.DELETED
+            parent?.let(chainFilter::hides) == true -> ThreadGap.HIDDEN
+            depth == parentLimit -> ThreadGap.LIMIT
+            parent == null -> ThreadGap.MISSING
+            else -> null
+        }
+        if (reason != null) {
+            gap = ConversationRow("parent-gap:${cursor.id}", reference = ref, gap = reason, ancestor = true,
+                deletedCopy = if (reason == ThreadGap.DELETED) cachedCopy(parent) else null)
+            if (reason == ThreadGap.MISSING && (ref.kind == null || ref.kind in readableKinds)) missing[ref.id] = ref
+            break
+        }
+        ancestors += parent!!; used += parent.id; cursor = parent
+    }
+    gap?.let { rows += it }
+    val chain = ancestors.reversed() + focus
+    chain.forEachIndexed { index, event ->
+        if (blocked(event)) {
+            rows += ConversationRow(event.id, gap = if (event.id in deleted) ThreadGap.DELETED else if (muted(event) && !chainFilter.hides(event)) concealedReason(event) else ThreadGap.HIDDEN,
+                focused = event.id == focus.id, ancestor = event.id != focus.id,
+                root = parents[event.id] == null,
+                deletedCopy = if (event.id in deleted) cachedCopy(event) else null,
+                mutedCopy = if (event.id !in deleted) mutedCopy(event) else null,
+                above = index > 0 && !boundary(chain[index - 1]), below = index < chain.lastIndex && !boundary(chain[index + 1]))
+        } else rows += ConversationRow(event.id, event, above = if (index > 0) !boundary(chain[index - 1]) else gap?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT),
+            below = index < chain.lastIndex && !boundary(chain[index + 1]), focused = event.id == focus.id,
+            ancestor = event.id != focus.id, root = parents[event.id] == null)
+    }
+    val children = events.filter { it.id !in used && !candidateFilter.hides(it) && it.kind in listOf(1, 1111, 1244) }
+        .groupBy { parents[it.id]?.id }
+    fun replies(parent: Event): List<Event> = (children[parent.id].orEmpty() + ThreadRelations.address(parent)?.let { children[it] }.orEmpty())
+        .distinctBy { it.id }.filter { it.id !in used }
+        .sortedWith(compareBy<Event> { it.pubKey != parent.pubKey }.thenBy { it.createdAt }.thenBy { it.id })
+    fun branch(first: Event, gapRow: ConversationRow? = null, depth: Int = 0, quiet: Boolean = false) {
+        if (depth >= 32 || rows.size >= 320) return
+        gapRow?.let { rows += it }
+        val branch = mutableListOf<Event>()
+        var next: Event? = first
+        var expandedLimit = 0
+        while (next != null && rows.size + branch.size < 320 && branch.size < maxOf(expandedLimit, if (quiet && first.id !in expanded) 1 else if (branch.all { it.pubKey == focus.pubKey } && next.pubKey == focus.pubKey) 24 else 3) && used.add(next.id)) {
+            branch += next
+            if (next.id in expanded) expandedLimit = branch.size + 3
+            next = replies(next).firstOrNull()
+        }
+        branch.forEachIndexed { index, event -> rows += ConversationRow(event.id, event.takeUnless { it.id in deleted || muted(it) },
+            gap = if (event.id in deleted) ThreadGap.DELETED else concealedReason(event).takeIf { muted(event) },
+            deletedCopy = cachedCopy(event).takeIf { event.id in deleted }, mutedCopy = mutedCopy(event).takeIf { event.id !in deleted },
+            above = index > 0 || gapRow?.gap in listOf(ThreadGap.MISSING, ThreadGap.LIMIT), below = index < branch.lastIndex,
+            more = index == branch.lastIndex && (next != null || replies(event).isNotEmpty())) }
+        // Side branches remain discoverable from the parent's note, never silently joined.
+        branch.forEach { parent ->
+            if (replies(parent).isNotEmpty()) {
+                if (parent.id in expanded && depth < 31 && rows.size < 320) {
+                    replies(parent).forEach { if (it.id !in used) branch(it, depth = depth + 1) }
+                    val index = rows.indexOfFirst { it.key == parent.id }
+                    rows[index] = rows[index].copy(more = replies(parent).isNotEmpty())
+                } else {
+                    val index = rows.indexOfFirst { it.key == parent.id }
+                    rows[index] = rows[index].copy(more = true)
+                }
+            }
+        }
+    }
+    val mutedReplies = replies(focus).filter(::muted)
+    val mutedReplyIds = mutedReplies.map { it.id }.toSet()
+    replies(focus).filterNot(::muted).forEach { if (it.id !in used) branch(it) }
+    // When opening the root itself, connect its reply action to the first direct reply.
+    // Other branches remain separate, and orphaned root-scoped replies never imply an edge.
+    val rootIndex = rows.indexOfFirst { it.focused && it.root && (it.event ?: it.deletedCopy ?: it.mutedCopy)?.kind in listOf(1, 1222) }
+    if (rootIndex >= 0 && rows.getOrNull(rootIndex + 1)?.let { it.event ?: it.deletedCopy ?: it.mutedCopy }?.let { ThreadRelations.repliesTo(it, focus) } == true) {
+        rows[rootIndex] = rows[rootIndex].copy(below = true)
+        rows[rootIndex + 1] = rows[rootIndex + 1].copy(above = true)
+    }
+    // Root-tagged replies whose immediate parent is absent are separate, explicitly broken chains.
+    events.asSequence().filter { it.id !in used && !blocked(it) && ThreadRelations.root(it)?.id?.let { root -> root == focus.id || root == ThreadRelations.address(focus) } == true }
+        .sortedWith(compareBy<Event> { it.createdAt }.thenBy { it.id }).take(12).forEach { orphan ->
+            if (orphan.id in used) return@forEach
+            var first = orphan
+            val seen = mutableSetOf(orphan.id)
+            for (depth in 0..parentLimit) {
+                val ref = parents[first.id] ?: return@forEach
+                val parent = resolve(ref)
+                if (parent?.id in used || parent?.id in mutedReplyIds) return@forEach // An already displayed parent's other branch.
+                val reason = when {
+                    parent?.id in seen -> ThreadGap.CYCLE
+                    ref.id in deleted || parent?.id in deleted -> ThreadGap.DELETED
+                    parent?.let(chainFilter::hides) == true -> ThreadGap.HIDDEN
+                    depth == parentLimit -> ThreadGap.LIMIT
+                    parent == null -> ThreadGap.MISSING
+                    else -> null
+                }
+                if (reason != null) {
+                    if (reason == ThreadGap.MISSING && missing.size < 8 && (ref.kind == null || ref.kind in readableKinds)) missing[ref.id] = ref
+                    branch(first, ConversationRow("branch-gap:${first.id}", reference = ref, gap = reason,
+                        deletedCopy = if (reason == ThreadGap.DELETED) cachedCopy(parent) else null))
+                    break
+                }
+                first = parent!!; seen += parent.id
+            }
+        }
+    var firstMuted = true
+    mutedReplies.forEach { reply ->
+        if (reply.id !in used && rows.size < 320) {
+            val start = rows.size
+            branch(reply, quiet = true)
+            if (firstMuted && rows.size > start) { rows[start] = rows[start].copy(mutedTailStart = rows[start].gap == ThreadGap.MUTED); firstMuted = false }
+        }
+    }
+    return Conversation(target, rows, missing.values.take(8), deleted)
+}
+
+/** Small self-thread previews use only events already available locally. No feed-wide crawl. */
+internal fun feedConversations(notes: List<Event>, candidates: List<Event>, filter: ContentFilter): List<ConversationRow> {
+    val children = candidates.asSequence().filter { it.kind == 1 && !filter.hides(it) }.distinctBy { it.id }
+        .groupBy { ThreadRelations.parent(it)?.id }
+    val shown = mutableSetOf<String>()
+    return buildList {
+        notes.forEach { note ->
+            if (!shown.add(note.id)) return@forEach
+            val chain = mutableListOf(note)
+            if (note.kind == 1) while (chain.size < 3) {
+                val next = children[chain.last().id].orEmpty().filter { it.pubKey == note.pubKey && it.id !in shown }
+                    .minWithOrNull(compareBy<Event> { it.createdAt }.thenBy { it.id }) ?: break
+                chain += next; shown += next.id
+            }
+            chain.forEachIndexed { i, e -> add(ConversationRow(e.id, e, above = i > 0, below = i < chain.lastIndex,
+                more = chain.size > 1 && i == chain.lastIndex, root = ThreadRelations.parent(e) == null)) }
+        }
+    }
+}
+
+/** Home ranks original posts by qualifying activity, then holds existing positions until refresh. */
+internal fun homeConversations(
+    activity: List<Event>, candidates: List<Event>, filter: ContentFilter, previousOrder: List<String>,
+): List<ConversationRow> {
+    val originals = (activity + candidates).filterNot(filter::hides).associateBy { it.id }
+    val groups = activity.filterNot(filter::hides)
+        .sortedWith(compareByDescending<Event> { it.createdAt }.thenBy { it.id })
+        .mapNotNull { event ->
+            if (event.kind == 1) event.id to event
+            else repostTarget(event)?.takeUnless(filter::hides)?.let { it.id to event }
+        }.groupBy({ it.first }, { it.second })
+    val order = previousOrder.filter { it in groups }.toMutableList()
+    // Insert genuinely new groups at their chronological position without moving existing groups.
+    val chronological = groups.keys.toList()
+    chronological.forEachIndexed { index, id ->
+        if (id !in order) {
+            val next = chronological.drop(index + 1).firstOrNull { it in order }
+            order.add(next?.let(order::indexOf) ?: order.size, id)
+        }
+    }
+    val reposters = groups.mapValues { (_, events) -> events.filter { it.kind in listOf(6, 16) }.distinctBy { it.pubKey } }
+    val targets = order.map { id -> originals[id] ?: groups.getValue(id).first() }
+    return feedConversations(targets, candidates + targets, filter).map { row ->
+        val originalId = row.event?.let { repostTarget(it)?.id ?: it.id } ?: row.key
+        row.copy(key = originalId, reposts = reposters[originalId].orEmpty())
+    }
+}

@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.Feather" parent="Theme.Feather.Base">
+    <style name="Theme.Plume" parent="Theme.Plume.Base">
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_feather</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowSplashScreenBackground">@color/launch_background</item>

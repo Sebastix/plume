@@ -2,7 +2,7 @@
 
 The expanded note details show the note's declared `client` name, followed by a small muted logo. This is self-reported attribution, not proof of which app signed or published an event.
 
-Icons and destinations are bundled: no image requests or app discovery subscriptions are needed to display them. Tapping either the name or icon opens the bundled Zapstore coordinate in Feather where available, otherwise the official website. Opening an app listing uses the normal cache-first content loader; no client lookup is performed. Unknown client tags are never interpreted as URLs. Unknown names retain the generic app icon. Matching uses explicit names/domains (case-insensitive, optional HTTP(S)/www prefix and trailing slash); it does not use substring matching. Aliases are recognized product names/domains, not claims that every app currently emits each spelling.
+Icons and destinations are bundled: no image requests or app discovery subscriptions are needed to display them. Tapping either the name or icon opens the bundled Zapstore coordinate in Plume where available, otherwise the official website. Opening an app listing uses the normal cache-first content loader; no client lookup is performed. Unknown client tags are never interpreted as URLs. Unknown names retain the generic app icon. Matching uses explicit names/domains (case-insensitive, optional HTTP(S)/www prefix and trailing slash); it does not use substring matching. Aliases are recognized product names/domains, not claims that every app currently emits each spelling.
 
 Transparent monochrome marks use the theme's muted text color. Detailed logos use grayscale with reduced opacity. Raster assets fit within 96 × 96 pixels. The client remains right-aligned after the relay list.
 
@@ -10,7 +10,7 @@ Transparent monochrome marks use the theme's muted text color. Detailed logos us
 
 | Client | Accepted names / domains | Asset notice and source |
 | --- | --- | --- |
-| Feather | `feather`, `feather.dergigi.com` | [Feather source](../app/src/main/res/drawable/feather.xml) |
+| Plume | `plume`, `plume3` | [Plume source](../app/src/main/res/drawable/feather.xml) |
 | Amethyst | `amethyst`, `amethyst.social`, `com.vitorpamplona.amethyst` | [Source and notice](../app/src/main/assets/AMETHYST-ICON-LICENSE.txt) |
 | Amber | `amber`, `com.greenart7c3.nostrsigner` | [Source and notice](../app/src/main/assets/client-icons/amber.txt) |
 | Ants | `ants`, `ants android`, `ants.sh` | [Source and notice](../app/src/main/assets/client-icons/ants.txt) |
@@ -63,7 +63,7 @@ Verified on 2026-10-21. [Source evidence and exact coordinates](client-links.jso
 | Coracle | In-app Zapstore listing | https://coracle.social |
 | Damus | Website | https://damus.io/ |
 | Ditto | In-app Zapstore listing | https://ditto.pub |
-| Feather | In-app Zapstore listing | https://feather.dergigi.com/ |
+| Plume | In-app Zapstore listing | https://nostrver.se/ |
 | Flotilla | In-app Zapstore listing | https://flotilla.social/ |
 | Fountain | In-app Zapstore listing | https://fountain.fm/app |
 | Gossip | Website | https://github.com/mikedilger/gossip |

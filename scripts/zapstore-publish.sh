@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish feather to Zapstore.
+# Publish Plume to Zapstore.
 # Requires: zsp on PATH (or ~/bin/zsp), SIGN_WITH set to nsec1… / bunker://… / browser
 # SIGN_WITH may also live in a gitignored .env file at the repo root.
 #
@@ -84,7 +84,7 @@ if [[ -n "$CERT" && -f "$CERT" && "${SKIP_CERT_LINK:-}" != "1" ]]; then
   echo "Linking APK signing certificate to Nostr identity (NIP-C1)…"
   # Never pipe a failed/empty signer output to nak: nak would generate its own
   # default note when stdin is empty. Validate the signed proof before sending.
-  PROOF="$(mktemp -t feather-identity.XXXXXX)"
+  PROOF="$(mktemp -t plume-identity.XXXXXX)"
   if zsp identity --link-key "$CERT" --key-alias upload --offline > "$PROOF"; then
     if python3 - "$PROOF" <<'PYPROOF'
 import json, sys
@@ -109,7 +109,7 @@ fi
 
 # Keep committed zapstore.yaml metadata (including release_notes) while
 # pointing at the local signed APK for this publish run.
-PUBLISH_CFG="$(mktemp -t feather-zapstore.XXXXXX.yaml)"
+PUBLISH_CFG="$(mktemp -t plume-zapstore.XXXXXX.yaml)"
 cleanup() { rm -f "$PUBLISH_CFG"; }
 trap cleanup EXIT
 
@@ -169,4 +169,4 @@ fi
 # shellcheck disable=SC2086
 zsp "${ZSP_ARGS[@]}" ${ZSP_EXTRA_ARGS:-}
 
-echo "Done. Check Zapstore for org.dergigi.feather"
+echo "Done. Check Zapstore for plume.sebastix.dev"

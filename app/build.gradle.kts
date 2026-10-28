@@ -1,7 +1,7 @@
 import java.util.Properties
 import com.android.build.api.instrumentation.InstrumentationScope
 import com.android.build.api.instrumentation.FramesComputationMode
-import org.dergigi.feather.buildlogic.DetachedSemanticsGuard
+import plume.sebastix.dev.buildlogic.DetachedSemanticsGuard
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -26,14 +26,14 @@ val gitCommit = providers.exec {
 }
 
 android {
-    namespace = "org.dergigi.feather"
+    namespace = "plume.sebastix.dev"
     compileSdk = 37
     defaultConfig {
-        applicationId = "org.dergigi.feather"
+        applicationId = "plume.sebastix.dev"
         minSdk = 26
         targetSdk = 37
-        versionCode = 226
-        versionName = "1.8.3"
+        versionCode = 1
+        versionName = "0.0.1"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         buildConfigField("String", "GIFS_NOSTR_BUILD_API_KEY", "\"$gifApiKey\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

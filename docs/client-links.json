@@ -73,14 +73,15 @@
       "address": "32267:781a1527055f74c1f70230f10384609b34548f8ab6a0a6caa74025827f9fdae5:pub.ditto.app"
     },
     {
-      "client": "Feather",
-      "website": "https://feather.dergigi.com/",
-      "address": "32267:6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93:org.dergigi.feather",
+      "client": "Plume",
+      "website": "https://nostrver.se/",
+      "address": "32267:06639a386c9c1014217622ccbcf40908c4f1a0c33e23f8d6d68f4abf655f8f71:plume.sebastix.dev",
       "sources": [
-        "https://github.com/dergigi/feather",
-        "https://zapstore.dev/apps/org.dergigi.feather"
+        "https://gitworkshop.dev/sebastix.dev/plume3",
+        "https://zapstore.dev/apps/plume.sebastix.dev"
       ],
-      "event_id": "cfc9c06b6a956710168e8865c65ad49ca1061296db1661dc038f13aa919001b9"
+      "event_id": "cfc9c06b6a956710168e8865c65ad49ca1061296db1661dc038f13aa919001b9",
+      "notes": "Fork; application id and Zapstore pubkey are Sebastix's."
     },
     {
       "client": "Flotilla",

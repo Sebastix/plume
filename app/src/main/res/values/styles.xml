@@ -1,9 +1,9 @@
 <resources>
-    <style name="Theme.Feather.Base" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.Plume.Base" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item><item name="android:windowLightStatusBar">true</item>
         <item name="android:windowBackground">#FFFFFF</item>
         <item name="android:colorAccent">#2479A9</item><item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
-    <style name="Theme.Feather" parent="Theme.Feather.Base" />
+    <style name="Theme.Plume" parent="Theme.Plume.Base" />
 </resources>

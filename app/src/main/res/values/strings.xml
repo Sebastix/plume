@@ -34,7 +34,7 @@
     <string name="ui_download_video">Download video</string>
     <string name="ui_emoji_search_unavailable">Emoji search unavailable</string>
     <string name="ui_exit_fullscreen">Exit fullscreen</string>
-    <string name="ui_feather_on_github_source_code_and_feedback">Feather on GitHub, source code and feedback</string>
+    <string name="ui_plume_on_github_source_code_and_feedback">Plume source code and feedback</string>
     <string name="ui_fullscreen_video">Fullscreen video</string>
     <string name="ui_gifs_from_nostr_build">GIFs from nostr.build</string>
     <string name="ui_get_amber">Get Amber</string>
@@ -59,7 +59,7 @@
     <string name="ui_no_notifications">No notifications</string>
     <string name="ui_notification_connection_error">Notification connection error</string>
     <string name="ui_nutzap_from_sender_to_recipient">Nutzap from sender to recipient</string>
-    <string name="ui_open_feather_profile">Open Feather profile</string>
+    <string name="ui_open_plume_profile">Open Plume profile</string>
     <string name="ui_open_app_in_zapstore">Open app in Zapstore</string>
     <string name="ui_open_app_website">Open app website</string>
     <string name="ui_open_full_emoji_picker">Open full emoji picker</string>
@@ -130,7 +130,7 @@
     <string name="ui_log_in_to_zap">Log in to zap</string>
     <string name="ui_log_in_to_react">Log in to react</string>
     <string name="ui_signed_in">Signed in</string>
-    <string name="ui_open_feather_homepage">Open Feather homepage</string>
+    <string name="ui_open_plume_homepage">Open Plume homepage</string>
     <string name="ui_search_destination">Search profiles, hashtags, or Nostr identifiers</string>
     <string name="ui_invalid_search_reference">Invalid or unsupported Nostr identifier or hashtag.</string>
     <string name="ui_reposted_by_one">Reposted by %1$s</string>
