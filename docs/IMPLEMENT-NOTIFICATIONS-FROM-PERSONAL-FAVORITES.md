@@ -29,7 +29,8 @@ These are my defaults. Change any of them before implementation starts.
 ## UX
 
 - **Toggle:** an icon button in the profile header, left of the homepage and Lightning actions.
-  - It shows a star outline or a filled star.
+  - It shows a bell icon, see assets/bell-alert.svg. 
+  - A bell icon with a slash when the profile is favorited, see assets/bell-slash.svg.
   - It has an accessible description ("Add to favorites" or "Remove from favorites").
   - It gives a light haptic on toggle.
   - Toggling is local and instant, with no signer, no network and no confirmation dialog.
@@ -39,6 +40,21 @@ These are my defaults. Change any of them before implementation starts.
 - **Empty and error states:** a settled empty list stays quiet. A pending list shows the native spinner. Relay errors follow the existing quiet-recovery rule.
 - **Removal:** removing a favorite drops its rows on the next filter pass. It does not delete cached events.
 - **Management:** there is no separate management screen. A reader removes a favorite from its profile or from a row's overflow action. A list screen can be added later if needed.
+
+Here are some screenshots from other clients with an option to favorite a profile to receive notifications (see the highlighted orange areas):
+
+1. Mastodon
+![mastodon_set-notifications-for-person-icon-on-a-profile-view.png](assets/mastodon_set-notifications-for-person-icon-on-a-profile-view.png)
+
+2. Nostur
+A profile with a bell icon:
+![IMG_0001.PNG](assets/IMG_0001.PNG)
+A favorited profile:
+![IMG_0002.PNG](assets/IMG_0002.PNG)
+The view explainer:
+![IMG_0003.PNG](assets/IMG_0003.PNG)
+The view with notification messages from favorites:
+![IMG_0004.PNG](assets/IMG_0004.PNG)
 
 ## Storage
 
