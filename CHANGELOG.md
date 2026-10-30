@@ -4,6 +4,19 @@ All notable changes are documented here, following [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-30
+
+### Changed
+- Replace the blue brand palette with greyscale surfaces and a single burnt-orange action color (`#A84300` light, `#F0894E` dark), including the launcher and splash marks, onboarding previews, reactions, zaps, and status accents.
+- Use the 16-bit pixel plume as the launcher icon: an adaptive icon on a `#141414` plate, a monochrome layer for themed icons, and a matching Zapstore export.
+- Replace the upstream application identity with Plume's: application ID and package `plume.sebastix.dev`, `Plume` theme and class names, `plume.sebastix.dev/settings` for synchronized preferences, and Plume preferences, Keystore, and media-file identifiers. Release links point at nostrver.se, the `plume3` repository, and the Plume Zapstore listing.
+- Bump the fork to 0.0.2 (version code 2).
+
+## [0.0.1] - 2026-10-29
+
+### Changed
+- Reset the fork's version to 0.0.1 (version code 1).
+
 ## [1.8.3] - 2026-10-26
 
 ### Fixed
