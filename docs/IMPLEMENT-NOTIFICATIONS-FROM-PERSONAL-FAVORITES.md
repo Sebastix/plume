@@ -45,14 +45,14 @@ These are my defaults. Change any of them before implementation starts.
 - A new `FavoriteProfiles` class holds the data, in its own `SharedPreferences` file (`favorite-profiles`), following the pattern in `MutedAccounts.kt`, `NoteDeletions.kt` and `WalletConnection.kt`.
 - Keys are `favorites:<ownerPubkey>` and `favorites:guest`. The value is a compact newline-separated list of hex pubkeys in insertion order, with a per-owner `seen:<owner>` timestamp for the unread dot.
 - All reads and writes run on `Dispatchers.IO`, serialized by a `Mutex` like `notificationFilterMutex`.
-- Expose a `StateFlow<Set<String>>` through `FeatherViewModel` for the active owner. Reload it on login, logout and account change, and reject results whose owner no longer matches.
+- Expose a `StateFlow<Set<String>>` through `PlumeViewModel` for the active owner. Reload it on login, logout and account change, and reject results whose owner no longer matches.
 - Validate every key as 64 lowercase hex characters before storing it.
 - Favorites are not part of the encrypted NIP-78 settings payload. They are not synced, and they are not published.
 - Backup: exclude the file from Android auto-backup unless that is a deliberate choice. Check `AndroidManifest.xml` for existing backup rules and match them.
 
 ## Data fetching
 
-Fetch only while the Favorites page is the settled page. This mirrors `viewNotifications` in `FeatherRepository.kt`.
+Fetch only while the Favorites page is the settled page. This mirrors `viewNotifications` in `PlumeRepository.kt`.
 
 1. **Repository entry points:** add `viewFavorites(show: Boolean)` and `refreshFavorites()`, along with a `favoritesLoading` state flag and a `favorites: List<Event>` state list. Call it from `HomeFeedPages.kt` with a `LaunchedEffect` keyed on the settled tab, and unsubscribe in the `DisposableEffect` that already calls `viewNotifications(false)`.
 2. **Subscription `favorites`:**
@@ -61,7 +61,7 @@ Fetch only while the Favorites page is the settled page. This mirrors `viewNotif
    - Routes use each author's advertised NIP-65 write relays (`relayLists[author]?.write`), at most two per author, capped at 8 relays in total, then fall back to base relays. This is the same outbox rule as the home feed.
    - Use the existing `healthy()` and `routingPool` checks.
    - Cancel on background or when leaving the page.
-   - **Sent zaps need separate filters.** A kind-9735 receipt is signed by the Lightning provider, so an `authors` filter would miss it. Use a `#P` tag filter (the NIP-57 sender tag) with the favorites, as `activityFilters()` in `ProfileContent.kt` already does for profile zap activity. Kind-9321 nutzaps are authored by the sender, so an ordinary `authors` filter works. Receipts are published to the recipient's relays, which Feather cannot know in advance, so send the `#P` filter to the base routes plus the favorites' read relays, within the same 8-relay total. This is best effort: a receipt on none of those relays is not found.
+   - **Sent zaps need separate filters.** A kind-9735 receipt is signed by the Lightning provider, so an `authors` filter would miss it. Use a `#P` tag filter (the NIP-57 sender tag) with the favorites, as `activityFilters()` in `ProfileContent.kt` already does for profile zap activity. Kind-9321 nutzaps are authored by the sender, so an ordinary `authors` filter works. Receipts are published to the recipient's relays, which Plume cannot know in advance, so send the `#P` filter to the base routes plus the favorites' read relays, within the same 8-relay total. This is best effort: a receipt on none of those relays is not found.
    - **Verify before showing.** Accept a receipt only if `zapActivity()` validates it (the embedded kind-9734 request is verified and matches the recipient and note). Then require that the verified request's author is a favorite. Do not trust the `P` tag, which the receipt's signer controls. This stops a forged tag from putting someone else's zap in the list.
    - **Cost control.** Give zaps their own `limit = 50` per filter group and drop the oldest first, so they cannot crowd out posts within the 400-row cap.
 3. **Relay-list discovery:** reuse the existing bounded relay-list discovery for authors with no cached list. Do not add a separate crawler.
@@ -81,8 +81,8 @@ Fetch only while the Favorites page is the settled page. This mirrors `viewNotif
 | `HomeFeedPages.kt` | Include `FAVORITES` in the tab lists (lines ~67, ~96, ~209) only when the favorites set is non-empty. Add the icon branch (~line 314) and the pager page. Add the `viewFavorites` effect. |
 | `MainActivity.kt` | Add the profile-header toggle button (~line 760–790). Update the keyboard tab cycling filter (~line 271). Add `FAVORITES` to the places that filter `NOTIFICATIONS`. |
 | New `FavoriteProfiles.kt` | Storage class, plus a `FavoritesPage` composable modeled on `NotificationsPage`. Share the row composable with `Notifications.kt` rather than copying it. |
-| `FeatherRepository.kt` | Add `viewFavorites`, `refreshFavorites`, the `favorites` subscription, state fields, and reset those fields on login and logout. Add favorites to the startup cache snapshot only if cheap. |
-| `FeatherViewModel.kt` | Expose the favorites flow, plus `toggleFavorite(pubkey)`. |
+| `PlumeRepository.kt` | Add `viewFavorites`, `refreshFavorites`, the `favorites` subscription, state fields, and reset those fields on login and logout. Add favorites to the startup cache snapshot only if cheap. |
+| `PlumeViewModel.kt` | Expose the favorites flow, plus `toggleFavorite(pubkey)`. |
 | `res/values` and `values-ja` | Add strings for the toggle, empty-state diagnostics and the cap message in both languages. Use resources, not Kotlin literals. |
 | Docs | See Documentation below. |
 
