@@ -1,5 +1,6 @@
-repository: https://gitworkshop.dev/sebastix.dev/plum3
+repository: https://github.com/Sebastix/plume
 pubkey: npub1qe3e5wrvnsgpggtkytxteaqfprz0rgxr8c3l34kk3a9t7e2l3acslezefe
+release_source: ./app/build/outputs/apk/release/app-release.apk
 release_notes: ./CHANGELOG.md
 name: Plume
 summary: Nostr with nothing in the way.
