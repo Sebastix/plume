@@ -157,7 +157,7 @@ private fun ZapBolt(noteId: String, account: String?, pending: Boolean, zapped: 
             shimmer.animateTo(1f, infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart))
         }
     }
-    val gold = Color(0xFFFFB300)
+    val gold = MaterialTheme.colorScheme.primary
     Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
         Icon(painterResource(R.drawable.zap), description,
             Modifier.size(20.dp).graphicsLayer {
@@ -174,7 +174,7 @@ private fun ZapBolt(noteId: String, account: String?, pending: Boolean, zapped: 
                         start = Offset(x, size.height), end = Offset(x + size.width * .65f, 0f)),
                         blendMode = BlendMode.SrcAtop)
                 } else if (!pending && pulse.value < 1f) {
-                    drawRect(lerp(gold, Color(0xFFFFF4BF), sin(Math.PI * pulse.value).toFloat()),
+                    drawRect(lerp(gold, Color.White, sin(Math.PI * pulse.value).toFloat()),
                         blendMode = BlendMode.SrcAtop)
                 }
             }, tint = if (zapped) gold else tint)

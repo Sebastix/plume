@@ -393,7 +393,7 @@ internal fun ReplyComposer(vm: PlumeViewModel) {
                         IconButton(enabled = !busy,
                             modifier = Modifier.offset(x = (index * tileStep + tileSize - 24).dp).size(48.dp),
                             onClick = { if (current.picturePost) vm.removePicture(url) else vm.editReply(current.text.replace(url, "").trim()) }) {
-                            Box(Modifier.size(28.dp).background(Color(0xFF8C1D18).copy(alpha = if (busy) .5f else 1f), CircleShape),
+                            Box(Modifier.size(28.dp).background(MaterialTheme.colorScheme.error.copy(alpha = if (busy) .5f else 1f), CircleShape),
                                 contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Close, stringResource(R.string.ui_remove_attachment_from_post), Modifier.size(18.dp), tint = Color.White)
                             }
@@ -581,6 +581,6 @@ private fun ComposerProgress(mining: Boolean) {
             animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "Mining rotation")
         CircularProgressIndicator(Modifier.size(22.dp).graphicsLayer { rotationZ = rotation }
             .semantics { contentDescription = "Mining proof of work" },
-            strokeWidth = 2.dp, color = Color(0xFFFF8A00))
+            strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
     } else CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
 }

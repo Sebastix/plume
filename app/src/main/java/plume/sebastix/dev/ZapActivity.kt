@@ -92,7 +92,7 @@ internal fun ZapActivityCard(event: Event, state: FeedState, onReference: (Nostr
     }
     val zap = payment ?: return
     val nutzap = event.kind == 9321
-    val paymentColor = if (nutzap) Color(0xFFC084FC) else Color(0xFFFFB300)
+    val paymentColor = if (nutzap) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
     if (zap.sender in state.mutedAuthors || zap.recipient in state.mutedAuthors) return
     // Separate complete entries more than the header/comment/note within each entry.
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 28.dp),

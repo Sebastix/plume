@@ -93,7 +93,7 @@ internal fun OrangeHeart(note: Event, count: Int, sent: List<ReactionChoice>,
                     Box(Modifier.size(24.dp).semantics {
                         contentDescription = "Your reaction: ${latestReaction.description}; tap to remove; hold to choose another emoji"
                     }, contentAlignment = Alignment.Center) {
-                        if (latestReaction.content in listOf("", "+")) Icon(Icons.Default.Favorite, null, Modifier.size(20.dp), tint = Color(0xFFFF8A00))
+                        if (latestReaction.content in listOf("", "+")) Icon(Icons.Default.Favorite, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                         else if (latestReaction.image == null) Text(latestReaction.display, fontSize = 18.sp)
                         else {
                             Text("◌", fontSize = 20.sp, color = tint)

@@ -146,7 +146,7 @@ internal fun Nip05Identity(raw: String, pubkey: String, iconOnly: Boolean = fals
     }
     val label = identity?.label ?: raw
     val tint = when (result.status) {
-        IdentityStatus.VALID -> Color(0xFF36A866)
+        IdentityStatus.VALID -> MaterialTheme.colorScheme.primary
         IdentityStatus.INVALID -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }

@@ -28,13 +28,13 @@ internal fun cacheUsageColor(usedBytes: Long?, budgetMb: Int): Color {
     if (usedBytes == null) return MaterialTheme.colorScheme.onSurfaceVariant
     val fraction = (usedBytes.toDouble() / (budgetMb.toLong() * 1024 * 1024)).toFloat().coerceIn(0f, 1f)
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val green = if (dark) Color(0xFF81C784) else Color(0xFF2E7D32)
-    val orange = if (dark) Color(0xFFFFB74D) else Color(0xFFEF6C00)
-    val red = if (dark) Color(0xFFEF9A9A) else Color(0xFFC62828)
+    val dim = if (dark) Color(0xFFBDBDBD) else Color(0xFF6E6E6E)
+    val action = MaterialTheme.colorScheme.primary
+    val full = if (dark) Color(0xFFFFC9A3) else Color(0xFF7A2E00)
     return when {
-        fraction <= 0.5f -> green
-        fraction < 0.75f -> lerp(green, orange, (fraction - 0.5f) / 0.25f)
-        else -> lerp(orange, red, ((fraction - 0.75f) / 0.20f).coerceAtMost(1f))
+        fraction <= 0.5f -> dim
+        fraction < 0.75f -> lerp(dim, action, (fraction - 0.5f) / 0.25f)
+        else -> lerp(action, full, ((fraction - 0.75f) / 0.20f).coerceAtMost(1f))
     }
 }
 

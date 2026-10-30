@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -188,8 +189,11 @@ internal fun WelcomeFlight(onboarding: Onboarding, pages: List<ProfileTab>, init
             .graphicsLayer { alpha = veil.value }.background(MaterialTheme.colorScheme.background)) {
             HorizontalPager(state = preview, key = { latestPages.getOrNull(it)?.name ?: "pending-welcome-page:$it" }, userScrollEnabled = signerHintDismissed && !swipeHintDismissed,
                 modifier = Modifier.fillMaxSize()) { page ->
-            val colors = listOf(Color(0xFF7AC8EE), Color(0xFFB39DDB), Color(0xFF81C784), Color(0xFFFFB74D), Color(0xFFF48FB1))
-            val bodyColor = if (page == initialPage) Color(0xFF79C4F2) else colors[Math.floorMod(page - initialPage, colors.size)]
+            val dark = isSystemInDarkTheme()
+            val colors = if (dark) listOf(Color(0xFFE0E0E0), Color(0xFFBDBDBD), Color(0xFF9E9E9E), Color(0xFFCFCFCF), Color(0xFF8A8A8A))
+                else listOf(Color(0xFF4A4A4A), Color(0xFF6E6E6E), Color(0xFF8A8A8A), Color(0xFF5F5F5F), Color(0xFF333333))
+            val bodyColor = if (page == initialPage) (if (dark) Color(0xFFBDBDBD) else Color(0xFF4A4A4A))
+                else colors[Math.floorMod(page - initialPage, colors.size)]
             Box(Modifier.fillMaxSize()) {
             Image(welcomePlumePainter(bodyColor), null,
                 Modifier.offset { IntOffset(startX.roundToInt(), startY.roundToInt()) }

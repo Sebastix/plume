@@ -1,5 +1,5 @@
 <resources>
     <color name="launch_background">#FFFFFF</color>
     <!-- Pixel-plume launcher plate. -->
-    <color name="ic_launcher_background">#0F2337</color>
+    <color name="ic_launcher_background">#141414</color>
 </resources>

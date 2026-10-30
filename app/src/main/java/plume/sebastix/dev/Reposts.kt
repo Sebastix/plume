@@ -29,7 +29,7 @@ internal fun RepostButton(note: Event, sent: Boolean, count: Int, ownCounted: Bo
     val pending = note.id in actions.pending
     val active = actions.pending[note.id] ?: (sent || ownCounted)
     val visibleCount = (count + (if (active) 1 else 0) - (if (ownCounted) 1 else 0)).coerceAtLeast(0)
-    val tint = if (active) Color(0xFF79C4F2) else MaterialTheme.colorScheme.onSurfaceVariant
+    val tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     val rotation = remember(note.id) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     Row(Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp).clip(CircleShape).combinedClickable(enabled = !pending,

@@ -7,7 +7,7 @@
 - Keep work off the UI thread unless Android UI APIs require it. Run disk/network I/O, database access, image processing, and substantial parsing on background dispatchers. Bound queues and concurrency; optional cache work must never delay display.
 - Keep features, dependencies, relay subscriptions, and caches small and bounded.
 - Never explicitly fetch an event ID already held as a complete, verified event in memory or on disk. Use the shared cache-first lookup path, request only missing IDs, and share in-flight requests. New-event discovery and newer replaceable/addressable versions are separate; see docs/DESIGN.md.
-- Use standard Android components; system-following light/dark surfaces and Soft Plume blue branding. No theme setting.
+- Use standard Android components; system-following light/dark surfaces with a greyscale palette and a burnt-orange action color. No theme setting.
 - Work directly on master when requested. Use Conventional Commits 1.0.0.
 - Write ngit / GRASP issues, comments and resolution summaries on the user's behalf in their first-person voice ("I" or "we" as appropriate), rather than referring to them as "the user" or "the maintainer".
 - Route public issue replies through the Plume account: send the Plume agent a NIP-17 DM asking it to reply. Do not post these replies using Sebastix's signer.

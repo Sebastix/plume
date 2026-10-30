@@ -19,7 +19,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val highlightGold = Color(0xFFF6DE74)
+private val highlightTint = Color(0xFF9E9E9E)
 private data class HighlightPassage(val text: AnnotatedString, val ranges: List<IntRange>)
 
 // Retain original offsets while treating runs of whitespace like the web renderer.
@@ -111,7 +111,7 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
                 }
                 val styled = mentions(buildAnnotatedString {
                     append(passage.text)
-                    passage.ranges.forEach { addStyle(SpanStyle(background = highlightGold.copy(alpha = 0.30f), color = textColor), it.first, it.last + 1) }
+                    passage.ranges.forEach { addStyle(SpanStyle(background = highlightTint.copy(alpha = 0.35f), color = textColor), it.first, it.last + 1) }
                 })
                 val comment = event.tagValue("comment")?.takeIf { it.isNotBlank() }?.let {
                     val parsed = mentions(markdown(it))
@@ -124,7 +124,7 @@ internal fun HighlightContent(event: Event, profiles: Map<String, Profile>, comp
                 // Formatting and remapping remote annotations are also fallible.
                 Log.w("HighlightContent", "Unable to render highlight ${event.id}", error)
                 val raw = event.content.withoutObjectMarkers().trim().let { if (compact && it.length > 1400) it.take(1400) + "…" else it }
-                AnnotatedString(raw, SpanStyle(background = highlightGold.copy(alpha = 0.30f),
+                AnnotatedString(raw, SpanStyle(background = highlightTint.copy(alpha = 0.35f),
                     color = textColor)) to
                     event.tagValue("comment")?.takeIf(String::isNotBlank)?.let { AnnotatedString((if (compact) it.take(600) else it).withoutObjectMarkers()) }
             }

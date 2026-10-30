@@ -97,8 +97,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 
-private val Sky = Color(0xFF79C4F2)
-
 class MainActivity : ComponentActivity() {
     private val composerModel: PlumeViewModel by viewModels()
     private val repo get() = (application as PlumeApplication).repository

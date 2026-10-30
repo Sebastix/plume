@@ -303,7 +303,7 @@ internal fun HomeFeedPages(vm: PlumeViewModel, navigation: ReaderNavigation, hom
         }, contentAlignment = Alignment.Center) {
         Box(Modifier.size(AccountAvatarOuterSize).clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(AccountAvatarBorder, if (state.publicKey != null && walletConnected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
+            .border(AccountAvatarBorder, if (state.publicKey != null && walletConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape), contentAlignment = Alignment.Center) {
             val account = state.profiles[state.publicKey]
             if (state.publicKey != null) {
                 CompositionLocalProvider(LocalMedia provides MediaEnvironment(resources,

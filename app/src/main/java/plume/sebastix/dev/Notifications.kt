@@ -308,7 +308,7 @@ internal fun NotificationsPage(vm: PlumeViewModel, navigation: ReaderNavigation,
                 items(visiblePreviews, key = { it.event.id }) { item ->
                     val profile = state.profiles[item.actor]
                     val name = profile?.name ?: item.actor?.let(PlumeRepository::shortKey) ?: "Anonymous"
-                    val tint = when(item.event.kind) { 9735 -> Color(0xFFFFB300); 9321 -> Color(0xFFC084FC); else -> MaterialTheme.colorScheme.primary }
+                    val tint = when(item.event.kind) { 9321 -> MaterialTheme.colorScheme.onSurfaceVariant; else -> MaterialTheme.colorScheme.primary }
                     val canMute = item.actor != null && item.actor != owner
                     val muteLabel = stringResource(R.string.ui_mute_account, name)
                     val moderationLabel = stringResource(R.string.ui_moderation_actions)
@@ -328,7 +328,7 @@ internal fun NotificationsPage(vm: PlumeViewModel, navigation: ReaderNavigation,
                         Column(Modifier.widthIn(min = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             val reaction = item.reaction
                             if (reaction?.image != null) RemoteImage(reaction.image, Modifier.size(22.dp), "Reaction ${reaction.content}", crop = false)
-                            else if (reaction?.content in listOf("", "+")) Icon(Icons.Default.Favorite, item.action, Modifier.size(22.dp), tint = Color(0xFFFF8A00))
+                            else if (reaction?.content in listOf("", "+")) Icon(Icons.Default.Favorite, item.action, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                             else if (reaction != null) Text(reaction.display.take(16))
                             else if (item.event.kind == 7) Icon(Icons.Default.FavoriteBorder, item.action, Modifier.size(22.dp), tint = tint)
                             else if (item.action == "Mention") Text("@", color = tint, style = MaterialTheme.typography.titleLarge,
